@@ -11,12 +11,12 @@ const HarborEventName = EventName
 
 // 事件 type 取值。
 const (
-	EventTypeStateChanged      = "state_changed"
-	EventTypeOutput            = "output"
-	EventTypeAudit             = "audit"
-	EventTypeError             = "error"
-	EventTypePermissionNeeded  = "permission_needed"
-	EventTypePty               = "pty"
+	EventTypeStateChanged     = "state_changed"
+	EventTypeOutput           = "output"
+	EventTypeAudit            = "audit"
+	EventTypeError            = "error"
+	EventTypePermissionNeeded = "permission_needed"
+	EventTypePty              = "pty"
 )
 
 // 公开错误码（与 docs/CONTRACT.md v1.2 一致）。
