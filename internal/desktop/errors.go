@@ -35,6 +35,8 @@ func mapError(err error) *contracts.AppError {
 		return contracts.NewAppError(contracts.ErrCancelled, "操作已取消", false)
 	case errors.Is(err, secrets.ErrNotFound):
 		return contracts.NewAppError(contracts.ErrAccountNotFound, "账号不存在", false)
+	case errors.Is(err, secrets.ErrInvalidInput), errors.Is(err, secrets.ErrEmptyKey):
+		return contracts.NewAppError(contracts.ErrInvalidArgument, "输入不合法", false)
 	case errors.Is(err, errOrchestratorDown):
 		return contracts.NewAppError(contracts.ErrOrchestratorUnavailable, "编排服务尚未就绪", false)
 	case errors.Is(err, policy.ErrInvalidWorkspace):

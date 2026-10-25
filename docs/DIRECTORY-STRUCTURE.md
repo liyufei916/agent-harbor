@@ -25,7 +25,7 @@ agent-harbor/
 │   ├── contracts/               # A/B 确定，C 核对：前端可见 DTO、事件、错误码
 │   │   ├── dto.go
 │   │   └── events.go
-│   ├── orchestrator/            # A：单会话、任务生命周期、回滚及模块集成
+│   ├── orchestrator/            # A：会话生命周期（目标多会话≤2、clone、PTY）、回滚及模块集成
 │   │   ├── session.go
 │   │   └── session_test.go
 │   ├── runtime/                 # A：操作系统隔离与进程树管理
@@ -90,9 +90,11 @@ agent-harbor/
 
 | 成员 | 独立开发范围 | 共同边界 |
 |---|---|---|
-| 研发 A | orchestrator、runtime、kits、安全负例 | 与 B 定义 Gate/Runtime 接口，负责业务装配及集成闭环 |
-| 研发 B | gate、policy、secrets、main.go、internal/desktop、构建配置 | 与 A 定义 DTO/事件，提供可供 C 调用的绑定及启动环境 |
-| 产品 C | frontend 的手写页面、产品验收与演示 | 向 A/B 提供页面数据需求，使用模拟事件先开发，再接实际绑定 |
+| 研发 A | orchestrator、runtime、kits、安全负例；**本分支另含 clone / PTY 真实现** | 与 B 定义 Gate/Runtime 接口；扩权 `ResolvePermission` |
+| 研发 B | gate、policy、secrets、main.go、internal/desktop、构建配置；**本分支另含 OAuth 回调与 PTY 事件桥** | 与 A 定义 DTO/事件；`wails3 generate`；去 UNIMPLEMENTED |
+| 产品 C | frontend 手写页面（全量 PAGE）、产品验收与演示 | 字段需求先提 CONTRACT；mock 先行，再接 live |
+
+易混主责（OAuth / PTY / clone / 扩权）见 [SYSTEM-DESIGN §6.1](SYSTEM-DESIGN.md)。
 
 ```text
 frontend 视图

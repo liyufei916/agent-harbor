@@ -10,6 +10,17 @@ function unwrapEvent(ev) {
   return ev;
 }
 
+function missing(name) {
+  return () =>
+    Promise.reject(new Error(`Wails 绑定缺少 ${name}，请重新 generate`));
+}
+
+function bind(name) {
+  const fn = api[name];
+  if (typeof fn === "function") return (...args) => fn(...args);
+  return missing(name);
+}
+
 export function createLiveTransport() {
   if (!api.ListAgents || !Events || typeof Events.On !== "function") {
     throw new Error("Wails 绑定不完整");
@@ -22,6 +33,22 @@ export function createLiveTransport() {
     createSession: (spec) => api.CreateSession(spec),
     getSession: (id) => api.GetSession(id),
     stopSession: (id) => api.StopSession(id),
+    listAccounts: bind("ListAccounts"),
+    removeAccount: bind("RemoveAccount"),
+    listSessions: bind("ListSessions"),
+    destroySession: bind("DestroySession"),
+    getRuntimeHealth: bind("GetRuntimeHealth"),
+    getPermissionOverview: bind("GetPermissionOverview"),
+    listRememberedHosts: bind("ListRememberedHosts"),
+    revokeRememberedHost: bind("RevokeRememberedHost"),
+    resolvePermission: bind("ResolvePermission"),
+    getUIPrefs: bind("GetUIPrefs"),
+    setUIPrefs: bind("SetUIPrefs"),
+    switchModel: bind("SwitchModel"),
+    startMcpOAuth: bind("StartMcpOAuth"),
+    cancelMcpOAuth: bind("CancelMcpOAuth"),
+    writePty: bind("WritePty"),
+    resizePty: bind("ResizePty"),
     onEvent(callback) {
       return Events.On("harbor:event", (ev) => callback(unwrapEvent(ev)));
     },

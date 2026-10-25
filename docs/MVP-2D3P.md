@@ -1,5 +1,7 @@
 # Agent Harbor：三人两天核心架构与模块划分
 
+> **分支注意（`feat/page-design-full`）**：本文描述的是**历史两天裁剪**。本分支产品/接口/分工以 [PAGE-DESIGN](PAGE-DESIGN.md)、[CONTRACT v1.2](CONTRACT.md)、[SYSTEM-DESIGN v2](SYSTEM-DESIGN.md)、[TASK-SPLIT v2.0](TASK-SPLIT-ABC.md) 为准；**不要**按下文「延后」列砍掉 OAuth / clone / PTY / 双会话 / 完整 HOME。
+
 本文是两天演示版的建议实施方案，收敛完整产品设计，不替代长期架构。目标是可重复演示的真实闭环，不承诺两天内支持全部主流 Agent、MCP 或生产级安全认证。
 
 ## 1. 交付边界与技术选择

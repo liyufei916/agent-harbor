@@ -2,12 +2,23 @@
 
 | 项 | 内容 |
 |---|---|
-| 文档版本 | v1.2（含 P0.5 契约冻结清单） |
+| 文档版本 | v2.0（**分支 feat/page-design-full：全量 PAGE-DESIGN**） |
 | 日期 | 2026-10-25 |
-| 基线代码 | `main` HEAD（含 dsh、SSE、联调修复）；拉取后以 `git rev-parse HEAD` 为准 |
-| 对照 | [DESIGN](DESIGN.md)、[PAGE-DESIGN](PAGE-DESIGN.md)、[MVP-2D3P](MVP-2D3P.md)、[ACCEPTANCE](ACCEPTANCE.md)、[DECISIONS](DECISIONS.md)、[MANUAL-INTEGRATION-TEST](MANUAL-INTEGRATION-TEST.md)、[CONTRACT](CONTRACT.md)、[MODULE-DESIGN](MODULE-DESIGN.md) |
+| 基线代码 | 分支 `feat/page-design-full`；拉取后以 `git rev-parse HEAD` 为准 |
+| 对照 | [SYSTEM-DESIGN](SYSTEM-DESIGN.md) v2、[CONTRACT](CONTRACT.md) **v1.2**、[PAGE-API-MAP](PAGE-API-MAP.md)、[PAGE-DESIGN](PAGE-DESIGN.md)、[MODULE-DESIGN](MODULE-DESIGN.md)、[MVP-2D3P](MVP-2D3P.md)、[ACCEPTANCE](ACCEPTANCE.md)、[DECISIONS](DECISIONS.md)、[ARCHITECTURE](ARCHITECTURE.md) |
 
-**读法**：先 **P0**；穿插 **P0.5 契约冻结**（不挡 I1，但挡 P1 分头开发）；再 **P1**。每张任务卡含：目标、步骤、完成标准（DoD）、证据、依赖、关联用例。P0 未闭环前，P1 页面不算产品交付。
+**读法**：开工前先过 [GO-CHECKLIST](GO-CHECKLIST.md)（遗漏/未拍板收口）。产品真源是 **PAGE-DESIGN 全文**。再读 SYSTEM-DESIGN v2 + CONTRACT v1.2 → §3 全量并行实现 → §4 任务卡（**含** OAuth/clone/PTY）。P0 I 证据可并行，但**不得**再以排期裁掉首版能力。mock ≠ I 通过。
+
+**文档分工**
+
+| 层级 | 文档 |
+|---|---|
+| 整体架构 / 模块拆分 / ABC 边界 | **SYSTEM-DESIGN v2** |
+| 接口定义（方法/DTO/事件/错误码） | **CONTRACT v1.2** |
+| 哪一屏调哪个 API | **PAGE-API-MAP** |
+| 包替身与文件归属 | MODULE-DESIGN |
+| 交互与文案 | **PAGE-DESIGN（本分支真源）** |
+| 谁何时交付 | **本文** |
 
 **证据模板**（写入 ACCEPTANCE / 联调记录，截图前去凭据）：
 
@@ -26,11 +37,36 @@
 | 层 | 含义 | 完成判据 |
 |---|---|---|
 | **P0 两天核心** | 桌面真连 → 隔离 Agent → 模型+认证 MCP → 停止清理 | D 项齐 + **I1–I11 真实证据** |
-| **P1 第一版产品** | HOME/向导/模型/工具/设置/扩权/PTY/多会话 | PAGE-DESIGN + DESIGN §11.1；先改 CONTRACT |
+| **全量 PAGE（本分支）** | 首版导航+各屏：**含** OAuth / clone / PTY / 四步向导 / 扩权 / 多会话 | SYSTEM-DESIGN §4 + CONTRACT v1.2 + PAGE-DESIGN |
 
-现状：P0 工程壳与 mock/联调已有，**真机 I 未齐**；P1 **整站 IA 基本未做**。
+现状（`feat/page-design-full`）：契约 **v1.2** 与 SYSTEM-DESIGN **v2** 已定；C 全量 UI stub/mock 已推；live 新方法可先 `UNIMPLEMENTED`。
 
-当前桌面边界（细化任务时不得假设已有）：单会话、direct 工作区、配置/工作台两页、无 PTY、Claude=`demo-model` / dsh=`dsh-model` / MCP=`demo-mcp`、无 OAuth/clone/多会话入口。详见手册 §2。
+**优先级（本分支）**：**PAGE-DESIGN 完整体验 > 排期**；P0 I 证据可并行，但不得砍首版屏/能力。
+
+---
+
+## 0.5 已定文档入口
+
+| 交付物 | 路径 | 状态 |
+|---|---|---|
+| 架构 + 模块拆分 + 分工 | [SYSTEM-DESIGN.md](SYSTEM-DESIGN.md) v2 | **全量已定** |
+| 接口全文 | [CONTRACT.md](CONTRACT.md) **v1.2** | **已定**（含 OAuth/PTY/SwitchModel/clone） |
+| 屏 ↔ API | [PAGE-API-MAP.md](PAGE-API-MAP.md) | **已定** |
+| 绑定占位 | `internal/desktop` 新方法可 `UNIMPLEMENTED` | **已落**（含 PTY/OAuth） |
+| C UI stub | `frontend/` 四步向导/双轨工具/工作台 PTY 区等 | **已落 mock** |
+
+字段争议以 CONTRACT 为准改文档后再改代码。
+
+### 复核结论（2026-10-25 · 全量）
+
+| 项 | 结论 |
+|---|---|
+| 架构 / 接口 / 屏映射 | SYSTEM-DESIGN v2 + CONTRACT v1.2 + PAGE-API-MAP **已对齐全量** |
+| 本文 §3–§4 | **本版改回**：OAuth/clone/PTY **全部开工**，不再 backlog |
+| ABC 包所有权 | A 编排/Runtime/Kit/PTY·clone 真实现；B Gate/OAuth/账号/Prefs/绑定；C 全屏 UI+mock |
+| 实现缺口 | Orch 多会话/扩权/PTY 真实现；Gate OAuth 回调；`wails3 generate` |
+| GetRuntimeHealth | A 语义 · B 绑定 · C 消费 |
+| 扩权 | B 触发事件 · A Resolve · C Modal |
 
 ---
 
@@ -39,8 +75,8 @@
 | 角色 | 已交付 |
 |---|---|
 | A | D2；严格单进程 Runtime/Claude Kit（探针）；dsh Kit 代码；测试 Gate 编排集成 |
-| B | Gate/Policy/Secrets；Wails v3；bindings 生成；live/`harbor:event`；MCP SSE；profile 环境变量机制；联调准入修复 |
-| C | 配置+工作台；mock D4；demos/工作区/示例 Key；Agent 下拉；`live-api`；前端单测 |
+| B | Gate/Policy/Secrets；Wails v3；bindings；live/`harbor:event`；MCP SSE；v1.2 DesktopAPI **方法占位**（含 OAuth/PTY） |
+| C | **全量 PAGE stub/mock**（四步向导、OpenAPI 模型、工具双轨、工作台边界/PTY/扩权）；demos；单测 |
 
 ---
 
@@ -97,7 +133,7 @@
 | | |
 |---|---|
 | **目标** | ACCEPTANCE D3 正式「通过」 |
-| **步骤** | 对照 CONTRACT：七个绑定方法、Response.error、事件名 `harbor:event`、无原始 Go error 进 UI；补/贴已有测试与 WebView 冒烟 |
+| **步骤** | 对照 CONTRACT **v1.2 全方法面**（含 OAuth/PTY/SwitchModel 等）、Response.error、事件名 `harbor:event`、无原始 Go error 进 UI；补/贴已有测试与 WebView 冒烟 |
 | **DoD** | ACCEPTANCE 增加 D3 证据段；状态=通过 |
 | **证据** | 测试名+日志摘要；字段对照表 |
 | **依赖** | 无 |
@@ -253,128 +289,92 @@ A:    ENV-3 → I2 隔离确认 → I3/I4/I5 → I7/I9 → 支援 I8/I10
 
 | ID | 任务 | DoD |
 |---|---|---|
-| P0-C-DOC-1 | `demos/README` 增加 live 启动、env、工作区路径、真实任务模板 | 新人按文档能开到真实绑定 |
-| P0-C-DOC-2 | 10 分钟评审话术：架构一句 + I2 指文件/审计 + 一句「mock≠I」 | 写入 demos，可照念 |
-| P0-C-DOC-3 | 将 I1/I2/I8/I10/I11 操作结果补进 ACCEPTANCE 或联调 RESULTS（脱敏） | 状态非「待执行」或标明阻断原因 |
+| P0-C-DOC-1 | `demos/README` 增加 live 启动、env、工作区路径、真实任务模板 | **已做**（2026-10-25）：新人按文档能开到真实绑定 |
+| P0-C-DOC-2 | 10 分钟评审话术：架构一句 + I2 指文件/审计 + 一句「mock≠I」 | **已做**：demos「十分钟 live 话术」 |
+| P0-C-DOC-3 | 将 I1/I2/I8/I10/I11 操作结果补进 ACCEPTANCE 或联调 RESULTS（脱敏） | 待真机：状态非「待执行」或标明阻断原因 |
 
 ---
 
-## 3. P0.5 — 契约冻结会（支撑 ABC 独立开发）
+## 3. 全量契约落地与并行实现（CONTRACT v1.2）
 
-### 3.0 目的与规则
+方案见 [SYSTEM-DESIGN v2](SYSTEM-DESIGN.md) + [CONTRACT v1.2](CONTRACT.md) + [PAGE-DESIGN](PAGE-DESIGN.md)。
 
-| | |
-|---|---|
-| **目的** | 在写 P1 页面前，把交互接口冻进 [CONTRACT](CONTRACT.md) + `internal/contracts`，三人用 **mock / fake** 并行，避免联调现场改字段 |
-| **时长** | 建议 0.5 天：对齐 → 改契约 PR → 点头；实现可后置 |
-| **与 P0 关系** | **不阻塞** I1–I11；**阻塞** P1-C-01 及以后依赖新 API 的开发 |
-| **已够用（不必重开）** | 现有 DesktopAPI：`ListAgents` / `SelectWorkspace` / `ConnectModel` / `ConnectMcp` / `CreateSession` / `GetSession` / `StopSession` + `harbor:event`（见 MODULE-DESIGN §5） |
-| **变更纪律** | 先改 CONTRACT 与 Go DTO → A fake / B 绑定面 / C mock 同步 → 再写真实现；禁止只改前端猜字段 |
+### 3.1 裁定摘要（本分支全部做）
 
-**冻结产出物（DoD）**
+| ID | 能力 | 裁定 | 主责 |
+|---|---|---|---|
+| API-01 | GetRuntimeHealth | **做** | A + B 绑定 |
+| API-02 | ListSessions / DestroySession；上限 2；WORKSPACE_BUSY | **做** | A |
+| API-03 | GetPermissionOverview + 记住主机 | **做** | B |
+| API-04 | permission_needed + ResolvePermission | **做** | B·A·C |
+| API-05 | ListAccounts / RemoveAccount；ConnectModel.origin | **做** | B + C |
+| API-06 | 多 MCP Token + **OAuth**（Start/CancelMcpOAuth） | **做** | B + C |
+| API-07 | mountMode `direct` **与** `clone` | **做** | A + C 向导 |
+| API-08 | Get/SetUIPrefs | **做** | B |
+| API-09 | WritePty / ResizePty + 事件 `pty` | **做** | A + B 桥 + C UI |
+| API-10 | 设置页接已有 API | **做** | C |
+| API-11 | SwitchModel | **做** | A/B + C 工作台 |
 
-1. CONTRACT 增补章节合入（或明确「本迭代不做 / 延后」打勾）  
-2. `internal/contracts` 有对应类型（可先空实现）  
-3. C：`mock-api.js` 有同名方法与至少一条事件样例  
-4. A：编排或 kit 测试 fake 签名对齐  
-5. B：DesktopAPI / 生成绑定清单更新（可先返回 `UNIMPLEMENTED` 类错误码，但形状要对）  
-6. 本文 §3.1 清单全部勾选或标「延后至 Px」
-
----
-
-### 3.1 冻结议题清单（会前填状态）
-
-状态：`待议` / `已冻` / `延后` / `现契约已够`。
-
-| ID | 议题 | 服务的 P1 | 主提案 | 需冻结的内容（最低） | 状态 |
-|---|---|---|---|---|---|
-| P0.5-API-01 | **运行时健康 / 隔离探测** | C-01 状态灯、C-02 Onboarding、C-10 | A | 方法名（如 `GetRuntimeHealth`）；字段：`available`、`reason`、可选 `isolationLevel`；错误码；是否可缓存 | 待议 |
-| P0.5-API-02 | **会话列表与多会话** | C-03 HOME、A-01 | A+C | `ListSessions` / `DestroySession`（名可议）；快照摘要字段；错误：`SESSION_LIMIT`、`WORKSPACE_BUSY`；running 上限=2、同工作区冲突语义 | 待议 |
-| P0.5-API-03 | **权限一览（只读）** | C-08 边界条、B-05 | B | `GetPermissionOverview(sessionId?)`；工作区路径、允许 host 列表、MCP 摘要、禁止路径类别；**禁止**含 Key/Sentinel 明文 | 待议 |
-| P0.5-API-04 | **扩权挂起与决策** | C-09、B-04、A-05 | A/B | 事件类型（如 `permission_needed`）；载荷：sessionId、目标、动作摘要；方法 `ResolvePermission(decision)`：`deny` / `once` / `project`；**明确不做「全网允许」** | 待议 |
-| P0.5-API-05 | **多模型账号** | C-05、B-02 | B+C | 是否扩展 `ConnectModel` 或新增 `ListModelAccounts` / `RemoveAccount`；自由 origin 的策略校验规则；与固定 `demo-model` 并存策略 | 待议 |
-| P0.5-API-06 | **多 MCP / OAuth** | C-06、B-03 | B+C | Token 轨是否够用本迭代；OAuth：开始 URL / 回调 / 取消；`mcpIds` 长度是否放开；工具白名单谁裁定 | 待议 |
-| P0.5-API-07 | **工作区模式 clone/direct** | C-04、A-02 | A | `SessionSpec` 是否增加 `mountMode`；clone 路径与导回是否本迭代 API | 待议 |
-| P0.5-API-08 | **UI 偏好持久化** | C-01 侧栏收缩 | B | 存哪：Go 小文件 vs Wails 仅内存；键：`sidebarCollapsed` 等；**不得**存 Key | 待议 |
-| P0.5-API-09 | **PTY / 终端** | C-08 | 三人 | **拍板**：内嵌 PTY 事件流 vs 外置终端 vs **本迭代延后**；若做：流式事件与截断规则 | 待议 |
-| P0.5-API-10 | **设置项只读面** | C-07 | A/B | 哪些设置有 API（重检 Agent、清理策略开关）；无后端的不进设置页 | 待议 |
-
----
-
-### 3.2 建议会议议程（约 3–4h）
-
-| 时段 | 内容 | 产出 |
-|---|---|---|
-| 0:00–0:20 | 重申 P0 七方法不变；本会只增 P1 所需 | 范围纸 |
-| 0:20–1:20 | 逐项 API-01～04（健康、列表、权限一览、扩权）— P1 壳与 HOME 的关键路径 | 字段草稿 |
-| 1:20–2:20 | API-05～07（多账号、MCP、mount）— 可大量标延后 | 延后列表 |
-| 2:20–2:50 | API-08～10（偏好、PTY、设置） | 拍板或延后 |
-| 2:50–3:30 | A 开 CONTRACT PR 骨架；约定错误码表；C/B 认领 mock/绑定跟进日 | PR 链接 |
-
----
-
-### 3.3 冻结后的并行分工
+### 3.2 并行开工
 
 ```text
-CONTRACT PR 合入
-  ├─ A：fake SessionService / 健康与多会话测试桩
-  ├─ B：DesktopAPI 方法签名 + wails3 generate（可先 UNIMPLEMENTED）
-  └─ C：mock-api 同名方法 + 页面可先用 stub 数据开发壳/HOME
-合流条件：方法名/JSON 字段/错误码一致；再换 live 实现
+CONTRACT v1.2（全量）
+  ├─ A：多会话/Destroy/ResolvePermission；clone 挂载；PTY 真实现；Health
+  ├─ B：generate；OAuth 回调；Overview/Accounts/origin/Prefs；PTY 事件桥；去 UNIMPLEMENTED
+  └─ C：PAGE 全屏（已 stub）→ 打磨 + mock 并发/OAuth/PTY 流
 ```
 
-| 角色 | 冻结后立刻可做 | 仍须等真实现 |
-|---|---|---|
-| C | 壳、Onboarding UI、HOME 列表 mock、边界条 mock、扩权 Modal 交互稿 | 真多会话、真 OAuth、真 PTY |
-| A | 多会话状态机单测、健康探测、扩权状态枚举 | 真 clone 文件系统、子进程方案 |
-| B | Gate 权限一览组装、账号 CRUD 骨架、绑定生成 | Keychain、真 OAuth 上游 |
+### 3.3 任务卡
+
+#### FULL-DTO · contracts v1.2 · A/C 核对 · **文档+DTO 已完成**
+
+| | |
+|---|---|
+| **目标** | DTO/错误码/事件含 OAuth、PTY、SwitchModel、clone |
+| **DoD** | `internal/contracts` 与 CONTRACT v1.2 一致 |
+| **状态** | 2026-10-25 已写入（本分支） |
+
+#### FULL-BIND · 绑定生成与去占位 · B · 估 1–2d
+
+| | |
+|---|---|
+| **目标** | `wails3 generate`；v1.2 方法从 UNIMPLEMENTED 接到实现 |
+| **DoD** | C live 不因缺方法崩 |
+| **依赖** | FULL-DTO |
+
+#### FULL-MOCK · mock 全量 · C · 估 1d · **大部分已做**
+
+| | |
+|---|---|
+| **目标** | mock 覆盖 v1.2 DesktopAPI（含 OAuth/PTY/SwitchModel） |
+| **DoD** | `npm test` 过；浏览器可走通向导→工作台→扩权/PTY |
+| **状态** | stub 已推；继续补并发与空态 |
+
+#### FULL-ORCH · 多会话 / clone / 扩权 / PTY · A · 估 5–10d
+
+| | |
+|---|---|
+| **目标** | 上限 2、同目录冲突、Destroy、ResolvePermission、clone 挂载、PTY 会话 |
+| **DoD** | 单测 + 与 B 联调扩权/PTY 各一条 |
+| **依赖** | FULL-DTO |
+
+#### FULL-GATE · 一览/账号/origin/OAuth/Prefs · B · 估 5–8d
+
+| | |
+|---|---|
+| **目标** | Overview、记住主机、Accounts、自定义 Origin、**OAuth 回调**、UIPrefs、PTY 事件转发 |
+| **DoD** | 无 Key 进事件；OAuth 至少一条 mock→真通路径文档化 |
+| **依赖** | FULL-BIND |
 
 ---
 
-### 3.4 任务卡 · 会务与跟进
+## 4. 页面与后端任务卡（全量 PAGE）
 
-#### P0.5-MEET · 召开冻结会 · 三人 · 估 0.5d
-
-| | |
-|---|---|
-| **目标** | §3.1 每项有终态（已冻/延后/现契约已够） |
-| **步骤** | 会前各自标「必须本迭代」；会中填表；会后 A 提 CONTRACT PR |
-| **DoD** | 表状态无「待议」；PR 已开或指定负责人与日期 |
-| **证据** | 会议纪要一段贴 DEV-A/C 或本文更新；PR 链接 |
-
-#### P0.5-CONTRACT · 契约与 DTO 落地 · A（B 复核）· 估 0.5–1d
-
-| | |
-|---|---|
-| **目标** | 已冻项写入 CONTRACT + `internal/contracts` 可编译 |
-| **DoD** | `go test` 相关包过；B 确认可生成绑定 |
-| **依赖** | P0.5-MEET |
-
-#### P0.5-MOCK · 前端 mock 对齐 · C · 估 0.5–1d
-
-| | |
-|---|---|
-| **目标** | 已冻方法在 `mock-api.js` + 必要时单测 |
-| **DoD** | `npm test` 过；浏览器可点出 stub 流 |
-| **依赖** | P0.5-CONTRACT |
-
-#### P0.5-BIND · 绑定面占位 · B · 估 0.5d
-
-| | |
-|---|---|
-| **目标** | DesktopAPI 暴露新方法；生成 bindings；未实现返回稳定错误码 |
-| **DoD** | C live 调用不会因「方法不存在」崩；形状与 CONTRACT 一致 |
-| **依赖** | P0.5-CONTRACT |
-
----
-
-## 4. P1 — 第一版设计欠账（细化）
-
-规则：依赖 §3 已冻接口；未冻项不得开工实现。估时为人天量级（1 人），供排期，非承诺。
+规则：接口以 **CONTRACT v1.2** 为准；**OAuth / clone / PTY 均在范围内**。估时仅供参考，本分支不因估时砍范围。
 
 ### 4.1 产品 C
 
-#### P1-C-01 · 全局壳与导航 · 估 2–3d
+#### P1-C-01 · 全局壳与导航 · 估 2–3d · **UI stub 已开工（2026-10-25）**
 
 | | |
 |---|---|
@@ -383,8 +383,9 @@ CONTRACT PR 合入
 | **DoD** | 四入口可切换；收缩后内容区变宽；偏好重启仍在 |
 | **依赖** | B：偏好存储位置约定；A：健康检查字段 |
 | **参考** | PAGE §4 |
+| **进度** | 壳+灯+收缩已落地；接 `getRuntimeHealth`（契约已定）；Prefs 可先 localStorage，后换 `Get/SetUIPrefs` |
 
-#### P1-C-02 · Onboarding · 估 1–2d
+#### P1-C-02 · Onboarding · 估 1–2d · **UI stub 已开工**
 
 | | |
 |---|---|
@@ -393,28 +394,31 @@ CONTRACT PR 合入
 | **DoD** | 检测失败无法进入主路径 |
 | **依赖** | A 健康/隔离探测 API |
 | **参考** | PAGE §5.1 |
+| **进度** | `views/onboarding.js`；失败禁用「进入 HOME」 |
 
-#### P1-C-03 · HOME 会话中心 · 估 3–5d
+#### P1-C-03 · HOME 会话中心 · 估 3–5d · **stub → 接 listSessions**
 
 | | |
 |---|---|
-| **目标** | 列表字段、运行中 x/2、打开工作台/停止/再次开始/销毁 |
-| **步骤** | 列表 UI → 绑定多会话 API → 并发与同工作区错误文案 |
+| **目标** | 列表字段、运行中 **x/2**、打开工作台/停止/再次开始/销毁 |
+| **步骤** | 列表 UI → `listSessions`/`destroySession` → `SESSION_LIMIT`/`WORKSPACE_BUSY` 文案 |
 | **DoD** | 达上限与同目录冲突有产品文案；销毁二次确认 |
-| **依赖** | **P1-A-01** 多会话编排 |
+| **依赖** | **FULL-ORCH / P1-A-01**（mock 可先演示） |
 | **参考** | PAGE §5.2 |
+| **进度** | stub：`sessionHistory` + mock `listSessions`；文案 x/2；销毁确认已有 |
 
-#### P1-C-04 · 新会话 Wizard · 估 3–4d
+#### P1-C-04 · 新会话 Wizard · 估 3–4d · **合并配置流 stub**
 
 | | |
 |---|---|
-| **目标** | 工作区→Agent→模型→工具（可跳过）；clone/direct 文案 |
-| **步骤** | 步进条 → 每步校验 → 结束调 CreateSession |
-| **DoD** | 可跳过工具；direct 强警告；clone 仅在后端支持时可选 |
-| **依赖** | P1-A-02（若启用 clone）；现有 Connect API |
+| **目标** | 工作区→Agent→模型→工具（可跳过）；**direct 与 clone** |
+| **步骤** | 四步校验 → CreateSession（含 mountMode）；工具可跳过 |
+| **DoD** | 可跳过工具；direct 强警告；clone 可选且文案正确 |
+| **依赖** | Connect API；clone 真实现靠 A（UI 可先 mock） |
 | **参考** | PAGE §5.3 |
+| **进度** | **真四步 stub 已落**（本分支） |
 
-#### P1-C-05 · 独立模型页 · 估 3–4d
+#### P1-C-05 · 独立模型页 · 估 3–4d · **固定 profile stub**
 
 | | |
 |---|---|
@@ -423,35 +427,39 @@ CONTRACT PR 合入
 | **DoD** | 不再写死唯一 demo-model（或并存迁移开关） |
 | **依赖** | **P1-B-02** |
 | **参考** | PAGE §2 |
+| **进度** | `views/models.js` 自由 OpenAPI（名+地址+Key）stub 已落 |
 
-#### P1-C-06 · 独立工具页 · 估 4–6d
+#### P1-C-06 · 独立工具页 · 估 3–5d · **双轨（Token + OAuth）**
 
 | | |
 |---|---|
-| **目标** | OAuth/SSO 或 Token；只展示已添加 MCP |
-| **步骤** | OAuth 回调 UX → Token 表单 → 状态 ●/▲ |
-| **DoD** | 沙箱文案仍无厂商密钥；双轨至少一条真通 |
-| **依赖** | **P1-B-03** |
-| **参考** | PAGE §2 |
+| **目标** | OAuth/SSO **或** Token；列表只展示已添加；删除 |
+| **步骤** | 双轨表单 → `connectMcp` / `startMcpOAuth` → 列表 |
+| **DoD** | 无密钥回显；两条轨 UI 齐全；OAuth 与 B 回调联调 |
+| **依赖** | FULL-GATE（OAuth）；mock 可先行 |
+| **参考** | PAGE §5.6 |
+| **进度** | `views/tools.js` 双轨 stub 已落 |
 
-#### P1-C-07 · 设置页 · 估 2–3d
+#### P1-C-07 · 设置页 · 估 2–3d · **检测/场景 stub**
 
 | | |
 |---|---|
 | **目标** | Agent 重检、会话默认、扩权策略入口、清理、关于 |
 | **DoD** | 与扩权/清理后端字段对齐；无空壳开关 |
 | **依赖** | A/B 设置相关 API |
-| **参考** | PAGE 设置 |
+| **进度** | Agent 重检 + mock 场景 + 重置引导；记住主机入口待接 API-03 |
+| **参考** | PAGE 设置；API-10 |
 
-#### P1-C-08 · 工作台增强 · 估 5–8d（含 PTY 决策）
+#### P1-C-08 · 工作台增强 · 估 5–8d（**含 PTY**）
 
 | | |
 |---|---|
-| **目标** | 边界条；多会话焦点；内嵌 PTY **或** 外置终端（先拍板） |
-| **步骤** | 1）DESIGN 开放问题书面结论 2）边界条读权限一览 3）PTY 或深链 |
-| **DoD** | 评审能指着边界条讲隔离；终端方案文档化 |
-| **依赖** | P1-B-05；P1-A-01；PTY 则 A 输出通道 |
-| **参考** | PAGE 工作台 |
+| **目标** | 边界条；当前模型切换；权限一览；**内嵌 PTY**；右侧摘要；顶栏/焦点切换 |
+| **步骤** | 边界条 → `switchModel` → Overview → PTY 输入/事件 → 扩权 Modal |
+| **DoD** | 对照 PAGE §5.4；PTY 区可演示（mock 或 live） |
+| **依赖** | FULL-GATE / FULL-ORCH；API-09 |
+| **参考** | PAGE §5.4 |
+| **进度** | stub 已落（边界/PTY/扩权演示） |
 
 #### P1-C-09 · 扩权 Modal · 估 2–3d
 
@@ -499,13 +507,13 @@ CONTRACT PR 合入
 | **DoD** | 前端不直连上游；策略校验 origin |
 | **参考** | PAGE 模型 |
 
-#### P1-B-03 · OAuth MCP + 多 MCP · 估 5–8d
+#### P1-B-03 · 多 MCP Token + OAuth · 估 5–8d · **全量**
 
 | | |
 |---|---|
-| **目标** | OAuth/SSO；多 MCP 挂载；工具发现+人工白名单产品化 |
-| **DoD** | 至少 1 条 OAuth 真通；stdio/旧 SSE 仍可标延后 |
-| **参考** | DESIGN M2 |
+| **目标** | 多 MCP；`mcpIds` 0..8；Token 轨 + **StartMcpOAuth/CancelMcpOAuth** 真通至少一条 |
+| **DoD** | CreateSession 接受多 id；OAuth 回调写入账号目录；无 Key 进事件 |
+| **参考** | CONTRACT v1.2；PAGE 工具双轨 |
 
 #### P1-B-04 · 扩权策略引擎 · 估 4–6d
 
@@ -545,14 +553,14 @@ CONTRACT PR 合入
 | **DoD** | 单测覆盖上限与同路径；C 可接 HOME |
 | **参考** | PAGE §5.2.1 |
 
-#### P1-A-02 · clone 工作区 · 估 4–6d
+#### P1-A-02 · clone 工作区 · 估 4–6d · **全量必做**
 
 | | |
 |---|---|
-| **目标** | 安全副本 + 可选导回 |
-| **DoD** | direct/clone 切换有警告；导回确认 |
+| **目标** | `mountMode=clone` 安全副本 + 可选导回 |
+| **DoD** | direct/clone 切换有警告；与 C 向导联调 |
 | **依赖** | 与 P1-C-04 同步 |
-| **参考** | DESIGN / PAGE |
+| **参考** | PAGE §5.3；CONTRACT v1.2 |
 
 #### P1-A-03 · Codex + dsh 真机验收 · 估 3–5d（dsh）+ Codex 另估
 
@@ -574,9 +582,20 @@ CONTRACT PR 合入
 
 | | |
 |---|---|
-| **目标** | `awaiting_permission`（或契约等价）与恢复/拒绝 |
-| **DoD** | 与 P1-B-04/C-09 联调一条完整扩权 |
-| **参考** | ARCHITECTURE |
+| **目标** | 会话保持 `running`；发 `permission_needed`；`ResolvePermission` 恢复/拒绝 |
+| **DoD** | 与 P1-B-04/C-09 联调一条完整扩权；**不**新增 snapshot.state 枚举值 |
+| **参考** | CONTRACT v1.2 事件节 |
+
+#### P1-A-08 · 内嵌 PTY · 估 4–6d · **全量必做**（含于 FULL-ORCH）
+
+| | |
+|---|---|
+| **目标** | 焦点会话可 `WritePty`/`ResizePty`；事件 `pty` 流式到 UI |
+| **步骤** | Runtime PTY → Orch 绑定会话 → B desktop 转发 → 与 C 工作台联调 |
+| **DoD** | mock 与 live 各至少一条可打字回显（live 可后于 stub）；终态关闭 PTY |
+| **依赖** | FULL-BIND（B 桥）；P1-C-08 |
+| **参考** | CONTRACT API-09；PAGE §5.4 |
+| **边界** | **A 主实现**；B 只做绑定/事件桥；C 只做终端区 UI |
 
 #### P1-A-06 · 一期隔离证据包 · 估 2–3d
 
@@ -608,22 +627,21 @@ P0-ENV-1/2/3/4
 P0-D3 / D5 可与 ENV 并行
 P0-I11 ← 绑定稳定 + I1 缩略路径
 
-P0.5-MEET ─► P0.5-CONTRACT ─┬─► P0.5-MOCK (C)
-                            ├─► P0.5-BIND (B)
-                            └─► A fakes
-                                 │
-                                 ▼
-P1-C-01 ─┬─► P1-C-02          （须 API-01 已冻或 stub 约定）
-         ├─► P1-C-11
-         └─► P1-C-03 ← P1-A-01（须 API-02）
-P1-B-05 ──► P1-C-08（须 API-03）
-P1-B-02 ──► P1-C-05（须 API-05）
-P1-B-03 ──► P1-C-06（须 API-06）
-P1-A-05 + P1-B-04 ──► P1-C-09（须 API-04）
+CONTRACT v1.2（全量，本分支）
+  ├─► FULL-MOCK (C) ──► P1-C-* 全屏打磨
+  ├─► FULL-BIND (B) ──► FULL-GATE（含 OAuth）
+  └─► FULL-ORCH (A) ──► P1-A-01/02/05/08（多会话/clone/扩权/PTY）
+P1-B-05 + FULL-GATE ──► P1-C-08
+P1-A-05 + Gate 扩权 ──► P1-C-09
+P1-A-02 clone ──► P1-C-04
+P1-A-08 / API-09 PTY ──► P1-C-08
+P1-B-03 OAuth ──► P1-C-06
 ```
 
-**时间不够删减顺序**：C-11 视觉 → 第二 MCP → Codex → clone → PTY → Keychain → OAuth。  
-**不可删**：真 Agent、真认证 MCP、隔离强制、凭据外置、停止清理。
+**本分支不因时间删减**：clone / PTY / OAuth **均保留**。  
+**不可删**：真 Agent、真认证 MCP、隔离强制、凭据外置、停止清理、CONTRACT 形状一致。
+
+易混主责见 [SYSTEM-DESIGN §6.1](SYSTEM-DESIGN.md)。
 
 ---
 
@@ -631,34 +649,37 @@ P1-A-05 + P1-B-04 ──► P1-C-09（须 API-04）
 
 | 角色 | 可改 | 不可改 |
 |---|---|---|
-| A | `orchestrator` / `runtime` / `kits`、security、**CONTRACT 主笔** | 手改 bindings；为赶演示放宽隔离 |
-| B | `gate` / `policy` / `secrets`、desktop、构建、绑定生成 | 第二套会话状态机；前端绕过 Gate |
-| C | `frontend/` 手写、`demos/`、验收记录、**字段需求提案** | `frontend/bindings/`、`internal/` |
+| A | `orchestrator` / `runtime` / `kits`、security、**CONTRACT 主笔**；**PTY·clone 真实现** | 手改 bindings；为赶演示放宽隔离；实现 MCP OAuth |
+| B | `gate` / `policy` / `secrets`、desktop、构建、绑定生成；**OAuth 回调**；PTY **事件桥** | 第二套会话状态机；前端绕过 Gate；在 Runtime 里开伪终端 |
+| C | `frontend/` 手写、`demos/`、验收记录、**字段需求提案** | `frontend/bindings/`、`internal/`；把 mock 记为 I 通过 |
 
 ---
 
 ## 7. 周会检查清单
 
 **P0**
-- [ ] ENV-1/2 写入 DECISIONS  
-- [ ] ENV-3 Detect 结果（通过或阻断原因）  
-- [ ] ENV-4 三人都能 `wails3 dev` 见真实绑定  
-- [ ] D3/D5 证据段  
-- [ ] I1 / I2  
-- [ ] I3–I7 各 ≥1 条真实负例  
-- [ ] I8 / I9 / I10 / I11  
-- [ ] P0-C-DOC-1/2/3  
+- [ ] ENV-1/2 写入 DECISIONS
+- [ ] ENV-3 Detect 结果（通过或阻断原因）
+- [ ] ENV-4 三人都能 `wails3 dev` 见真实绑定
+- [ ] D3/D5 证据段
+- [ ] I1 / I2
+- [ ] I3–I7 各 ≥1 条真实负例
+- [ ] I8 / I9 / I10 / I11
+- [ ] P0-C-DOC-1/2/3
 
-**P0.5**
-- [ ] 冻结会已开（P0.5-MEET）  
-- [ ] §3.1 无「待议」  
-- [ ] CONTRACT PR 合入（P0.5-CONTRACT）  
-- [ ] C mock / B 绑定占位已跟（P0.5-MOCK / BIND）  
+**全量契约落地（本分支）**
+- [x] SYSTEM-DESIGN v2 / CONTRACT v1.2 / PAGE-API-MAP  
+- [x] `internal/contracts` + desktop 占位（含 OAuth/PTY）  
+- [x] FULL-MOCK 骨架（C UI stub）  
+- [ ] FULL-BIND generate（B）  
+- [ ] FULL-ORCH 多会话/clone/扩权/PTY（A）  
+- [ ] FULL-GATE 一览/账号/OAuth/Prefs（B）  
 
-**P1（可选）**
-- [ ] 侧栏可导航（C-01）  
-- [ ] HOME 或 Wizard 可演示  
-- [ ] 扩权或权限一览可演示  
+**全量 PAGE 产品**
+- [x] 侧栏 HOME/模型/工具/设置 + 顶栏会话切换（stub）  
+- [x] 四步向导 / 模型 OpenAPI / 工具双轨 / 工作台 PTY·扩权（stub）  
+- [ ] HOME 接真 listSessions / 上限文案联调  
+- [ ] OAuth / clone / PTY live 各至少一条  
 - [ ] 第二 Agent 真机一条路径  
 
 ---
@@ -667,11 +688,15 @@ P1-A-05 + P1-B-04 ──► P1-C-09（须 API-04）
 
 | 文档 | 用途 |
 |---|---|
-| [CONTRACT.md](CONTRACT.md) | 并行实现的唯一方法/字段来源 |
-| [MODULE-DESIGN.md](MODULE-DESIGN.md) | 替身约定与文件归属 |
+| [SYSTEM-DESIGN.md](SYSTEM-DESIGN.md) | **架构 + 模块拆分 + ABC（v2 全量）** |
+| [CONTRACT.md](CONTRACT.md) | **接口唯一来源（v1.2 全量）** |
+| [PAGE-API-MAP.md](PAGE-API-MAP.md) | 屏 ↔ API |
+| [PAGE-DESIGN.md](PAGE-DESIGN.md) | **本分支产品真源** |
+| [MODULE-DESIGN.md](MODULE-DESIGN.md) | 替身与文件归属 |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | 长期控制/执行面 |
 | [ACCEPTANCE.md](ACCEPTANCE.md) | 编号与证据格式 |
-| [MANUAL-INTEGRATION-TEST.md](MANUAL-INTEGRATION-TEST.md) | 逐步人工用例 P/M/E/D |
+| [MANUAL-INTEGRATION-TEST.md](MANUAL-INTEGRATION-TEST.md) | 逐步人工用例 |
 | [DECISIONS.md](DECISIONS.md) | 上游与版本登记 |
-| [DEV-A.md](DEV-A.md) / [DEV-C.md](DEV-C.md) | 角色笔记 |
-| [DSH-INTEGRATION.md](DSH-INTEGRATION.md) | dsh |
+| [GO-CHECKLIST.md](GO-CHECKLIST.md) | **开工检查与未拍板收口** |
+| [DEV-A.md](DEV-A.md) / [DEV-B.md](DEV-B.md) / [DEV-C.md](DEV-C.md) | 角色笔记 |
 | [demos/README.md](../demos/README.md) | 演示与工作区 |

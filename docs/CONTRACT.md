@@ -1,10 +1,32 @@
-# 两天版接口契约 v1
+# 接口契约 v1.2（全量 PAGE-DESIGN · feat/page-design-full）
 
-状态：供本轮开发直接遵循的设计基线。共享类型与编排实现已落地，真实隔离、Agent/上游兼容性仍未证明；当前进度见 [研发 A 开发记录](DEV-A.md)。A/B 负责将声明落成 Go 类型，C 按本文开发页面；不能各自重命名或猜测字段。与旧文档冲突时，当前接口以本文为准，范围及安全要求以根 AGENTS.md 为准。
+| 项 | 内容 |
+|---|---|
+| 状态 | **v1.2 本分支全量 PAGE**（`feat/page-design-full`）；实现以本文 + `internal/contracts` 为准 |
+| 架构总纲 | [SYSTEM-DESIGN.md](SYSTEM-DESIGN.md) v2 |
+| 屏级映射 | [PAGE-API-MAP.md](PAGE-API-MAP.md) |
+| 进度 | 共享类型与编排已落地；真实隔离/上游兼容性仍见 [DEV-A](DEV-A.md) |
+
+A/B 将声明落成 Go 类型与绑定，C 按本文 + [PAGE-DESIGN](PAGE-DESIGN.md) 开发页面与 mock。与旧「裁剪版」冲突时：**本分支以 PAGE-DESIGN 全量为准**。
+
+**本分支包含（不再延后）**：MCP OAuth、工作区 `clone`、内嵌 PTY、`SwitchModel`。
+
+### 1.0 全量能力最小约定（开工补注 · 2026-10-25）
+
+与 [GO-CHECKLIST](GO-CHECKLIST.md) §3 一致；实现不得弱于下表。
+
+| 能力 | 约定 |
+|---|---|
+| OAuth | `StartMcpOAuth` → 系统浏览器打开 `authUrl`；桌面在 **127.0.0.1** 收回环回调（具体端口写入 DECISIONS）；成功后账号出现在 `ListAccounts`，pending 清除；UI **轮询**列表或「我已完成登录」再刷；**暂不**新增 `account_changed` 事件；`CancelMcpOAuth` 清 pending |
+| clone | `mountMode=clone` 时 Runtime 在应用数据目录建副本并挂载；快照 `workspace` 为副本路径；清理/Destroy 删副本；**V1 无自动导回合并 API**（可 Finder 打开副本） |
+| PTY | `WritePty`/`ResizePty` + 事件 `pty`；不支持时 `UNIMPLEMENTED` 或 `INVALID_ARGUMENT`，**不得缺方法名** |
+| 默认挂载 | 向导默认推荐 **clone**；用户可选 direct（须强警告） |
+| 扩权 | 快照 state **不**增加 `awaiting_permission`；仅 `permission_needed` + `ResolvePermission` |
+| stdio MCP | **不在**本契约支持面；仅远程 HTTP MCP（Token 或 OAuth） |
 
 ## 1. 前端方法、返回与校验
 
-Wails 绑定对象只导出以下业务方法；Go 方法采用 PascalCase，`frontend/src/api.js` 对页面暴露对应 camelCase。页面不得直接使用内部服务。以下代码是一份可独立编译的接口规格，类型按 §4 的归属拆入实际包，不是要建立一个含全部服务的公共包。
+Wails 绑定对象只导出下列业务方法；Go 为 PascalCase，`frontend/src/api.js` 为 camelCase。页面不得直接使用内部服务。下列为可独立编译的接口规格；类型按 §4 拆入实际包。
 
 ```go
 package contractspec
@@ -23,12 +45,15 @@ type AgentInfo struct {
     Version string `json:"version"`
     Available bool `json:"available"`
     Reason string `json:"reason"`
-    ModelProfileID string `json:"modelProfileId,omitempty"` // Agent 对应的受信模型配置
+    ModelProfileID string `json:"modelProfileId,omitempty"`
 }
+// ConnectInput：固定 profile 时 ProfileID 必填、Origin 空；
+// 自定义 OpenAPI 模型时 Origin 为 https://host[:port]（仅 scheme+host[:port]），ProfileID 可为 "custom" 或空。
 type ConnectInput struct {
     ProfileID string `json:"profileId"`
     Name string `json:"name"`
     APIKey string `json:"apiKey"`
+    Origin string `json:"origin,omitempty"`
 }
 type AccountInfo struct {
     ID string `json:"id"`
@@ -37,12 +62,35 @@ type AccountInfo struct {
     ProfileID string `json:"profileId"`
     Host string `json:"host"`
 }
+// SessionSpec.MountMode："direct"（缺省）| "clone"。
+// MCPIDs 长度 0..8；0 表示本会话不挂 MCP。
 type SessionSpec struct {
     Workspace string `json:"workspace"`
     AgentID string `json:"agentId"`
     ModelAccountID string `json:"modelAccountId"`
     MCPIDs []string `json:"mcpIds"`
     Task string `json:"task"`
+    MountMode string `json:"mountMode,omitempty"`
+}
+type SwitchModelInput struct {
+    SessionID string `json:"sessionId"`
+    ModelAccountID string `json:"modelAccountId"`
+}
+type StartMcpOAuthInput struct {
+    Name string `json:"name"`
+    ProfileID string `json:"profileId"` // 可空；自定义时填 Origin
+    Origin string `json:"origin,omitempty"`
+}
+type McpOAuthResponse struct {
+    AuthURL string `json:"authUrl"` // 打开系统浏览器
+    PendingID string `json:"pendingId"`
+    Error *AppError `json:"error"`
+}
+type PtyInput struct {
+    SessionID string `json:"sessionId"`
+    Data string `json:"data,omitempty"` // 用户键盘输入（UTF-8）
+    Cols int `json:"cols,omitempty"`
+    Rows int `json:"rows,omitempty"`
 }
 type SessionSnapshot struct {
     SessionID string `json:"sessionId"`
@@ -52,6 +100,13 @@ type SessionSnapshot struct {
     AgentID string `json:"agentId"`
     CleanupComplete bool `json:"cleanupComplete"`
     Error *AppError `json:"error"`
+}
+type SessionSummary struct {
+    SessionID string `json:"sessionId"`
+    State string `json:"state"`
+    Workspace string `json:"workspace"`
+    AgentID string `json:"agentId"`
+    CleanupComplete bool `json:"cleanupComplete"`
 }
 type AgentsResponse struct {
     Agents []AgentInfo `json:"agents"`
@@ -66,47 +121,129 @@ type AccountResponse struct {
     Account *AccountInfo `json:"account"`
     Error *AppError `json:"error"`
 }
+type AccountsResponse struct {
+    Accounts []AccountInfo `json:"accounts"`
+    Error *AppError `json:"error"`
+}
 type SessionResponse struct {
     Session *SessionSnapshot `json:"session"`
     Error *AppError `json:"error"`
 }
+type SessionsResponse struct {
+    Sessions []SessionSummary `json:"sessions"`
+    Error *AppError `json:"error"`
+}
+// RuntimeHealthResponse 字段扁平，便于壳层状态灯。
+type RuntimeHealthResponse struct {
+    Available bool `json:"available"`
+    Reason string `json:"reason"`
+    IsolationLevel string `json:"isolationLevel,omitempty"`
+    Error *AppError `json:"error"`
+}
+type PermissionOverview struct {
+    SessionID string `json:"sessionId,omitempty"`
+    Workspace string `json:"workspace"`
+    AllowedHosts []string `json:"allowedHosts"`
+    MCPSummary []string `json:"mcpSummary"`
+    DeniedPathCategories []string `json:"deniedPathCategories,omitempty"`
+}
+type PermissionOverviewResponse struct {
+    Overview *PermissionOverview `json:"overview"`
+    Error *AppError `json:"error"`
+}
+type RememberedHost struct {
+    Host string `json:"host"`
+    Workspace string `json:"workspace"`
+    Scope string `json:"scope"` // project | session
+}
+type RememberedHostsResponse struct {
+    Hosts []RememberedHost `json:"hosts"`
+    Error *AppError `json:"error"`
+}
+type RevokeHostInput struct {
+    Host string `json:"host"`
+    Workspace string `json:"workspace"`
+}
+type ResolvePermissionInput struct {
+    SessionID string `json:"sessionId"`
+    Target string `json:"target"`
+    Decision string `json:"decision"` // deny | once | project
+}
+type UIPrefs struct {
+    SidebarCollapsed bool `json:"sidebarCollapsed"`
+    AutoCollapseWorkbench bool `json:"autoCollapseWorkbench"`
+}
+type UIPrefsResponse struct {
+    Prefs *UIPrefs `json:"prefs"`
+    Error *AppError `json:"error"`
+}
+type EmptyResponse struct {
+    Error *AppError `json:"error"`
+}
+
+// DesktopAPI：P0 七方法 + V1 扩展。未实现的新方法须返回 UNIMPLEMENTED，不得缺方法导致绑定崩溃。
 type DesktopAPI interface {
     ListAgents() AgentsResponse
     SelectWorkspace() WorkspaceResponse
     ConnectModel(ConnectInput) AccountResponse
     ConnectMcp(ConnectInput) AccountResponse
+    ListAccounts(kind string) AccountsResponse // kind: model | mcp | ""=全部
+    RemoveAccount(accountID string) EmptyResponse
     CreateSession(SessionSpec) SessionResponse
     GetSession(string) SessionResponse
     StopSession(string) SessionResponse
+    ListSessions() SessionsResponse
+    DestroySession(sessionID string) SessionResponse
+    GetRuntimeHealth() RuntimeHealthResponse
+    GetPermissionOverview(sessionID string) PermissionOverviewResponse
+    ListRememberedHosts(workspace string) RememberedHostsResponse
+    RevokeRememberedHost(RevokeHostInput) EmptyResponse
+    ResolvePermission(ResolvePermissionInput) EmptyResponse
+    GetUIPrefs() UIPrefsResponse
+    SetUIPrefs(UIPrefs) UIPrefsResponse
+    SwitchModel(SwitchModelInput) SessionResponse
+    StartMcpOAuth(StartMcpOAuthInput) McpOAuthResponse
+    CancelMcpOAuth(pendingID string) EmptyResponse
+    WritePty(PtyInput) EmptyResponse
+    ResizePty(PtyInput) EmptyResponse
 }
 
-// Event 仅通过固定事件名 harbor:event 传递，四类载荷恰有一项非 nil。
+// Event 经 harbor:event；下列载荷恰有一项非 nil。
 type OutputData struct {
     Stream string `json:"stream"` // stdout 或 stderr
     Text string `json:"text"`
 }
 type AuditData struct {
-    Target string `json:"target"` // 主机名，不包含 URL 查询串
+    Target string `json:"target"`
     Tool string `json:"tool"`
     Result string `json:"result"` // allowed、denied 或 failed
+}
+type PermissionNeeded struct {
+    Target string `json:"target"`
+    Action string `json:"action"`
 }
 type Event struct {
     SessionID string `json:"sessionId"`
     Seq uint64 `json:"seq"`
-    Type string `json:"type"`
+    Type string `json:"type"` // state_changed|output|audit|error|permission_needed|pty
     State *SessionSnapshot `json:"state"`
     Output *OutputData `json:"output"`
     Audit *AuditData `json:"audit"`
     Error *AppError `json:"error"`
+    Permission *PermissionNeeded `json:"permission"`
+    Pty *OutputData `json:"pty"` // 与 output 同形；专供 PTY 流
 }
 
 // 下列为后端接口规格，不属于 UI DTO，也不得绑定到 Wails。
 // 方法的 context 为调用控制；SessionService 内部用应用级 context 派生任务。
 type SessionService interface {
-    WithConnection(context.Context, func(context.Context) error) error // 后端连接准入，不绑定 Wails
+    WithConnection(context.Context, func(context.Context) error) error
     Create(context.Context, SessionSpec) (SessionSnapshot, error)
     Get(context.Context, string) (SessionSnapshot, error)
     Stop(context.Context, string) (SessionSnapshot, error)
+    List(context.Context) ([]SessionSummary, error)
+    Destroy(context.Context, string) (SessionSnapshot, error)
+    ResolvePermission(context.Context, ResolvePermissionInput) error
     Shutdown(context.Context) error
 }
 type AccountCatalog interface {
@@ -223,22 +360,36 @@ type Runtime interface {
 
 | 方法 | 正常行为 | 校验、故障与副作用 |
 |---|---|---|
-| ListAgents | 返回实际检测的列表；不依赖 Gate 可用 | CLI 未装属于 available=false，不伪装支持；检测内部故障才返回 error |
-| SelectWorkspace | 调用系统目录面板，返回绝对路径 | 用户取消返回 cancelled=true、path=""、error=null；真正授权仍由 Policy 复核 |
-| ConnectModel / ConnectMcp | 10 秒内测试固定上游，成功才保存账号并返回 AccountInfo | profileId 只能来自首小时确认的固定配置；禁止传任意上游 URL；输入不记日志；失败清除候选凭据，返回 account=null |
-| CreateSession | 原子占用单会话锁，创建 ID，快速返回 provisioning；后台准备和执行 | 空/不支持的参数同步拒绝且不留资源；路径/能力深度检查可异步失败；request 返回不能取消会话任务 |
-| GetSession | 返回给定会话最新状态与 seq | 未知 ID 返回 SESSION_NOT_FOUND；不返回任务正文或凭据；快照在本次应用生命期内保留 |
-| StopSession | 快速返回 stopping，随后事件报告清理结果 | provisioning 中可取消；terminal 会话幂等返回原快照；未知 ID 为 SESSION_NOT_FOUND；不等整个清理阻塞 UI |
+| ListAgents | 返回实际检测的列表；不依赖 Gate 可用 | CLI 未装属于 available=false；检测内部故障才返回 error |
+| SelectWorkspace | 系统目录面板，绝对路径 | 取消：cancelled=true、path=""、error=null |
+| ConnectModel | 10s 内测上游，成功才存账号 | **固定 profile**：Origin 空，ProfileID∈已登记；**自定义**：Origin 必填 HTTPS host，ProfileID 空或 `custom`；禁止任意 path/query；失败清候选，account=null |
+| ConnectMcp | Token 轨测试并保存 | OAuth 轨走 StartMcpOAuth；失败同上 |
+| ListAccounts | 返回已保存账号元信息（无 Key） | kind 过滤；空列表 `[]` |
+| RemoveAccount | 删除账号与密钥 | 会话仍引用该账号 → `SESSION_BUSY`；未知 → `ACCOUNT_NOT_FOUND` |
+| CreateSession | 占会话槽，返回 provisioning | running+preparing 总数 **≤2**，否则 `SESSION_LIMIT`；同规范化工作区已有非终态 → `WORKSPACE_BUSY`；mountMode∈direct\|clone；mcpIds 0..8 |
+| SwitchModel | 仅影响之后模型出站 | 未知会话/账号 → 对应错误；不改工作区/Agent |
+| StartMcpOAuth / CancelMcpOAuth | 打开浏览器完成 MCP 登录 | 回调成功后出现在 ListAccounts；取消清 pending |
+| WritePty / ResizePty | 向焦点会话 PTY 写输入/改尺寸 | 无 PTY 或未 running → `INVALID_ARGUMENT` |
+| GetSession | 最新快照与 seq | 未知 → `SESSION_NOT_FOUND`；无任务正文/凭据 |
+| StopSession | 返回 stopping，事件报清理 | 终态幂等；未知 → `SESSION_NOT_FOUND` |
+| ListSessions | 本应用生命周期内会话摘要 | 含终态直至 Destroy；空 `[]` |
+| DestroySession | 移除终态会话记录 | 非 stopped/failed 或 cleanupComplete=false → `INVALID_ARGUMENT`；未知 → `SESSION_NOT_FOUND` |
+| GetRuntimeHealth | 隔离/Runtime 探测 | available=false 时 reason 必填；不因此自动放行无隔离启动 |
+| GetPermissionOverview | 只读边界摘要 | 无 Key/Sentinel/完整 Gate URL；sessionId 空则返回「默认/全局」允许摘要（无工作区时 workspace=""） |
+| ListRememberedHosts | 已记住主机 | workspace 空=全部；与设置「管理网站」同源 |
+| RevokeRememberedHost | 撤销 project/session 记住项 | 未知 host 成功幂等（error=null） |
+| ResolvePermission | 处理扩权挂起 | decision∈deny\|once\|project；无挂起 → `INVALID_ARGUMENT`；**禁止**全网允许 |
+| GetUIPrefs / SetUIPrefs | 读写本机 UI 偏好 | **不得**存 Key；缺文件返回默认值 |
 
-本版 MCPIDs 长度必须为 1，AgentID 仅允许已验证项；Task 限 1–32768 个 UTF-8 字节。ConnectInput 的 ProfileID/Name/APIKey 均必填，Name 最多 100 个 Unicode 字符，APIKey 最多 16384 字节且不修改其内容。重连创建新 ID，模型和 MCP 引用不可互换。正在准备/运行/清理时拒绝重新连接，避免账号变更影响会话。工具白名单使用固定 profile 中人工选定的工具名，不能把上游新发现的所有工具自动授权。
+AgentID 仅允许已验证项；Task 限 1–32768 UTF-8 字节。ConnectInput 的 Name/APIKey 必填；Name≤100 Unicode；APIKey≤16384 字节。固定 profile 路径下 ProfileID 必填。重连创建新账号 ID。活动会话存在时拒绝会改写该会话所用账号的 Remove；Connect 在连接准入锁下执行（见既有 WithConnection）。工具白名单来自登记 profile 或自定义 origin 首次确认后的 host 规则，不得把上游 tools/list 新工具自动授权。
 
-SessionSnapshot.state 只允许 provisioning、running、stopping、stopped、failed；未创建会话的页面空态不产生 idle 会话。cleanupComplete 在准备/运行/清理中为 false，终态按资源确认结果设置。响应中 AccountInfo.kind 只允许 model/mcp，Host 为无凭据的主机名。ListAgents 的空列表用 [] 而非 null。
+SessionSnapshot.state：`provisioning`|`running`|`stopping`|`stopped`|`failed`（扩权等待 **不** 新增 state；用 `permission_needed` 事件表示挂起，会话保持 `running`）。cleanupComplete 语义同 v1。AccountInfo.kind 仅 model/mcp。
 
-Go 绑定返回统一业务 error 结构：成功为 error=null，失败为数据字段 null/空及 AppError。不依赖 Wails 将 Go error 序列化为结构化错误；internal/desktop 负责映射内部 error。连接绑定最多等待连接超时；创建与停止只排入状态机。框架/传输失败由 api.js 转为 INTERNAL_ERROR，不向页面暴露原始异常对象。应用启动和页面恢复时调用 ListAgents，用户选择目录后仍将该路径作为待校验输入。
+Go 绑定统一 `error` 字段；未实现的新方法返回 `UNIMPLEMENTED`。框架失败由 api.js 映为 `INTERNAL_ERROR`。启动时调 ListAgents + GetRuntimeHealth；恢复会话用 GetSession / ListSessions。
 
 ## 2. 事件、快照与错误
 
-- 全部会话事件只用 `harbor:event`。type 为 `state_changed`、`output`、`audit` 或 `error`，且只有对应载荷非 null。error 事件是操作失败通知，最终状态由 state_changed 表达；普通未授权请求的 denied 审计不必终止会话。
+- 全部会话事件只用 `harbor:event`。type 为 `state_changed`、`output`、`audit`、`error`、`permission_needed` 或 **`pty`**，且只有对应载荷非 null。`pty` 用 `Pty` 字段。error 为操作失败通知；需用户决策时发 `permission_needed` 并等待 `ResolvePermission`。
 - sessionId 在当前应用中唯一；seq 从 1 开始，由 Orchestrator 串行分配，覆盖全部事件。状态载荷的 seq 与外层相同。GetSession 返回最新水位 seq；snapshot.state 只表示实际状态，不由页面推断。
 - api.js 先订阅再创建，暂存尚未拿到 sessionId 的事件，响应后合并；晚到的旧快照不能覆盖更大 seq 的状态。重复事件去重，但输出先按 seq 处理再推进水位，不能仅因快照较新就丢弃未展示的输出。事件接入中断可 GetSession 恢复状态，历史输出不承诺重放。
 - 本版只保证当前窗口连续连接的事件交付。状态和错误不可静默丢弃；前端文本使用 textContent。输出流按 UTF-8 解码并限每块 16 KiB；后端与前端各保留最多 1 MiB 输出尾部，截断时显示提示，不改变 Agent 实际 stdout 消费。Runtime 读取不得被慢 UI 无限阻塞。
@@ -264,6 +415,9 @@ Go 绑定返回统一业务 error 结构：成功为 error=null，失败为数�
 | AGENT_EXIT_FAILED | 非零退出，无已知更具体错误 | false |
 | CANCELLED | 用户取消连接等操作；正常停止不算失败 | false |
 | CLEANUP_FAILED / INTERNAL_ERROR | 清理或未知内部故障 | false |
+| SESSION_LIMIT | Create 时活动会话数已达上限（2） | false |
+| WORKSPACE_BUSY | 同工作区已有非终态会话 | false |
+| UNIMPLEMENTED | DesktopAPI 新方法尚未接线 | false |
 
 Retryable 只供人选择是否重新操作，不授权自动重发任务或有副作用的 MCP 调用。
 
@@ -313,10 +467,12 @@ policy 的固定 profile 来自 B 管理的后端配置，不从前端或 Agent 
 
 ## 5. 演进与版本
 
-当前实现注记（不改变 v1 方法/字段）：A 已实现的 macOS Runtime 是严格单进程子集，由操作系统拒绝 fork/posix_spawn，尚不支持 Bash、外部 git 等子进程工具。Claude 固定版本离线初始化通过不代表真实模型/MCP 任务通过；不得将该子集标为完整执行能力交付。实现证据与剩余工作见 [研发 A 开发记录](DEV-A.md)。
+- **v1**：七方法 + 四类事件；单会话；mcpIds 长度 1；固定 profile。
+- **v1.1**：健康/列表/扩权/多账号/Prefs 等。
+- **v1.2（本分支）**：恢复并定义 OAuth、`clone`、`SwitchModel`、PTY（`WritePty`/`ResizePty` + 事件 `pty`）。形状未实现时可 `UNIMPLEMENTED`，**不得缺方法名**。
 
-公开 Event 在进入事件传输前必须满足 `contracts.Event.Validate` 的纯数据形状校验；该校验不替代策略、凭据或操作系统边界检查。
+当前实现注记：macOS Runtime 仍为严格单进程子集；PTY/clone 真实现由 A 排期，UI/mock 本分支先通。证据见 [DEV-A](DEV-A.md)。
 
-本文是并行实现的唯一方法/字段来源。首次落地时 A 合入 contracts DTO 和内部消费边界，B 复核并生成 Wails 绑定，C 据此实现 api.js；新增字段或语义变更先改本文及双方实现/替身，不能让联调时临时协商接口。首次编译仍是实现检查点，当前文档规格编译通过不意味着绑定生成或应用已可运行。
+公开 Event 须满足 `contracts.Event.Validate`。本文是并行实现的唯一方法/字段来源；变更先改本文与 `internal/contracts`，再 sync mock/bindings。
 
-2026-10-25 修复约定：连接测试通过 SessionService.WithConnection 原子占用与 Create 共用的准入锁；会话活动、清理未完成或另一连接进行中均拒绝。编排只调用不透明回调，不获得凭据能力。Shutdown 取消并等待连接结束。ConnectModel 验证固定 Anthropic messages 响应（最多 1 token）；ConnectMcp 执行 2025-03-26 initialize/initialized/tools/list 并核对人工白名单；拒绝重定向与非 HTTPS 生产配置。未配置接入项失败关闭，不自动选供应商。
+既有约定仍有效：WithConnection 准入锁；Connect 探测语义。自定义 Origin 须 HTTPS；OAuth 仅工具页。

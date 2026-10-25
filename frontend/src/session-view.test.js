@@ -54,10 +54,10 @@ test(
         task: "fixture",
       });
       await early;
-      assert.equal(nodes.get("#sess-output").textContent, "");
+      assert.equal(nodes.get("#sess-pty").textContent, "");
       ctx.state.sessionId = response.session.sessionId;
       view.resetForNewSession(response.session);
-      assert.match(nodes.get("#sess-output").textContent, /开始执行任务/);
+      assert.match(nodes.get("#sess-pty").textContent, /开始执行任务/);
       assert.equal(ctx.state.lastSnapshot.state, "running");
       await api.stopSession(ctx.state.sessionId);
       assert.equal(ctx.state.lastSnapshot.state, "stopping");

@@ -1,6 +1,6 @@
 // Package contracts 存放前后端共享的可序列化 DTO。
-// 负责人：A 主改，B 复核绑定兼容，C 核对页面字段。
-// 字段与 docs/CONTRACT.md v1 一致，不包含业务实现。
+// 负责人：A 主笔，B 复核绑定兼容，C 核对页面字段。
+// 字段与 docs/CONTRACT.md v1.2 一致，不包含业务实现。
 package contracts
 
 // AppError 是前端可见的业务错误。message 使用固定可读模板，不附加原始上游细节。
@@ -21,10 +21,12 @@ type AgentInfo struct {
 }
 
 // ConnectInput 为模型/MCP 连接的单向输入；APIKey 不得回显或写入事件。
+// 自定义 OpenAPI 模型时填写 Origin（https://host[:port]）；固定 profile 时 Origin 为空。
 type ConnectInput struct {
 	ProfileID string `json:"profileId"`
 	Name      string `json:"name"`
 	APIKey    string `json:"apiKey"`
+	Origin    string `json:"origin,omitempty"`
 }
 
 // AccountInfo 是脱敏后的账号元信息。
@@ -43,6 +45,7 @@ type SessionSpec struct {
 	ModelAccountID string   `json:"modelAccountId"`
 	MCPIDs         []string `json:"mcpIds"`
 	Task           string   `json:"task"`
+	MountMode      string   `json:"mountMode,omitempty"` // 仅 direct；缺省=direct
 }
 
 // SessionSnapshot 是会话对外快照。
@@ -54,6 +57,15 @@ type SessionSnapshot struct {
 	AgentID         string    `json:"agentId"`
 	CleanupComplete bool      `json:"cleanupComplete"`
 	Error           *AppError `json:"error"`
+}
+
+// SessionSummary 是列表用摘要。
+type SessionSummary struct {
+	SessionID       string `json:"sessionId"`
+	State           string `json:"state"`
+	Workspace       string `json:"workspace"`
+	AgentID         string `json:"agentId"`
+	CleanupComplete bool   `json:"cleanupComplete"`
 }
 
 // AgentsResponse 是 ListAgents 的统一返回。
@@ -75,19 +87,141 @@ type AccountResponse struct {
 	Error   *AppError    `json:"error"`
 }
 
-// SessionResponse 是 Create/Get/Stop Session 的统一返回。
+// AccountsResponse 是 ListAccounts 的统一返回。
+type AccountsResponse struct {
+	Accounts []AccountInfo `json:"accounts"`
+	Error    *AppError     `json:"error"`
+}
+
+// SessionResponse 是 Create/Get/Stop/Destroy Session 的统一返回。
 type SessionResponse struct {
 	Session *SessionSnapshot `json:"session"`
 	Error   *AppError        `json:"error"`
 }
 
-// DesktopAPI 是绑定到桌面的业务方法集合。实现在根包 DesktopAPI，不在本包执行 IO。
+// SessionsResponse 是 ListSessions 的统一返回。
+type SessionsResponse struct {
+	Sessions []SessionSummary `json:"sessions"`
+	Error    *AppError        `json:"error"`
+}
+
+// RuntimeHealthResponse 是隔离/Runtime 探测结果（扁平字段）。
+type RuntimeHealthResponse struct {
+	Available      bool      `json:"available"`
+	Reason         string    `json:"reason"`
+	IsolationLevel string    `json:"isolationLevel,omitempty"`
+	Error          *AppError `json:"error"`
+}
+
+// PermissionOverview 是权限一览只读摘要；禁止含 Key/Sentinel。
+type PermissionOverview struct {
+	SessionID            string   `json:"sessionId,omitempty"`
+	Workspace            string   `json:"workspace"`
+	AllowedHosts         []string `json:"allowedHosts"`
+	MCPSummary           []string `json:"mcpSummary"`
+	DeniedPathCategories []string `json:"deniedPathCategories,omitempty"`
+}
+
+// PermissionOverviewResponse 包装权限一览。
+type PermissionOverviewResponse struct {
+	Overview *PermissionOverview `json:"overview"`
+	Error    *AppError           `json:"error"`
+}
+
+// RememberedHost 是已记住的出站主机。
+type RememberedHost struct {
+	Host      string `json:"host"`
+	Workspace string `json:"workspace"`
+	Scope     string `json:"scope"` // project | session
+}
+
+// RememberedHostsResponse 是 ListRememberedHosts 返回。
+type RememberedHostsResponse struct {
+	Hosts []RememberedHost `json:"hosts"`
+	Error *AppError        `json:"error"`
+}
+
+// RevokeHostInput 撤销记住主机。
+type RevokeHostInput struct {
+	Host      string `json:"host"`
+	Workspace string `json:"workspace"`
+}
+
+// ResolvePermissionInput 是扩权决策。
+type ResolvePermissionInput struct {
+	SessionID string `json:"sessionId"`
+	Target    string `json:"target"`
+	Decision  string `json:"decision"` // deny | once | project
+}
+
+// UIPrefs 是本机 UI 偏好；不得含密钥。
+type UIPrefs struct {
+	SidebarCollapsed      bool `json:"sidebarCollapsed"`
+	AutoCollapseWorkbench bool `json:"autoCollapseWorkbench"`
+}
+
+// UIPrefsResponse 包装偏好。
+type UIPrefsResponse struct {
+	Prefs *UIPrefs  `json:"prefs"`
+	Error *AppError `json:"error"`
+}
+
+// EmptyResponse 无业务载荷的统一返回。
+type EmptyResponse struct {
+	Error *AppError `json:"error"`
+}
+
+// DesktopAPI 是绑定到桌面的业务方法集合。实现在 desktop 包，不在本包执行 IO。
 type DesktopAPI interface {
 	ListAgents() AgentsResponse
 	SelectWorkspace() WorkspaceResponse
 	ConnectModel(ConnectInput) AccountResponse
 	ConnectMcp(ConnectInput) AccountResponse
+	ListAccounts(kind string) AccountsResponse
+	RemoveAccount(accountID string) EmptyResponse
 	CreateSession(SessionSpec) SessionResponse
 	GetSession(string) SessionResponse
 	StopSession(string) SessionResponse
+	ListSessions() SessionsResponse
+	DestroySession(sessionID string) SessionResponse
+	GetRuntimeHealth() RuntimeHealthResponse
+	GetPermissionOverview(sessionID string) PermissionOverviewResponse
+	ListRememberedHosts(workspace string) RememberedHostsResponse
+	RevokeRememberedHost(RevokeHostInput) EmptyResponse
+	ResolvePermission(ResolvePermissionInput) EmptyResponse
+	GetUIPrefs() UIPrefsResponse
+	SetUIPrefs(UIPrefs) UIPrefsResponse
+	SwitchModel(SwitchModelInput) SessionResponse
+	StartMcpOAuth(StartMcpOAuthInput) McpOAuthResponse
+	CancelMcpOAuth(pendingID string) EmptyResponse
+	WritePty(PtyInput) EmptyResponse
+	ResizePty(PtyInput) EmptyResponse
+}
+
+// SwitchModelInput 切换会话当前模型（影响之后出站）。
+type SwitchModelInput struct {
+	SessionID      string `json:"sessionId"`
+	ModelAccountID string `json:"modelAccountId"`
+}
+
+// StartMcpOAuthInput 启动 MCP OAuth。
+type StartMcpOAuthInput struct {
+	Name      string `json:"name"`
+	ProfileID string `json:"profileId"`
+	Origin    string `json:"origin,omitempty"`
+}
+
+// McpOAuthResponse OAuth 启动结果。
+type McpOAuthResponse struct {
+	AuthURL   string    `json:"authUrl"`
+	PendingID string    `json:"pendingId"`
+	Error     *AppError `json:"error"`
+}
+
+// PtyInput PTY 写入或改尺寸。
+type PtyInput struct {
+	SessionID string `json:"sessionId"`
+	Data      string `json:"data,omitempty"`
+	Cols      int    `json:"cols,omitempty"`
+	Rows      int    `json:"rows,omitempty"`
 }

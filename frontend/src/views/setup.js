@@ -1,16 +1,25 @@
 import * as api from "../api.js";
 
-/** 评审 / D4 固定演示任务（非敏感） */
+/** 评审 / D4 固定演示任务（非敏感）；live 必须改写工具名，见 demos/README */
 export const DEMO_TASK =
   "在工作区创建或覆盖 hello.txt，写入一行 Hello from Agent Harbor mock。然后用已连接的 MCP 做一次只读 search，把查询结论用两句话总结。不要修改其它文件，不要请求扩权。";
 
+/** live 任务若仍含这些词，开始前给出提示（不强制拦截） */
+const LIVE_TASK_STALE = /\bmock\b|\bsearch\b/i;
+
 /**
  * 配置页：连接模型/MCP、选工作区、任务、启动
+ * @param {{ embedded?: boolean }} [opts] 嵌在新会话向导时隐藏顶栏标题
  */
-export function mountSetup(root, ctx) {
+export function mountSetup(root, ctx, opts = {}) {
+  const embedded = !!opts.embedded;
   root.innerHTML = `
-    <h2>配置</h2>
-    <p class="sub">连接返回后清空凭据；切换 Agent 后需要重新连接对应模型。</p>
+    ${
+      embedded
+        ? ""
+        : `<h2>配置</h2>
+    <p class="sub">连接返回后清空凭据；切换 Agent 后需要重新连接对应模型。Claude 用 demo-model，dsh 用 dsh-model；MCP 固定 demo-mcp。</p>`
+    }
     <div class="grid">
       <section class="card">
         <h3>Agent</h3>
@@ -22,7 +31,7 @@ export function mountSetup(root, ctx) {
           <button type="button" class="btn" id="btn-refresh-agents">重新检测</button>
         </div>
       </section>
-      <section class="card">
+      <section class="card" id="mock-scenario-card">
         <h3>模拟场景（仅 mock）</h3>
         <label class="field">场景
           <select id="scenario">
@@ -78,6 +87,7 @@ export function mountSetup(root, ctx) {
       <label class="field">任务（将发给 Agent）
         <textarea id="task">${DEMO_TASK}</textarea>
       </label>
+      <p class="meta" id="task-hint"></p>
       <div class="actions">
         <button type="button" class="btn primary" id="btn-start" disabled>开始运行</button>
         <span class="meta" id="setup-msg"></span>
@@ -89,6 +99,7 @@ export function mountSetup(root, ctx) {
     agentSelect: root.querySelector("#agent-select"),
     modelProfile: root.querySelector("#model-profile"),
     agentStatus: root.querySelector("#agent-status"),
+    scenarioCard: root.querySelector("#mock-scenario-card"),
     scenario: root.querySelector("#scenario"),
     modelName: root.querySelector("#model-name"),
     modelKey: root.querySelector("#model-key"),
@@ -98,12 +109,26 @@ export function mountSetup(root, ctx) {
     mcpStatus: root.querySelector("#mcp-status"),
     wsPath: root.querySelector("#ws-path"),
     task: root.querySelector("#task"),
+    taskHint: root.querySelector("#task-hint"),
     start: root.querySelector("#btn-start"),
     msg: root.querySelector("#setup-msg"),
     btnModel: root.querySelector("#btn-connect-model"),
     btnMcp: root.querySelector("#btn-connect-mcp"),
     btnWs: root.querySelector("#btn-pick-ws"),
   };
+
+  function syncModeChrome() {
+    const mock = api.isMock();
+    if (els.scenarioCard?.classList?.toggle) {
+      els.scenarioCard.classList.toggle("hidden", !mock);
+    }
+    if (els.taskHint) {
+      els.taskHint.innerHTML = mock
+        ? `模拟模式：可用默认任务。正式 I2 请改用 <code>demos/workspace</code> 与真实工具名（见 demos/README）。`
+        : `<span class="warn">真实绑定：请改写任务，去掉 mock/search，工具名须与 HARBOR_DEMO_MCP_TOOLS 一致；工作区选 demos/workspace 绝对路径。</span>`;
+    }
+  }
+  syncModeChrome();
 
   function startBlockReason() {
     const missing = [];
@@ -273,6 +298,12 @@ export function mountSetup(root, ctx) {
       els.msg.innerHTML = `<span class="bad">无法开始：缺少 ${missing.join("、")}</span>`;
       return;
     }
+    const taskText = els.task.value.trim();
+    if (!api.isMock() && LIVE_TASK_STALE.test(taskText)) {
+      els.msg.innerHTML =
+        `<span class="warn">任务仍含 mock/search。真机验收请先改成白名单工具名后再点开始（详见 demos/README）。</span>`;
+      return;
+    }
     els.start.disabled = true;
     els.msg.textContent = "创建会话…";
     try {
@@ -281,7 +312,7 @@ export function mountSetup(root, ctx) {
         agentId: ctx.state.agentId || "claude",
         modelAccountId: ctx.state.modelAccount.id,
         mcpIds: [ctx.state.mcpAccount.id],
-        task: els.task.value.trim(),
+        task: taskText,
       });
       if (res.error) {
         els.msg.innerHTML = `<span class="bad">${res.error.code}: ${res.error.message}</span>`;
@@ -296,5 +327,5 @@ export function mountSetup(root, ctx) {
   };
 
   refreshAgents();
-  return { refreshStart, refreshAgents };
+  return { refreshStart, refreshAgents, syncModeChrome };
 }

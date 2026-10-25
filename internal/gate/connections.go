@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -56,16 +57,34 @@ func (c *Connections) ConnectMcp(ctx context.Context, in contracts.ConnectInput)
 func (c *Connections) connect(ctx context.Context, in contracts.ConnectInput, kind string) (contracts.AccountInfo, error) {
 	name := strings.TrimSpace(in.Name)
 	profileID := strings.TrimSpace(in.ProfileID)
+	originIn := strings.TrimSpace(in.Origin)
 	key := in.APIKey
-	if name == "" || profileID == "" || len(key) == 0 {
+	if name == "" || len(key) == 0 {
 		return contracts.AccountInfo{}, ErrInvalidConnectInput
 	}
 	if utf8.RuneCountInString(name) > 100 || len(key) > 16384 {
 		return contracts.AccountInfo{}, ErrInvalidConnectInput
 	}
-	prof, ok := c.policy.Profile(profileID)
-	if !ok || prof.Kind != kind {
-		return contracts.AccountInfo{}, ErrInvalidConnectInput
+	var prof policy.FixedProfile
+	if originIn != "" {
+		if profileID != "" && profileID != policy.ProfileCustom {
+			return contracts.AccountInfo{}, ErrInvalidConnectInput
+		}
+		parsed, host, err := policy.ParseCustomOrigin(originIn)
+		if err != nil {
+			return contracts.AccountInfo{}, ErrInvalidConnectInput
+		}
+		prof = customProfile(kind, parsed, host)
+		profileID = policy.ProfileCustom
+	} else {
+		if profileID == "" {
+			return contracts.AccountInfo{}, ErrInvalidConnectInput
+		}
+		var ok bool
+		prof, ok = c.policy.Profile(profileID)
+		if !ok || prof.Kind != kind {
+			return contracts.AccountInfo{}, ErrInvalidConnectInput
+		}
 	}
 
 	if !prof.ValidConnection() {
@@ -93,6 +112,34 @@ func (c *Connections) connect(ctx context.Context, in contracts.ConnectInput, ki
 	}
 	meta.ID = id
 	return meta, nil
+}
+
+func customProfile(kind, origin, host string) policy.FixedProfile {
+	prof := policy.FixedProfile{
+		ID:       policy.ProfileCustom,
+		Kind:     kind,
+		Origin:   origin,
+		Host:     host,
+		Protocol: "anthropic",
+		Model:    strings.TrimSpace(os.Getenv("HARBOR_CLAUDE_MODEL")),
+		Paths:    []string{"/v1/messages"},
+		TestPath: "/v1/messages",
+	}
+	if prof.Model == "" {
+		prof.Model = "claude-sonnet-4-5"
+	}
+	if kind == "mcp" {
+		prof.Protocol = "streamable-http"
+		prof.Model = ""
+		prof.Paths = []string{"/mcp"}
+		prof.TestPath = "/mcp"
+		for _, tool := range strings.Split(os.Getenv("HARBOR_DEMO_MCP_TOOLS"), ",") {
+			if tool = strings.TrimSpace(tool); tool != "" {
+				prof.Tools = append(prof.Tools, tool)
+			}
+		}
+	}
+	return prof
 }
 
 const mcpProtocolVersion = "2025-03-26"

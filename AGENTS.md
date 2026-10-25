@@ -57,17 +57,21 @@ Agent Harbor 是安全优先的桌面 Agent 沙箱：在隔离环境中运行 Cl
 | 文档 | 阅读场景 |
 |---|---|
 | [模块设计与并行开发](docs/MODULE-DESIGN.md) | 当前模块边界、依赖、所有权、替身、共享文件和检查点 |
-| [两天版接口契约](docs/CONTRACT.md) | 准确 Go/Wails 方法、DTO、事件、错误与资源生命周期；当前接口唯一来源 |
-| [实施决策](docs/DECISIONS.md) / [验收清单](docs/ACCEPTANCE.md) | 已定与待验证接入项；独立开发与真实集成的可执行检查 |
-| [Go/Wails 目录设计](docs/DIRECTORY-STRUCTURE.md) | 最新目录、模块职责、三人分工、依赖方向及旧骨架迁移映射 |
-| [产品总纲](docs/DESIGN.md) | 产品范围、威胁模型、安全底线；重点看 §7.4、§7.6 的隔离分期与降权要求 |
-| [架构逻辑](docs/ARCHITECTURE.md) | 组件职责、信任边界、状态机、请求路径、编排 API 与 Runtime 接口 |
-| [页面设计](docs/PAGE-DESIGN.md) | 页面交互、模型与工具区别、多会话、扩权及设置联动 |
-| [实现列表](docs/IMPLEMENTATION.md) | 当前落地主线、依赖顺序、分期交付与验收 |
-| [三人两天核心方案](docs/MVP-2D3P.md) | 核心闭环、排期和验收；已同步 Go/Wails 与新分工，技术栈与范围以本文件当前开发基线为准 |
-| [三天竖切](docs/SPIKE-3D3P.md) | 可选 Spike 的缩减范围、演示与验收；不得把演示降级方案当作产品安全保证 |
+| [开工检查](docs/GO-CHECKLIST.md) | **本分支开工**：遗漏/未拍板收口、本周 ABC、禁止项 |
+| [V1 总纲](docs/SYSTEM-DESIGN.md) | **本分支**：架构分层、模块所有权、ABC 分工；易混主责见 §6.1 |
+| [接口契约](docs/CONTRACT.md) | **唯一方法/DTO 来源（v1.2 全量）**；含 OAuth/PTY/clone/SwitchModel |
+| [任务拆分](docs/TASK-SPLIT-ABC.md) | A/B/C 任务卡（**v2.0 全量 PAGE**；分支 `feat/page-design-full`） |
+| [页面设计](docs/PAGE-DESIGN.md) | **本分支产品真源**：导航与各屏（含双会话≤2、OAuth、PTY、clone） |
+| [屏 ↔ API](docs/PAGE-API-MAP.md) | 哪一屏调哪些 DesktopAPI |
+| [实施决策](docs/DECISIONS.md) / [验收清单](docs/ACCEPTANCE.md) | 环境/上游登记；独立开发与真实集成检查 |
+| [Go/Wails 目录设计](docs/DIRECTORY-STRUCTURE.md) | 目录、模块职责、三人分工、依赖方向 |
+| [产品总纲](docs/DESIGN.md) | 长期范围、威胁模型；重点 §7.4 / §7.6 |
+| [架构逻辑](docs/ARCHITECTURE.md) | 控制/执行面、状态机、请求路径 |
+| [实现列表](docs/IMPLEMENTATION.md) | 长期分期；不覆盖本分支全量裁定 |
+| [三人两天核心方案](docs/MVP-2D3P.md) | **历史两天裁剪**；本分支冲突时以 SYSTEM-DESIGN / PAGE-DESIGN / CONTRACT 为准 |
+| [三天竖切](docs/SPIKE-3D3P.md) | 历史 Spike；不得当产品安全保证 |
 
-文档存在历史口径：隔离分期按 `IMPLEMENTATION.md` 与 `DESIGN.md` §7.4 / §7.6 的 P1→P2 主线理解；V1 并发按 `ARCHITECTURE.md` §5 与 `PAGE-DESIGN.md` §5.2.1 的最多 2 条理解，不沿用页面文档 §8 的单会话旧建议。默认挂载倾向 `clone`；具体平台封装、本地 stdio MCP 是否进入 V1 等仍需按实现列表中的拍板项确认。遇到未消解的冲突先澄清，不自行把建议变成已定决策。
+文档口径：隔离分期按 `IMPLEMENTATION.md` 与 `DESIGN.md` §7.4 / §7.6；**本分支并发上限 2**、挂载含 `clone`、工具含 OAuth、工作台含 PTY，见 PAGE-DESIGN / CONTRACT v1.2。遇到未消解冲突先澄清，不自行把 MVP「延后」列当成已定砍法。
 
 ### 两平面与组件边界
 

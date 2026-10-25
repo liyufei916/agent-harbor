@@ -5,13 +5,13 @@
 | 模块 | 负责人 | 职责 |
 |---|---|---|
 | [contracts](contracts/README.md) | A 首次落地、B 复核、C 核对 | 前端 DTO、事件和错误码 |
-| [orchestrator](orchestrator/README.md) | A | 单会话、任务生命周期、集成、回滚和清理 |
-| [runtime](runtime/README.md) | A | 操作系统隔离、受限进程与清理 |
+| [orchestrator](orchestrator/README.md) | A | 会话生命周期（本分支目标：多会话≤2、扩权、**clone**、**PTY**）；回滚清理 |
+| [runtime](runtime/README.md) | A | 操作系统隔离、受限进程、**PTY 底层**与清理 |
 | [kits](kits/README.md) | A | Agent 无真实凭据启动适配 |
-| [gate](gate/README.md) | B | 模型流式反向代理与 MCP Gateway |
-| [policy](policy/README.md) | B | 工作区与固定出站授权 |
-| [secrets](secrets/README.md) | B | 宿主机内存凭据 |
-| [desktop](desktop/) | B | 桌面绑定、错误转换，并注入 A 的编排 |
+| [gate](gate/README.md) | B | 模型流式反向代理、MCP Gateway、**OAuth 回调** |
+| [policy](policy/README.md) | B | 工作区与出站授权、记住主机、mount 校验 |
+| [secrets](secrets/README.md) | B | 宿主机凭据与账号目录 |
+| [desktop](desktop/) | B | 桌面绑定、事件桥（含 `pty`）、注入 A 的编排 |
 
 ## 入口与依赖
 
@@ -28,8 +28,8 @@ Orchestrator 调用 Policy、Gate、Kit、Runtime；Gate 经授权后解析 Secr
 - Agent 输出和 MCP 返回值视为不可信数据，不在宿主机执行代码。
 - 单元测试与 Go 源码就近放置为 *_test.go；跨模块检查放 [security](../security/README.md)。
 
-完整结构见[目录设计](../docs/DIRECTORY-STRUCTURE.md)，执行顺序见[两天方案](../docs/MVP-2D3P.md)。
+完整结构见[目录设计](../docs/DIRECTORY-STRUCTURE.md)。本分支分工见 [SYSTEM-DESIGN](../docs/SYSTEM-DESIGN.md) §6.1 与 [TASK-SPLIT](../docs/TASK-SPLIT-ABC.md) v2.0；[两天方案](../docs/MVP-2D3P.md) 仅作历史参考。
 
 ## 并行开发入口
 
-先读 [MODULE-DESIGN.md](../docs/MODULE-DESIGN.md) 的职责、资源所有权、替身与文件归属，再按 [CONTRACT.md](../docs/CONTRACT.md) 实现准确签名；不依赖对方真实实现才能开始。真实联调前仍须通过 [ACCEPTANCE.md](../docs/ACCEPTANCE.md) 的检查点，A 的编排测试替身已实现，其余工程和真实集成仍待完成。
+先读 [MODULE-DESIGN.md](../docs/MODULE-DESIGN.md) 与 [SYSTEM-DESIGN.md](../docs/SYSTEM-DESIGN.md)，再按 [CONTRACT.md](../docs/CONTRACT.md) **v1.2** 实现准确签名；不依赖对方真实实现才能开始（新方法可先 `UNIMPLEMENTED`）。真实联调前仍须通过 [ACCEPTANCE.md](../docs/ACCEPTANCE.md) 的检查点。

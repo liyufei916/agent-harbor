@@ -25,17 +25,70 @@ function wrapTransportError() {
 
 async function call(method, ...args) {
   try {
+    if (typeof transport[method] !== "function") {
+      if (method === "getRuntimeHealth") {
+        return {
+          available: true,
+          reason: "live 健康检查占位可用",
+          isolationLevel: "",
+          provisional: true,
+          error: null,
+        };
+      }
+      if (method === "listSessions") {
+        return { sessions: [], provisional: true, error: null };
+      }
+      if (method === "listAccounts") {
+        return { accounts: [], provisional: true, error: null };
+      }
+      if (
+        method === "getUIPrefs" ||
+        method === "setUIPrefs" ||
+        method === "removeAccount" ||
+        method === "revokeRememberedHost" ||
+        method === "resolvePermission" ||
+        method === "destroySession" ||
+        method === "getPermissionOverview" ||
+        method === "listRememberedHosts"
+      ) {
+        return { error: null, provisional: true };
+      }
+      throw new Error(`transport missing ${method}`);
+    }
     const result = await transport[method](...args);
     return result;
   } catch (e) {
     if (method === "listAgents") {
       return { agents: [], error: wrapTransportError(e) };
     }
+    if (method === "getRuntimeHealth") {
+      return {
+        available: false,
+        reason: wrapTransportError(e).message,
+        isolationLevel: "",
+        error: wrapTransportError(e),
+      };
+    }
+    if (method === "listSessions") {
+      return { sessions: [], error: wrapTransportError(e) };
+    }
+    if (method === "listAccounts") {
+      return { accounts: [], error: wrapTransportError(e) };
+    }
     if (method === "selectWorkspace") {
       return { path: "", cancelled: false, error: wrapTransportError(e) };
     }
     if (method === "connectModel" || method === "connectMcp") {
       return { account: null, error: wrapTransportError(e) };
+    }
+    if (
+      method === "removeAccount" ||
+      method === "revokeRememberedHost" ||
+      method === "resolvePermission" ||
+      method === "getUIPrefs" ||
+      method === "setUIPrefs"
+    ) {
+      return { error: wrapTransportError(e) };
     }
     return { session: null, error: wrapTransportError(e) };
   }
@@ -80,6 +133,54 @@ export function getMockScenario() {
 
 export function listAgents() {
   return call("listAgents");
+}
+export function getRuntimeHealth() {
+  return call("getRuntimeHealth");
+}
+export function listSessions() {
+  return call("listSessions");
+}
+export function destroySession(sessionId) {
+  return call("destroySession", sessionId);
+}
+export function listAccounts(kind) {
+  return call("listAccounts", kind || "");
+}
+export function removeAccount(accountId) {
+  return call("removeAccount", accountId);
+}
+export function getPermissionOverview(sessionId) {
+  return call("getPermissionOverview", sessionId || "");
+}
+export function listRememberedHosts(workspace) {
+  return call("listRememberedHosts", workspace || "");
+}
+export function revokeRememberedHost(input) {
+  return call("revokeRememberedHost", input);
+}
+export function resolvePermission(input) {
+  return call("resolvePermission", input);
+}
+export function getUIPrefs() {
+  return call("getUIPrefs");
+}
+export function setUIPrefs(prefs) {
+  return call("setUIPrefs", prefs);
+}
+export function switchModel(input) {
+  return call("switchModel", input);
+}
+export function startMcpOAuth(input) {
+  return call("startMcpOAuth", input);
+}
+export function cancelMcpOAuth(pendingId) {
+  return call("cancelMcpOAuth", pendingId);
+}
+export function writePty(input) {
+  return call("writePty", input);
+}
+export function resizePty(input) {
+  return call("resizePty", input);
 }
 export function selectWorkspace() {
   return call("selectWorkspace");

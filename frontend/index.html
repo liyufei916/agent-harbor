@@ -3,29 +3,66 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Agent Harbor — 配置与工作台</title>
+    <title>Agent Harbor</title>
     <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
-    <div class="app">
-      <header class="top">
-        <div>
-          <strong class="brand">Agent Harbor</strong>
-          <span id="mode-badge" class="badge mock">模拟模式</span>
-        </div>
-        <nav class="tabs">
-          <button type="button" class="tab on" data-tab="setup">配置</button>
-          <button type="button" class="tab" data-tab="session">工作台</button>
-        </nav>
+    <div id="onboarding-root" class="onboarding-layer hidden"></div>
+    <div class="shell" id="app-shell">
+      <header class="titlebar" id="titlebar">
+        <strong class="titlebar-brand">Agent Harbor</strong>
+        <span id="mode-badge" class="badge mock">模拟模式</span>
+        <span class="spacer"></span>
+        <label class="session-switch hidden" id="session-switch-wrap">
+          <span class="meta">当前会话</span>
+          <select id="session-switch" aria-label="切换会话"></select>
+        </label>
       </header>
-
-      <p class="warn-banner">
-        两天版：direct 工作区会直接改原文件；凭据仅在宿主机内存，重启需重填。浏览器默认 mock，不能代替真实验收。
-      </p>
-
-      <main id="view-setup" class="view"></main>
-      <main id="view-session" class="view hidden"></main>
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+          <p class="sidebar-tagline">密钥留在本机 · Agent 隔离运行</p>
+        </div>
+        <nav class="sidebar-nav" id="sidebar-nav">
+          <button type="button" class="nav-item on" data-route="home" title="HOME">
+            <span class="nav-ico" aria-hidden="true">⌂</span>
+            <span class="nav-label">HOME</span>
+          </button>
+          <button type="button" class="nav-item" data-route="models" title="模型">
+            <span class="nav-ico" aria-hidden="true">◇</span>
+            <span class="nav-label">模型</span>
+          </button>
+          <button type="button" class="nav-item" data-route="tools" title="工具">
+            <span class="nav-ico" aria-hidden="true">⚒</span>
+            <span class="nav-label">工具</span>
+          </button>
+          <button type="button" class="nav-item" data-route="settings" title="设置">
+            <span class="nav-ico" aria-hidden="true">⚙</span>
+            <span class="nav-label">设置</span>
+          </button>
+        </nav>
+        <div class="sidebar-foot">
+          <button type="button" class="btn sidebar-toggle" id="sidebar-toggle" title="收缩侧栏">«</button>
+          <div class="health" id="health-light" title="隔离状态">
+            <span class="health-dot" id="health-dot"></span>
+            <span class="health-text" id="health-text">检测中…</span>
+          </div>
+        </div>
+      </aside>
+      <div class="main-col">
+        <p class="warn-banner" id="mode-banner">
+          分支 feat/page-design-full：按 PAGE-DESIGN 全量实现（含 OAuth / clone / PTY）。mock ≠ I 验收。
+        </p>
+        <main id="view-home" class="view"></main>
+        <main id="view-wizard" class="view hidden"></main>
+        <main id="view-models" class="view hidden"></main>
+        <main id="view-tools" class="view hidden"></main>
+        <main id="view-settings" class="view hidden"></main>
+        <main id="view-session" class="view hidden"></main>
+        <main id="view-setup" class="view hidden" aria-hidden="true"></main>
+      </div>
     </div>
+    <div id="block-root" class="block-layer hidden"></div>
+    <div id="modal-root" class="modal-layer hidden"></div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

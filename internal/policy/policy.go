@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/liyufei916/agent-harbor/internal/contracts"
 )
@@ -49,6 +50,8 @@ type PolicySnapshot struct {
 // Builder 构造会话策略快照。
 type Builder struct {
 	profiles map[string]FixedProfile
+	mu       sync.Mutex
+	hosts    []contracts.RememberedHost
 }
 
 // NewBuilder 使用默认固定 profile；可注入自定义 map 便于测试。
@@ -77,24 +80,24 @@ func (b *Builder) Build(_ context.Context, req PolicyRequest) (PolicySnapshot, e
 	if strings.TrimSpace(req.AgentID) == "" {
 		return PolicySnapshot{}, ErrInvalidAgent
 	}
-	modelProf, ok := b.profiles[req.Model.ProfileID]
-	if !ok || modelProf.Kind != "model" {
-		return PolicySnapshot{}, ErrUnknownProfile
+	modelProf, err := b.accountProfile(req.Model, "model")
+	if err != nil {
+		return PolicySnapshot{}, err
 	}
-	if req.Model.Kind != "model" {
+	if req.AgentID == "dsh" && req.Model.ProfileID != ProfileDSHModel {
 		return PolicySnapshot{}, ErrKindMismatch
 	}
-	if req.AgentID == "dsh" && req.Model.ProfileID != ProfileDSHModel || req.AgentID == "claude" && req.Model.ProfileID != ProfileDemoModel {
+	if req.AgentID == "claude" && req.Model.ProfileID != ProfileDemoModel && req.Model.ProfileID != ProfileCustom {
 		return PolicySnapshot{}, ErrKindMismatch
 	}
 	if !ValidBasePath(modelProf.BasePath) {
 		return PolicySnapshot{}, ErrUnknownProfile
 	}
-	mcpProf, ok := b.profiles[req.MCP.ProfileID]
-	if !ok || mcpProf.Kind != "mcp" {
-		return PolicySnapshot{}, ErrUnknownProfile
+	mcpProf, err := b.accountProfile(req.MCP, "mcp")
+	if err != nil {
+		return PolicySnapshot{}, err
 	}
-	if req.MCP.Kind != "mcp" || req.MCP.ID == "" {
+	if req.MCP.ID == "" {
 		return PolicySnapshot{}, ErrMissingMCP
 	}
 	if !sameHost(req.Model.Host, modelProf.Host) || !sameHost(req.MCP.Host, mcpProf.Host) {
@@ -184,6 +187,32 @@ func PathAllowed(rule EndpointRule, path string) bool {
 		}
 	}
 	return false
+}
+
+func (b *Builder) accountProfile(info contracts.AccountInfo, kind string) (FixedProfile, error) {
+	if strings.TrimSpace(info.Kind) != kind {
+		if kind == "mcp" {
+			return FixedProfile{}, ErrMissingMCP
+		}
+		return FixedProfile{}, ErrKindMismatch
+	}
+	if info.ProfileID == ProfileCustom {
+		origin, host, err := OriginFromAccountHost(info.Host)
+		if err != nil {
+			return FixedProfile{}, err
+		}
+		prof := FixedProfile{ID: ProfileCustom, Kind: kind, Origin: origin, Host: host, Protocol: "anthropic", Paths: []string{"/v1/messages"}}
+		if kind == "mcp" {
+			prof.Protocol = "streamable-http"
+			prof.Paths = []string{"/mcp"}
+		}
+		return prof, nil
+	}
+	prof, ok := b.profiles[info.ProfileID]
+	if !ok || prof.Kind != kind {
+		return FixedProfile{}, ErrUnknownProfile
+	}
+	return prof, nil
 }
 
 func sameHost(got, want string) bool {

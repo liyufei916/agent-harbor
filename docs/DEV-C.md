@@ -76,20 +76,19 @@ python3 -m http.server 5173
 - 真实模式须显示「真实绑定」，禁止把 mock 计入 I1–I11。
 - 预览：`cd frontend && npm run dev`，或 `python3 -m http.server`。
 
-### 明确未做
+### 明确未做（历史两天记录 · 已被本分支覆盖部分）
 
-- 真实凭据与上游
-- 完整 PAGE-DESIGN（HOME / 设置 / 扩权 / 双会话 / PTY）
-- 自动 E2E 测试脚本、`demos/run.sh`
-- 修改 `internal/`、Gate、Runtime、契约字段（页面需求已按现有 CONTRACT 对齐，无新增字段提案）
+当时未做：真实凭据与上游；完整 PAGE-DESIGN（HOME / 设置 / 扩权 / 双会话 / PTY）；自动 E2E；改 `internal/`。
+
+**分支 `feat/page-design-full`**：完整 PAGE stub/mock（含 OAuth UI / clone / PTY 区 / 扩权）**已推进**，见文末「全量 PAGE-DESIGN」节。真实凭据、live OAuth/PTY/clone、自动 E2E 仍待联调；C 仍不改 `internal/`。
 
 ### 后续顺序
 
 1. ~~D4 证据~~ 已记入 ACCEPTANCE §4.1。
-2. 将本分支前端与文档推到 `origin`（当前 GitHub CLI token 若失效需先 `gh auth refresh`）。
-3. 使用 Wails v3 绑定生成和 live transport；准备真实凭据后联调 I1（关闭 mock 真连）。
-4. ~~准备非敏感演示目录与任务文案~~ → `demos/workspace/` + `verify-workspace.sh` + 固定任务；配合 A/B 冲 I2 / I8 / I10 / I11。
-5. 需要新 UI 字段时先提 CONTRACT，再改 api/mock/视图。
+2. ~~推前端与文档~~ → 跟 `feat/page-design-full`。
+3. 联调 I1（真实绑定）；A/B 去 UNIMPLEMENTED。
+4. ~~演示目录~~ → `demos/workspace/` 已有。
+5. 新字段先改 CONTRACT v1.2，再改 api/mock/视图。
 
 ### 演示工作区（2026-10-24）
 
@@ -99,7 +98,67 @@ python3 -m http.server 5173
 
 ### 模型 / MCP 示例填写
 
-见 [demos/README.md](../demos/README.md)「模型 / MCP 填写示例」：mock 可用 `mock-model-key-not-secret` / `mock-mcp-token-not-secret`；live 仅换本机真实凭据，profileId 仍为 `demo-model` / `demo-mcp`。
+见 [demos/README.md](../demos/README.md)：mock 可用示例假 Key；live 用真凭据；Claude=`demo-model`，dsh=`dsh-model`，MCP=`demo-mcp`。上游 **无默认 origin**，须 `HARBOR_*` 登记。
+
+---
+
+## 2026-10-25：按 TASK-SPLIT 启动 C 分工（历史）
+
+任务源：[TASK-SPLIT-ABC.md](TASK-SPLIT-ABC.md)。当时先做 P0 文档；**契约已定（v1.2），不再等冻结会**。当前以文末全量节为准。
+
+### 本轮已交付（C）
+
+| ID | 内容 |
+|---|---|
+| P0-C-DOC-1 | [demos/README.md](../demos/README.md)：live 启动命令、env、工作区、真实任务模板、I1/I2 检查表 |
+| P0-C-DOC-2 | 同文档「十分钟 live 话术」 |
+| P0-C-DOC-3 骨架 | [demos/evidence-template.md](../demos/evidence-template.md) 填空模板（真机后再写入 ACCEPTANCE） |
+| UI | live 下隐藏 mock 场景卡；任务提示；真机任务含 mock/search 时开始前警告；顶栏 banner 随模式切换 |
+| — | 纠正过时表述（live 无默认 DeepSeek/占位 MCP origin） |
+
+---
+
+## 2026-10-25：按 PAGE-DESIGN 落地壳（C · 已被全量节取代）
+
+对照 [PAGE-DESIGN.md](PAGE-DESIGN.md)。壳阶段侧栏曾含「工作台」入口、上限文案曾写 1；**`feat/page-design-full` 已改回首版导航与全量能力**，见下节。健康/列表属 CONTRACT v1.2 正式方法。
+
+---
+
+## 2026-10-25：分支 feat/page-design-full（全量 PAGE-DESIGN · **当前准绳**）
+
+**目标**：不按交付裁剪；导航与各屏对齐 [PAGE-DESIGN](PAGE-DESIGN.md)。总纲 [SYSTEM-DESIGN v2](SYSTEM-DESIGN.md)；契约 [CONTRACT v1.2](CONTRACT.md)。
+
+**怎么看效果**：设计目标是 **桌面 App**；日常用浏览器 `cd frontend && npm run dev` 看全量 PAGE（mock）。真连 / 隔离 / Gate 用 `wails3 dev`（真实绑定）。浏览器 mock 不计 I1–I11。
+
+### 本分支已推进（C / mock）
+
+- 顶栏会话切换；侧栏仅 HOME/模型/工具/设置（工作台不强占）
+- Wizard **四步**（含 clone/direct）
+- 模型自由 OpenAPI；工具 **OAuth | Token** 双轨 UI
+- 工作台：边界条、模型切换、权限一览、扩权 Modal、PTY 区
+- 设置：检测、默认挂载、记住主机、关于
+
+### 2026-10-25 C 开工推进
+
+| 项 | 状态 |
+|---|---|
+| mock 多会话 ≤2 / WORKSPACE_BUSY / SESSION_LIMIT | **已做**（`mock-api.js`） |
+| 向导默认 clone；演示路径 B | **已做** |
+| OAuth pending 轮询 + 取消 /「我已完成」 | **已做**（`tools.js`） |
+| PTY mock 回显 | 已有；随多会话按 sessionId |
+| HOME 同步 `listSessions` | **已做** |
+
+### C 下一步
+
+| 优先级 | 项 | 依赖 |
+|---|---|---|
+| 本分支 | 视觉对齐 prototype；空态/文案；扩权 mock 联调打磨 | — |
+| 联调 | A/B 去 UNIMPLEMENTED；OAuth/PTY/clone 真实现 | generate bindings |
+| P0 | 仍可跟 I 证据，但不挡本分支 UI | ENV |
+
+### 明确不做（仍禁止）
+
+手改 `bindings/`、改 `internal/`、把 mock 记为 I 通过、未冻接口当真实现。
 
 ---
 
@@ -107,8 +166,8 @@ python3 -m http.server 5173
 
 | 负责 | 目录 |
 |---|---|
-| 配置页、工作台、样式与交互 | `frontend/index.html`、`frontend/src/**` |
-| 接口封装与模拟数据 | `frontend/src/api.js`、`frontend/src/mock-api.js` |
-| 产品验收与演示说明 | `demos/`、[ACCEPTANCE.md](ACCEPTANCE.md) 中 C 相关项 |
+| 壳与页面、样式与交互 | `frontend/index.html`、`frontend/src/**` |
+| 接口封装与模拟数据 | `frontend/src/api.js`、`frontend/src/mock-api.js`、`live-api.js` |
+| 产品验收与演示说明 | `demos/`、[ACCEPTANCE.md](ACCEPTANCE.md)、[TASK-SPLIT-ABC.md](TASK-SPLIT-ABC.md) |
 
 不修改桌面 Go 入口与会话状态机；不手改 `frontend/bindings/`。

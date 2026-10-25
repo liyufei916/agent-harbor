@@ -28,7 +28,7 @@
 - AgentInfo 可选 modelProfileId：Claude 为 demo-model，dsh 为 dsh-model，旧消费者可忽略。
 - Runtime ReadOnlyPaths 可包含经校验的安装目录：只读/映射，不产生递归 process-exec；启动命令仍须单独明确授权文件。
 - EndpointRule 可选 BasePath 由 Gate 拼入固定路径，前端和 Agent 无法修改。
-- 单会话和七个桌面方法不变，不增加故障开关，不嵌入 dsh GUI。
+- dsh 不另开故障开关、不嵌入 dsh GUI。桌面方法面以 [CONTRACT v1.2](CONTRACT.md) 为准（本分支可含多会话/OAuth/PTY 等）；dsh Kit 仍走同一 DesktopAPI。
 
 ## 安装与启动
 

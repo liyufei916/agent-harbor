@@ -106,6 +106,36 @@ func (s *Store) Delete(_ context.Context, id string) error {
 	return nil
 }
 
+// List 返回脱敏元信息。kind 为空表示全部，否则只能是 model 或 mcp。
+func (s *Store) List(kind string) ([]contracts.AccountInfo, error) {
+	kind = strings.TrimSpace(kind)
+	if kind != "" && kind != "model" && kind != "mcp" {
+		return nil, ErrInvalidInput
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]contracts.AccountInfo, 0)
+	for _, rec := range s.byID {
+		if kind == "" || rec.meta.Kind == kind {
+			out = append(out, rec.meta)
+		}
+	}
+	sortAccounts(out)
+	return out, nil
+}
+
+func sortAccounts(list []contracts.AccountInfo) {
+	for i := 1; i < len(list); i++ {
+		item := list[i]
+		j := i
+		for j > 0 && list[j-1].ID > item.ID {
+			list[j] = list[j-1]
+			j--
+		}
+		list[j] = item
+	}
+}
+
 // Lookup 返回脱敏元信息，不返回密钥。
 func (s *Store) Lookup(_ context.Context, id string) (contracts.AccountInfo, error) {
 	s.mu.RLock()

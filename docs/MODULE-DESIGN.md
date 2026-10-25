@@ -1,6 +1,6 @@
 # 两天版模块设计与并行开发
 
-本文件定义当前 Go/Wails 版的模块边界、依赖、装配、负责人和交付顺序。方法与数据以 [CONTRACT.md](CONTRACT.md) 为唯一来源，目录见 [DIRECTORY-STRUCTURE.md](DIRECTORY-STRUCTURE.md)，范围见根 AGENTS.md。长期 ARCHITECTURE.md 不作为本版额外功能清单。
+本文件定义 Go/Wails 包边界、替身与文件归属。V1 **架构总纲与 ABC 分工**见 [SYSTEM-DESIGN.md](SYSTEM-DESIGN.md)；方法与数据以 [CONTRACT.md](CONTRACT.md) v1.2 为唯一来源；屏级绑定见 [PAGE-API-MAP.md](PAGE-API-MAP.md)。目录见 [DIRECTORY-STRUCTURE.md](DIRECTORY-STRUCTURE.md)。本分支（`feat/page-design-full`）以 PAGE-DESIGN 全量为准，含 OAuth/clone/PTY。
 
 ## 1. 检查结论与补齐范围
 
@@ -15,7 +15,7 @@
 ```mermaid
 flowchart TB
     subgraph UI[产品 C：桌面视图]
-        V[配置页 / 工作台]
+        V[PAGE 壳：HOME / 模型 / 工具 / 设置 / 向导 / 工作台]
         F[api.js：统一前端接口]
         V --> F
     end
@@ -60,7 +60,7 @@ flowchart TB
 | contracts / A 首次合入、B 复核、C 核对 | 可序列化 DTO、公开错误与事件 | Go 定义 → 生成前端模型 | 业务状态机、IO、内部服务句柄 | JSON 示例与字段校验 |
 | main.go/internal/desktop / B | Wails 生命周期、白名单绑定、错误转换与事件桥接 | 固定 DTO → Response / harbor:event | 再造状态机、任意命令/文件接口 | 注入假 SessionService/Connections |
 | frontend / C | 表单、输出、状态展示、提示与用户操作 | api.js 方法/事件 → 视图 | Gate/上游调用、密钥持久化、Go 逻辑 | 浏览器独立 mock transport |
-| orchestrator / A | 单会话锁、生命周期、流程、取消、回滚与终态 | SessionSpec + 注入服务 → Snapshot / Event | 存真凭据、解析 MCP、编写系统隔离规则 | 注入假 Gate/Policy/Runtime/Kit/Catalog |
+| orchestrator / A | 会话锁（本分支目标≤2）、生命周期、clone、PTY、扩权、取消回滚与终态 | SessionSpec + 注入服务 → Snapshot / Event | 存真凭据、解析 MCP/OAuth、编写系统隔离规则 | 注入假 Gate/Policy/Runtime/Kit/Catalog |
 | runtime / A | 私有 HOME、配置落盘、OS 约束、进程树及临时数据 | RuntimeSpec + LaunchSpec → Handle / Process / 输出 | 账号、MCP 授权、UI、模型协议 | 真实 profile + 无敏感受限探测程序 |
 | kits / A | CLI 检测、版本能力、启动配置生成 | KitInput → LaunchSpec | 宿主机直接执行任务、读 Secrets、创建 Gate | 固定输入快照与受限实际 Agent |
 | policy / B | 规范化工作区、固定 profile、目标/工具白名单快照 | PolicyRequest → PolicySnapshot | 网络转发、启动进程、持久授权库 | 临时目录、符号链接、未授权目标 |
