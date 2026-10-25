@@ -12,6 +12,7 @@ const (
 	ProfileDemoModel = "demo-model"
 	ProfileDemoMCP   = "demo-mcp"
 	ProfileDSHModel  = "dsh-model"
+	ProfileCustom    = "custom"
 )
 
 // FixedProfile 描述受信后端配置中的固定上游。
@@ -68,7 +69,13 @@ func (p FixedProfile) ValidConnection() bool {
 	if p.Kind == "model" {
 		return p.Protocol == "anthropic" && strings.TrimSpace(p.Model) != "" && len(p.Model) <= 256 && !strings.ContainsAny(p.Model, "\x00\r\n")
 	}
-	return p.Kind == "mcp" && p.Protocol == "streamable-http" && len(p.Tools) > 0
+	if p.Kind == "mcp" && p.Protocol == "streamable-http" {
+		if p.ID == ProfileCustom {
+			return true
+		}
+		return len(p.Tools) > 0
+	}
+	return false
 }
 
 // 路径前缀只能来自宿主配置，拒绝编码、路径穿越或 URL 组成部分。

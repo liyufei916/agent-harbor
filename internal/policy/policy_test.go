@@ -70,6 +70,34 @@ func TestPathAllowed(t *testing.T) {
 	}
 }
 
+func TestBuildCustomOrigin(t *testing.T) {
+	dir := t.TempDir()
+	b := NewBuilder(map[string]FixedProfile{})
+	snap, err := b.Build(context.Background(), PolicyRequest{
+		Workspace: dir,
+		AgentID:   "claude",
+		Model:     contracts.AccountInfo{ID: "m1", Kind: "model", ProfileID: ProfileCustom, Host: "api.example.test:8443"},
+		MCP:       contracts.AccountInfo{ID: "t1", Kind: "mcp", ProfileID: ProfileCustom, Host: "mcp.example.test"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snap.Model.Origin != "https://api.example.test:8443" || snap.MCP.Origin != "https://mcp.example.test" {
+		t.Fatalf("%+v", snap)
+	}
+	if err := b.RememberHost("files.example.test", dir, "project"); err != nil {
+		t.Fatal(err)
+	}
+	if got := b.ListRememberedHosts(dir); len(got) != 1 || got[0].Host != "files.example.test" {
+		t.Fatalf("%+v", got)
+	}
+	b.RevokeRememberedHost("files.example.test", dir)
+	b.RevokeRememberedHost("files.example.test", dir)
+	if len(b.ListRememberedHosts("")) != 0 {
+		t.Fatal("revoke should be idempotent")
+	}
+}
+
 func TestBuildRejectsHostMismatch(t *testing.T) {
 	dir := t.TempDir()
 	b := NewBuilder(map[string]FixedProfile{

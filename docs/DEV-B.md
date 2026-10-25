@@ -113,7 +113,25 @@ wails3 task package # macOS 上得到 bin/AgentHarbor.app，可双击打开
 - 窗口导航锁定与 CSP
 - 真实上游协议组合的验收证据
 
-**分支 `feat/page-design-full`（2026-10-25）**：上列 OAuth / 多会话 / `switchModel` / clone / PTY **改回范围内**（见 [SYSTEM-DESIGN](SYSTEM-DESIGN.md) v2、[CONTRACT](CONTRACT.md) v1.2、[TASK-SPLIT-ABC](TASK-SPLIT-ABC.md) v2.0）。DesktopAPI 方法名已占位；真实现与证据仍待 B（Gate OAuth）与 A（PTY/clone 编排）接线。其余项（配额、官方 MCP SDK、CSP 等）仍不在本分支必做。
+**分支 `feat/page-design-full`（2026-10-25）**：上列 OAuth / 多会话 / `switchModel` / clone / PTY **改回范围内**（见 [SYSTEM-DESIGN](SYSTEM-DESIGN.md) v2、[CONTRACT](CONTRACT.md) v1.2、[TASK-SPLIT-ABC](TASK-SPLIT-ABC.md) v2.0）。B 已接上账号、偏好、记住主机、权限一览、健康探测、自定义 origin 和 OAuth 回环；列表、销毁、切模型、扩权和 PTY 在编排未实现时返回 `UNIMPLEMENTED`。clone 与 PTY 真会话仍由 A 接线。
+
+## 2026-10-25：v1.2 桌面能力
+
+对照 FULL-BIND / FULL-GATE，在 `feat/page-design-full` 接上 B 能独立完成的方法：
+
+| 方法 | 行为 |
+|---|---|
+| `ListAccounts` / `RemoveAccount` | 只返回元信息；活动会话仍引用该账号时 `SESSION_BUSY` |
+| `ConnectModel` / `ConnectMcp` | 固定 profile 保持原样；`Origin` 为 https 主机时按 `custom` 探测并保存 |
+| `GetUIPrefs` / `SetUIPrefs` | 写入用户配置目录，缺文件返回默认值，不存密钥 |
+| `ListRememberedHosts` / `RevokeRememberedHost` | 内存列表；未知主机撤销仍成功 |
+| `GetPermissionOverview` | 主机、MCP 摘要和禁止路径类别；无 Key / Sentinel |
+| `GetRuntimeHealth` | 调用 `runtime.NewMacOS().Health`；隔离不可用时 `available=false` 且带 reason |
+| `StartMcpOAuth` / `CancelMcpOAuth` | `127.0.0.1` 随机端口 `/callback`。未登记令牌端点时不保存账号 |
+
+`ListSessions`、`DestroySession`、`SwitchModel`、`ResolvePermission`、`WritePty`、`ResizePty` 会在编排实现同名方法后自动转发。当前编排没有这些方法，桌面返回 `UNIMPLEMENTED`，避免页面因缺方法崩溃。
+
+验证：`go test ./internal/policy ./internal/secrets ./internal/gate ./internal/desktop` 通过。这不是真实 OAuth 提供方或 I1 通过。
 
 连接探测当时把 HTTP 404 和其他小于 400 的状态当成成功后再写入 Secrets。这在后续审查里被标为缺陷，并已由后续提交改掉，不属于本节的完成项。
 

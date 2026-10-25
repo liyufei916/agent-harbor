@@ -56,6 +56,28 @@ func TestDeleteThenResolveFails(t *testing.T) {
 	}
 }
 
+func TestListFiltersKind(t *testing.T) {
+	s := NewStore()
+	ctx := context.Background()
+	if _, err := s.Put(ctx, contracts.AccountInfo{Kind: "model", Name: "M", ProfileID: "demo-model", Host: "m.example"}, []byte("k")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Put(ctx, contracts.AccountInfo{Kind: "mcp", Name: "T", ProfileID: "demo-mcp", Host: "t.example"}, []byte("k")); err != nil {
+		t.Fatal(err)
+	}
+	all, err := s.List("")
+	if err != nil || len(all) != 2 {
+		t.Fatalf("all=%v err=%v", all, err)
+	}
+	models, err := s.List("model")
+	if err != nil || len(models) != 1 || models[0].Kind != "model" {
+		t.Fatalf("%+v", models)
+	}
+	if _, err := s.List("other"); err != ErrInvalidInput {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestClear(t *testing.T) {
 	s := NewStore()
 	ctx := context.Background()

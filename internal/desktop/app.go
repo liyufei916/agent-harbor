@@ -9,6 +9,7 @@ import (
 	"github.com/liyufei916/agent-harbor/internal/contracts"
 	"github.com/liyufei916/agent-harbor/internal/gate"
 	"github.com/liyufei916/agent-harbor/internal/policy"
+	"github.com/liyufei916/agent-harbor/internal/runtime"
 	"github.com/liyufei916/agent-harbor/internal/secrets"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -34,10 +35,19 @@ type App struct {
 	gate    *gate.Harbor
 	conn    *gate.Connections
 
-	mu       sync.Mutex
-	sessions SessionService
-	agents   AgentDetector
-	ready    bool
+	mu        sync.Mutex
+	sessions  SessionService
+	agents    AgentDetector
+	ready     bool
+	oauth     *gate.OAuthFlow
+	prefsPath string
+	uses      map[string]accountUse
+}
+
+type accountUse struct {
+	model  string
+	mcps   []string
+	active bool
 }
 
 // NewApp 创建 Gate、Policy 与内存凭据。编排在 AttachOrchestrator 中注入。
@@ -51,6 +61,8 @@ func NewApp() *App {
 	}
 	app.gate = gate.New(store, pol)
 	app.conn = gate.NewConnections(store, pol)
+	app.oauth = gate.NewOAuthFlow(store, pol)
+	app.uses = map[string]accountUse{}
 	return app
 }
 
@@ -92,8 +104,13 @@ func (a *App) orchestratorReady() bool {
 	return a.ready
 }
 
-// forwardEvent 不缓存或推导状态；准入由编排统一管理。
-func (a *App) forwardEvent(ev contracts.Event) { a.EmitHarborEvent(ev) }
+// forwardEvent 转发契约事件，并记下账号是否仍被活动会话引用。
+func (a *App) forwardEvent(ev contracts.Event) {
+	if ev.State != nil {
+		a.noteSnapshot(*ev.State)
+	}
+	a.EmitHarborEvent(ev)
+}
 
 // EmitHarborEvent 把契约事件发到前端固定通道。
 func (a *App) EmitHarborEvent(ev contracts.Event) {
@@ -105,8 +122,72 @@ func (a *App) EmitHarborEvent(ev contracts.Event) {
 // Shutdown 先停止编排，再清空内存凭据。
 func (a *App) Shutdown(ctx context.Context) error {
 	err := a.sessionRef().Shutdown(ctx)
+	if a.oauth != nil {
+		_ = a.oauth.Close()
+	}
 	if err == nil {
 		a.secrets.Clear()
 	}
 	return err
+}
+
+func (a *App) noteCreate(spec contracts.SessionSpec, snap contracts.SessionSnapshot) {
+	if snap.SessionID == "" {
+		return
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.uses[snap.SessionID] = accountUse{model: spec.ModelAccountID, mcps: append([]string(nil), spec.MCPIDs...), active: sessionActive(snap)}
+}
+
+func (a *App) noteSnapshot(snap contracts.SessionSnapshot) {
+	if snap.SessionID == "" {
+		return
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	use, ok := a.uses[snap.SessionID]
+	if !ok {
+		return
+	}
+	use.active = sessionActive(snap)
+	a.uses[snap.SessionID] = use
+}
+
+func (a *App) accountInUse(id string) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	for _, use := range a.uses {
+		if !use.active {
+			continue
+		}
+		if use.model == id {
+			return true
+		}
+		for _, mcp := range use.mcps {
+			if mcp == id {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func sessionActive(snap contracts.SessionSnapshot) bool {
+	switch snap.State {
+	case contracts.StateProvisioning, contracts.StateRunning, contracts.StateStopping:
+		return true
+	case contracts.StateFailed:
+		return !snap.CleanupComplete
+	default:
+		return false
+	}
+}
+
+func (a *App) probeHealth(ctx context.Context) (bool, string) {
+	err := runtime.NewMacOS().Health(ctx)
+	if err == nil {
+		return true, ""
+	}
+	return false, "隔离能力不可用"
 }

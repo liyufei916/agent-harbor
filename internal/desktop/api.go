@@ -101,6 +101,7 @@ func (d *DesktopAPI) CreateSession(spec contracts.SessionSpec) contracts.Session
 	if err != nil {
 		return contracts.SessionResponse{Error: mapError(err)}
 	}
+	d.app.noteCreate(spec, snap)
 	return contracts.SessionResponse{Session: &snap}
 }
 
@@ -127,102 +128,213 @@ func (d *DesktopAPI) StopSession(id string) contracts.SessionResponse {
 }
 
 func unimplemented() *contracts.AppError {
-	return contracts.NewAppError(contracts.ErrUnimplemented, "该方法尚未实现，形状已按契约占位。", false)
+	return contracts.NewAppError(contracts.ErrUnimplemented, "该方法尚未由编排层实现。", false)
 }
 
-// ListAccounts 列出已保存账号（V1.1；未接线时 UNIMPLEMENTED）。
+// ListAccounts 返回已保存账号，不含密钥。
 func (d *DesktopAPI) ListAccounts(kind string) contracts.AccountsResponse {
-	_ = kind
-	return contracts.AccountsResponse{Accounts: []contracts.AccountInfo{}, Error: unimplemented()}
-}
-
-// RemoveAccount 删除账号（V1.1 占位）。
-func (d *DesktopAPI) RemoveAccount(accountID string) contracts.EmptyResponse {
-	_ = accountID
-	return contracts.EmptyResponse{Error: unimplemented()}
-}
-
-// ListSessions 列出会话摘要（V1.1 占位）。
-func (d *DesktopAPI) ListSessions() contracts.SessionsResponse {
-	return contracts.SessionsResponse{Sessions: []contracts.SessionSummary{}, Error: unimplemented()}
-}
-
-// DestroySession 销毁终态会话记录（V1.1 占位）。
-func (d *DesktopAPI) DestroySession(sessionID string) contracts.SessionResponse {
-	_ = sessionID
-	return contracts.SessionResponse{Error: unimplemented()}
-}
-
-// GetRuntimeHealth 返回隔离探测（V1.1 占位；实现接 Runtime.Health）。
-func (d *DesktopAPI) GetRuntimeHealth() contracts.RuntimeHealthResponse {
-	return contracts.RuntimeHealthResponse{
-		Available: false,
-		Reason:    "健康检查尚未接线",
-		Error:     unimplemented(),
+	list, err := d.app.secrets.List(kind)
+	if err != nil {
+		return contracts.AccountsResponse{Accounts: []contracts.AccountInfo{}, Error: mapError(err)}
 	}
+	return contracts.AccountsResponse{Accounts: list}
 }
 
-// GetPermissionOverview 权限一览（V1.1 占位）。
+// RemoveAccount 删除账号。活动会话仍引用时拒绝。
+func (d *DesktopAPI) RemoveAccount(accountID string) contracts.EmptyResponse {
+	if accountID == "" {
+		return contracts.EmptyResponse{Error: contracts.NewAppError(contracts.ErrInvalidArgument, "输入不合法", false)}
+	}
+	if d.app.accountInUse(accountID) {
+		return contracts.EmptyResponse{Error: contracts.NewAppError(contracts.ErrSessionBusy, "账号仍被活动会话使用", false)}
+	}
+	if err := d.app.secrets.Delete(context.Background(), accountID); err != nil {
+		return contracts.EmptyResponse{Error: mapError(err)}
+	}
+	return contracts.EmptyResponse{}
+}
+
+// ListSessions 转发编排层。编排未提供列表时保持方法存在并返回 UNIMPLEMENTED。
+func (d *DesktopAPI) ListSessions() contracts.SessionsResponse {
+	type lister interface {
+		List(context.Context) ([]contracts.SessionSummary, error)
+	}
+	svc, ok := d.app.sessionRef().(lister)
+	if !ok {
+		return contracts.SessionsResponse{Sessions: []contracts.SessionSummary{}, Error: unimplemented()}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	list, err := svc.List(ctx)
+	if err != nil {
+		return contracts.SessionsResponse{Sessions: []contracts.SessionSummary{}, Error: mapError(err)}
+	}
+	if list == nil {
+		list = []contracts.SessionSummary{}
+	}
+	return contracts.SessionsResponse{Sessions: list}
+}
+
+// DestroySession 转发编排层销毁终态会话。
+func (d *DesktopAPI) DestroySession(sessionID string) contracts.SessionResponse {
+	type destroyer interface {
+		Destroy(context.Context, string) (contracts.SessionSnapshot, error)
+	}
+	svc, ok := d.app.sessionRef().(destroyer)
+	if !ok {
+		return contracts.SessionResponse{Error: unimplemented()}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	snap, err := svc.Destroy(ctx, sessionID)
+	if err != nil {
+		return contracts.SessionResponse{Error: mapError(err)}
+	}
+	return contracts.SessionResponse{Session: &snap}
+}
+
+// GetRuntimeHealth 调用 Runtime.Health。隔离不可用时 available=false，不把探测结果当成接口故障。
+func (d *DesktopAPI) GetRuntimeHealth() contracts.RuntimeHealthResponse {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	ok, reason := d.app.probeHealth(ctx)
+	return contracts.RuntimeHealthResponse{Available: ok, Reason: reason, IsolationLevel: "seatbelt"}
+}
+
+// GetPermissionOverview 返回不含密钥的边界摘要。
 func (d *DesktopAPI) GetPermissionOverview(sessionID string) contracts.PermissionOverviewResponse {
-	_ = sessionID
-	return contracts.PermissionOverviewResponse{Error: unimplemented()}
+	workspace := ""
+	if sessionID != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		snap, err := d.app.sessionRef().Get(ctx, sessionID)
+		if err != nil {
+			return contracts.PermissionOverviewResponse{Error: mapError(err)}
+		}
+		workspace = snap.Workspace
+	}
+	mcp := []string{}
+	if prof, ok := d.app.policy.Profile("demo-mcp"); ok && prof.Host != "" {
+		mcp = append(mcp, prof.ID)
+	}
+	hosts := d.app.policy.AllowedHostNames()
+	return contracts.PermissionOverviewResponse{Overview: &contracts.PermissionOverview{
+		SessionID:            sessionID,
+		Workspace:            workspace,
+		AllowedHosts:         hosts,
+		MCPSummary:           mcp,
+		DeniedPathCategories: []string{"ssh", "aws", "gnupg", "keychain", "home"},
+	}}
 }
 
-// ListRememberedHosts 已记住主机（V1.1 占位）。
+// ListRememberedHosts 返回已记住主机。
 func (d *DesktopAPI) ListRememberedHosts(workspace string) contracts.RememberedHostsResponse {
-	_ = workspace
-	return contracts.RememberedHostsResponse{Hosts: []contracts.RememberedHost{}, Error: unimplemented()}
+	return contracts.RememberedHostsResponse{Hosts: d.app.policy.ListRememberedHosts(workspace)}
 }
 
-// RevokeRememberedHost 撤销记住主机（V1.1 占位）。
+// RevokeRememberedHost 撤销记住项。未知主机也成功。
 func (d *DesktopAPI) RevokeRememberedHost(in contracts.RevokeHostInput) contracts.EmptyResponse {
-	_ = in
-	return contracts.EmptyResponse{Error: unimplemented()}
+	d.app.policy.RevokeRememberedHost(in.Host, in.Workspace)
+	return contracts.EmptyResponse{}
 }
 
-// ResolvePermission 扩权决策（V1.1 占位）。
+// ResolvePermission 转发给编排层。尚无挂起处理时返回 UNIMPLEMENTED。
 func (d *DesktopAPI) ResolvePermission(in contracts.ResolvePermissionInput) contracts.EmptyResponse {
-	_ = in
-	return contracts.EmptyResponse{Error: unimplemented()}
+	type resolver interface {
+		ResolvePermission(context.Context, contracts.ResolvePermissionInput) error
+	}
+	svc, ok := d.app.sessionRef().(resolver)
+	if !ok {
+		return contracts.EmptyResponse{Error: unimplemented()}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := svc.ResolvePermission(ctx, in); err != nil {
+		return contracts.EmptyResponse{Error: mapError(err)}
+	}
+	return contracts.EmptyResponse{}
 }
 
-// GetUIPrefs 读取 UI 偏好（V1.1 占位，返回默认值形状）。
+// GetUIPrefs 读取本机偏好。没有文件时返回默认值。
 func (d *DesktopAPI) GetUIPrefs() contracts.UIPrefsResponse {
-	prefs := contracts.UIPrefs{SidebarCollapsed: false, AutoCollapseWorkbench: true}
-	return contracts.UIPrefsResponse{Prefs: &prefs, Error: unimplemented()}
+	prefs := d.app.loadPrefs()
+	return contracts.UIPrefsResponse{Prefs: &prefs}
 }
 
-// SetUIPrefs 写入 UI 偏好（V1.1 占位）。
+// SetUIPrefs 只写入侧栏偏好，不接受密钥字段。
 func (d *DesktopAPI) SetUIPrefs(prefs contracts.UIPrefs) contracts.UIPrefsResponse {
-	return contracts.UIPrefsResponse{Prefs: &prefs, Error: unimplemented()}
+	if err := d.app.savePrefs(prefs); err != nil {
+		return contracts.UIPrefsResponse{Error: contracts.NewAppError(contracts.ErrInternal, "内部错误", false)}
+	}
+	stored := d.app.loadPrefs()
+	return contracts.UIPrefsResponse{Prefs: &stored}
 }
 
-// SwitchModel 切换会话模型（全量 PAGE 占位）。
+// SwitchModel 转发编排层。编排未实现时返回 UNIMPLEMENTED。
 func (d *DesktopAPI) SwitchModel(in contracts.SwitchModelInput) contracts.SessionResponse {
-	_ = in
-	return contracts.SessionResponse{Error: unimplemented()}
+	type switcher interface {
+		SwitchModel(context.Context, contracts.SwitchModelInput) (contracts.SessionSnapshot, error)
+	}
+	svc, ok := d.app.sessionRef().(switcher)
+	if !ok {
+		return contracts.SessionResponse{Error: unimplemented()}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	snap, err := svc.SwitchModel(ctx, in)
+	if err != nil {
+		return contracts.SessionResponse{Error: mapError(err)}
+	}
+	return contracts.SessionResponse{Session: &snap}
 }
 
-// StartMcpOAuth 启动 MCP OAuth（占位）。
+// StartMcpOAuth 登记回环并返回授权地址。浏览器由桌面打开。
 func (d *DesktopAPI) StartMcpOAuth(in contracts.StartMcpOAuthInput) contracts.McpOAuthResponse {
-	_ = in
-	return contracts.McpOAuthResponse{Error: unimplemented()}
+	authURL, pendingID, err := d.app.oauth.Start(in)
+	if err != nil {
+		return contracts.McpOAuthResponse{Error: mapError(err)}
+	}
+	openBrowser(authURL)
+	return contracts.McpOAuthResponse{AuthURL: authURL, PendingID: pendingID}
 }
 
-// CancelMcpOAuth 取消 OAuth（占位）。
+// CancelMcpOAuth 清除 pending。
 func (d *DesktopAPI) CancelMcpOAuth(pendingID string) contracts.EmptyResponse {
-	_ = pendingID
-	return contracts.EmptyResponse{Error: unimplemented()}
+	if err := d.app.oauth.Cancel(pendingID); err != nil {
+		return contracts.EmptyResponse{Error: mapError(err)}
+	}
+	return contracts.EmptyResponse{}
 }
 
-// WritePty 写入 PTY（占位）。
+// WritePty 转发编排层。当前 Runtime 没有 PTY 时返回 UNIMPLEMENTED。
 func (d *DesktopAPI) WritePty(in contracts.PtyInput) contracts.EmptyResponse {
-	_ = in
-	return contracts.EmptyResponse{Error: unimplemented()}
+	return d.forwardPty(in, true)
 }
 
-// ResizePty 调整 PTY（占位）。
+// ResizePty 转发编排层。当前 Runtime 没有 PTY 时返回 UNIMPLEMENTED。
 func (d *DesktopAPI) ResizePty(in contracts.PtyInput) contracts.EmptyResponse {
-	_ = in
-	return contracts.EmptyResponse{Error: unimplemented()}
+	return d.forwardPty(in, false)
+}
+
+func (d *DesktopAPI) forwardPty(in contracts.PtyInput, write bool) contracts.EmptyResponse {
+	type ptyBridge interface {
+		WritePty(context.Context, contracts.PtyInput) error
+		ResizePty(context.Context, contracts.PtyInput) error
+	}
+	svc, ok := d.app.sessionRef().(ptyBridge)
+	if !ok {
+		return contracts.EmptyResponse{Error: unimplemented()}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var err error
+	if write {
+		err = svc.WritePty(ctx, in)
+	} else {
+		err = svc.ResizePty(ctx, in)
+	}
+	if err != nil {
+		return contracts.EmptyResponse{Error: mapError(err)}
+	}
+	return contracts.EmptyResponse{}
 }
