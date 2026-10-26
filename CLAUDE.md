@@ -2,6 +2,8 @@
 
 @AGENTS.md
 
+README 覆盖率徽章由 main 全部 CI 检查成功后自动发布至 `coverage-badge` 分支；生成入口为 `scripts/coverage-badge.py`，统计沿用完整 `./...` 的 total，禁止手填百分比。PR 仅生成并上传报告，不发布徽章。
+
 模型页已补充 Claude/dsh/Codex 预置 profile 连接入口，新会话向导按 Agent 过滤兼容账号；dsh/Codex 预置上游仍需宿主环境登记。配置说明见 [README](README.md)。后续 PR 目标为 `main`。
 
 Runtime 平台测试仅在隔离能力可用时执行真实闭环；环境返回 `ISOLATION_UNAVAILABLE` 时明确跳过，纯校验测试继续执行。生产启动仍失败关闭；Go 回归使用 `go test -race ./...`。
