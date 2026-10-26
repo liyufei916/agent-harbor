@@ -2,6 +2,8 @@
 
 @AGENTS.md
 
+模型页已补充 Claude/dsh/Codex 预置 profile 连接入口，新会话向导按 Agent 过滤兼容账号；dsh/Codex 预置上游仍需宿主环境登记。配置说明见 [README](README.md)。后续 PR 目标为 `main`。
+
 Runtime 平台测试仅在隔离能力可用时执行真实闭环；环境返回 `ISOLATION_UNAVAILABLE` 时明确跳过，纯校验测试继续执行。生产启动仍失败关闭；Go 回归使用 `go test -race ./...`。
 
 研发 A 当前交付状态、可复现证据及尚未关闭的 Codex、扩权和真实验收项见[研发 A 交付状态](docs/A-DELIVERY-STATUS.md)。

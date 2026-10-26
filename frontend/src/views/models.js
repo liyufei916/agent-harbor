@@ -1,6 +1,7 @@
 /**
- * PAGE-DESIGN §5.7 模型：自由添加 OpenAPI（名 + 地址 + Key）
- * Live 自定义 origin 须 Anthropic 兼容 /v1/messages。
+ * PAGE-DESIGN §5.7 模型：自定义 OpenAPI 或预置 Agent profile。
+ * Live 自定义 origin 须 Anthropic 兼容 /v1/messages；预置 profile 的
+ * 上游由宿主环境登记，页面只接收显示名和 Key。
  */
 import * as api from "../api.js";
 
@@ -159,7 +160,7 @@ export function mountModels(root, ctx, opts = {}) {
     const form = root.querySelector("#model-form");
     const acc =
       editing === "new"
-        ? { name: "", host: "", profileId: "custom" }
+        ? { name: "", host: "", profileId: ctx.state.modelProfileIntent || "custom" }
         : (ctx.state.modelAccounts || []).find((a) => a.id === editing) || {};
     const originValue =
       acc.origin ||
@@ -169,9 +170,20 @@ export function mountModels(root, ctx, opts = {}) {
       <section class="card">
         <h3>${editing === "new" ? "添加模型" : "编辑模型"}</h3>
         <label class="field">名称<input id="m-name" value="${acc.name || ""}" maxlength="100"/></label>
-        <label class="field">API 地址<input id="m-origin" value="${originValue}" placeholder="https://api.deepseek.com/anthropic"/></label>
-        <p class="meta">须 Anthropic 兼容 Messages API（探测 <code>POST …/v1/messages</code>）。七牛：<code>api.qnaigc.com</code> 与 <code>llmapi.qiniu.io</code> 各用各的 Key，不能混用。</p>
-        <label class="field">模型名（可选）<input id="m-model" value="${acc.model || ""}" placeholder="空则按主机推断，如 deepseek-chat"/></label>
+        <label class="field">Agent profile
+          <select id="m-profile" ${editing !== "new" ? "disabled" : ""}>
+            <option value="custom" ${acc.profileId === "custom" ? "selected" : ""}>自定义模型（Claude）</option>
+            <option value="demo-model" ${acc.profileId === "demo-model" ? "selected" : ""}>Claude Code（预置上游）</option>
+            <option value="dsh-model" ${acc.profileId === "dsh-model" ? "selected" : ""}>DeepSeek dsh</option>
+            <option value="codex-model" ${acc.profileId === "codex-model" ? "selected" : ""}>OpenAI Codex</option>
+          </select>
+        </label>
+        <div id="custom-model-fields">
+          <label class="field">API 地址<input id="m-origin" value="${originValue}" placeholder="https://api.deepseek.com/anthropic"/></label>
+          <p class="meta">自定义模型须 Anthropic 兼容 Messages API（探测 <code>POST …/v1/messages</code>）。</p>
+          <label class="field">模型名（可选）<input id="m-model" value="${acc.model || ""}" placeholder="空则按主机推断，如 deepseek-chat"/></label>
+        </div>
+        <p class="meta" id="fixed-profile-hint">预置 profile 的地址和模型由启动环境登记，页面不重复填写。</p>
         <label class="field">API Key（提交后清空）<input id="m-key" type="password" autocomplete="off" spellcheck="false" placeholder="${editing === "new" ? "粘贴完整 sk-… Key" : "重贴新 Key（不回显旧值）"}"/></label>
         <p class="meta" id="m-key-hint">${
           editing !== "new" && acc.keyHint
@@ -194,6 +206,9 @@ export function mountModels(root, ctx, opts = {}) {
     const nameEl = form.querySelector("#m-name");
     const originEl = form.querySelector("#m-origin");
     const modelEl = form.querySelector("#m-model");
+    const profileEl = form.querySelector("#m-profile");
+    const customFields = form.querySelector("#custom-model-fields");
+    const fixedHint = form.querySelector("#fixed-profile-hint");
     const keyEl = form.querySelector("#m-key");
     const status = form.querySelector("#m-status");
     const keyLenEl = form.querySelector("#m-key-len");
@@ -208,6 +223,21 @@ export function mountModels(root, ctx, opts = {}) {
     const clearStatus = () => {
       status.textContent = "";
     };
+    const syncProfileFields = () => {
+      const fixed = profileEl?.value !== "custom";
+      customFields?.classList.toggle("hidden", fixed);
+      if (fixedHint) {
+        fixedHint.classList.toggle("hidden", !fixed);
+        fixedHint.textContent = profileEl?.value === "dsh-model"
+          ? "dsh 使用 HARBOR_DSH_* 环境变量登记的上游。"
+          : "Codex 使用 HARBOR_CODEX_* 环境变量登记的 Responses 上游。";
+      }
+    };
+    profileEl?.addEventListener("change", () => {
+      syncProfileFields();
+      clearStatus();
+    });
+    syncProfileFields();
     form.querySelectorAll("[data-preset]").forEach((btn) => {
       btn.onclick = () => {
         originEl.value = btn.getAttribute("data-preset") || "";
@@ -240,12 +270,13 @@ export function mountModels(root, ctx, opts = {}) {
     updateKeyLen();
     form.querySelector("#m-save").onclick = async () => {
       const name = nameEl.value.trim();
-      const origin = originEl.value.trim().replace(/\/+$/, "");
+      const profileId = profileEl?.value || "custom";
+      const origin = originEl?.value.trim().replace(/\/+$/, "") || "";
       const model = modelEl.value.trim();
       const key = keyEl.value.trim();
       const missing = [];
       if (!name) missing.push("名称");
-      if (!origin) missing.push("API 地址");
+      if (profileId === "custom" && !origin) missing.push("API 地址");
       if (!key) missing.push("API Key");
       if (missing.length) {
         status.innerHTML = `<span class="bad">请填写：${missing.join("、")}（灰色提示不是已填内容）</span>`;
@@ -267,12 +298,10 @@ export function mountModels(root, ctx, opts = {}) {
         }
         const skipProbe = !!form.querySelector("#m-skip-probe")?.checked;
         const res = await api.connectModel({
-          profileId: "custom",
+          profileId,
           name,
           apiKey: key,
-          origin,
-          model,
-          skipProbe,
+          ...(profileId === "custom" ? { origin, model, skipProbe } : {}),
         });
         if (res.error) {
           let hint = "";
@@ -288,6 +317,7 @@ export function mountModels(root, ctx, opts = {}) {
         }
         keyEl.value = "";
         editing = null;
+        ctx.state.modelProfileIntent = null;
         ctx.onAccountsChanged?.();
         if (resumeWizard(res.account?.id)) return;
         await load();

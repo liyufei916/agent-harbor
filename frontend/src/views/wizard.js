@@ -77,14 +77,27 @@ export function mountWizard(root, ctx, opts = {}) {
 
   function goAddAccount(kind) {
     persist();
+    if (kind === "model") {
+      ctx.state.modelProfileIntent = draft.agentId === "dsh"
+        ? "dsh-model"
+        : draft.agentId === "codex"
+          ? "codex-model"
+          : "custom";
+    }
     ctx.state.returnAfterAccount = { kind, route: "wizard" };
     ctx.navigate(kind === "model" ? "models" : "tools", { intent: "add" });
+  }
+
+  function modelMatchesAgent(account) {
+    if (draft.agentId === "dsh") return account.profileId === "dsh-model";
+    if (draft.agentId === "codex") return account.profileId === "codex-model";
+    return account.profileId === "demo-model" || account.profileId === "custom";
   }
 
   async function paint() {
     persist();
     await Promise.all([refreshAgents(), refreshAccounts()]);
-    const models = (ctx.state.accounts || []).filter((a) => a.kind === "model");
+    const models = (ctx.state.accounts || []).filter((a) => a.kind === "model" && modelMatchesAgent(a));
     const mcps = (ctx.state.accounts || []).filter((a) => a.kind === "mcp");
     if (!draft.modelAccountId && models[0]) {
       draft.modelAccountId = models[0].id;
@@ -136,7 +149,7 @@ export function mountWizard(root, ctx, opts = {}) {
             ${models.map((m) => `<option value="${m.id}" ${draft.modelAccountId === m.id ? "selected" : ""}>${m.name} · ${m.host || m.profileId}</option>`).join("")}
           </select>
         </label>
-        ${models.length ? `<p class="meta"><button type="button" class="btn" id="wz-go-models">再添加一个</button></p>` : `<p class="meta bad">还没有模型。<button type="button" class="btn" id="wz-go-models">去添加</button></p>`}
+        ${models.length ? `<p class="meta"><button type="button" class="btn" id="wz-go-models">再添加一个</button></p>` : `<p class="meta bad">当前 Agent 没有兼容模型。<button type="button" class="btn" id="wz-go-models">去添加</button></p>`}
       `;
     } else {
       body = `
