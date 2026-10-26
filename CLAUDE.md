@@ -2,6 +2,8 @@
 
 @AGENTS.md
 
+README 覆盖率徽章由 main 全部 CI 检查成功后自动发布至 `coverage-badge` 分支；生成入口为 `scripts/coverage-badge.py`，统计沿用完整 `./...` 的 total，禁止手填百分比。PR 仅生成并上传报告，不发布徽章。
+
 Runtime 平台测试仅在隔离能力可用时执行真实闭环；环境返回 `ISOLATION_UNAVAILABLE` 时明确跳过，纯校验测试继续执行。生产启动仍失败关闭；Go 回归使用 `go test -race ./...`。
 
 研发 A 当前交付状态、可复现证据及尚未关闭的 Codex、扩权和真实验收项见[研发 A 交付状态](docs/A-DELIVERY-STATUS.md)。
