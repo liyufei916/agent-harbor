@@ -5,7 +5,7 @@
 [![Wails](https://img.shields.io/badge/Wails-v3-DF0000?logo=wails&logoColor=white)](https://v3.wails.io/)
 [![Frontend](https://img.shields.io/badge/frontend-HTML%2FCSS%2FJavaScript-E34F26?logo=html5&logoColor=white)](frontend/README.md)
 [![Security checks](https://img.shields.io/badge/security%20checks-Python-3776AB?logo=python&logoColor=white)](security/README.md)
-[![Unit coverage](https://img.shields.io/badge/unit%20coverage-59.2%25-blue)](https://github.com/liyufei916/agent-harbor/actions/workflows/ci.yml)
+[![Unit coverage](https://raw.githubusercontent.com/liyufei916/agent-harbor/coverage-badge/coverage.svg)](https://github.com/liyufei916/agent-harbor/actions/workflows/ci.yml?query=branch%3Amain)
 
 桌面 Agent **安全沙箱**：密钥留在本机、Agent 隔离运行、出站经 Harbor Gate。产品真源 [PAGE-DESIGN](docs/PAGE-DESIGN.md) 全量；契约 [CONTRACT](docs/CONTRACT.md) v1.2。
 
@@ -23,7 +23,7 @@
 | **Harbor Gate 出站** | 模型 / MCP 只走白名单主机；扩权三选一（拒绝 / 仅本次 / 本项目），**无全网放行** |
 | **多会话 ≤2** | HOME 会话中心；同工作区禁双开；停止后可 **再次开始**（沿用配置直进工作台） |
 | **工作台 PTY** | 边界条 + 可读输出 + 下方输入发下一轮；支持切换模型、权限一览 |
-| **多 Agent** | Claude Code / DeepSeek dsh（及 Codex 配置项）；页面配置上游，非硬编码供应商 |
+| **多 Agent** | Claude Code / DeepSeek dsh / OpenAI Codex；页面配置上游，非硬编码供应商 |
 | **MCP 双轨** | Token 或浏览器 OAuth；记住主机可撤销 |
 
 叙事用语：「隔离运行」「密钥留在本机」「经安全闸口」。交付形态是 **桌面 App**；浏览器 mock 只看 UI，**不计** I1–I11。
@@ -75,7 +75,7 @@ wails3 task darwin:package   # macOS .app
 
 分工：A 契约/编排/Runtime/Kit（[DEV-A](docs/DEV-A.md)）；B Gate/Policy/Secrets 与 Wails v3（[DEV-B](docs/DEV-B.md)）；C 全量 PAGE 壳与 mock（[DEV-C](docs/DEV-C.md)，D4 已过）。
 
-徽章中的覆盖率是 GitHub Actions 可移植 Go 测试基线（`go test -coverprofile`）；桌面统一 Wails v3.0.0-beta.34。
+徽章显示 main 最新一次全部检查通过后发布的 Go 整体语句覆盖率（`go test -coverprofile=coverage.out ./...` 的 `total`），包含构建辅助包；环境不支持的隔离测试会跳过。CI 自动将 SVG 与完整统计发布到独立的 [`coverage-badge` 分支](https://github.com/liyufei916/agent-harbor/tree/coverage-badge)，PR 不发布；图片缓存可能导致短暂延迟。桌面统一 Wails v3.0.0-beta.34。
 
 ### 更多构建与探测命令
 
@@ -84,15 +84,34 @@ go test ./internal/gate ./internal/policy ./internal/secrets .
 go test -tags production,harbor_desktop -run TestNativeDesktopBindingsAndShutdown -v .
 ```
 
-启动时 `main.go` 调用 `desktop.AttachOrchestrator`，接入 Runtime、Claude/dsh Kit 与 Orchestrator。Claude 可通过 `HARBOR_CLAUDE_MODEL_ORIGIN`、`HARBOR_CLAUDE_MODEL_BASE_PATH`、`HARBOR_CLAUDE_MODEL` 登记上游（兼容旧 `HARBOR_DEMO_*`）。origin 仅 scheme + host/port；路径前缀放 `BASE_PATH`。MCP 用 `HARBOR_DEMO_MCP_ORIGIN` / `HARBOR_DEMO_MCP_TOOLS`；二进制可用 `HARBOR_CLAUDE_BIN`。未配置则拒绝连接。当前支持 Anthropic `/v1/messages` 与 Bearer 的 Streamable HTTP `/mcp`（2025-03-26）。
+启动时 `main.go` 调用 `desktop.AttachOrchestrator`，接入 Runtime、Claude/Codex/dsh Kit 与 Orchestrator。Claude 自定义模型和 MCP 可直接在桌面填写服务地址并连接；预置 profile 的宿主配置详见各 Agent 文档。环境变量中的 Origin 仅包含 scheme + host/port，路径前缀由 BasePath 表达。
+
+## Claude Code
+
+已接入 Claude Code Kit，使用受控的 `claude` CLI 在 macOS Seatbelt 隔离环境中运行。支持版本检测、专用 HOME、文件 Read/Write/Edit、Harbor Gate 模型与认证 MCP、流式输出、多轮任务、停止清理和 clone 安全副本。Claude 默认不开放 Bash、sudo、插件安装或未授权子进程；模型凭据只由宿主机 Gate 持有，沙箱内只注入本会话 Sentinel。
+
+本机安装 Claude Code 并确保 `claude` 在应用的 PATH 中后，在桌面「模型」页填写名称、Anthropic 兼容 API 地址、模型名和 API Key；新会话选择 `Claude Code` 和该模型账号，再选择工作区和 MCP 启动。此方式无需配置 Claude 模型环境变量。
+
+预置 `demo-model` 的配置、版本要求和人工验收见 [Claude Kit 文档](internal/kits/claude/README.md) 与 [完整人工联调手册](docs/MANUAL-INTEGRATION-TEST.md)。
 
 ## DeepSeek dsh
 
 已接入官方 `@deepseek-ai/dsh@0.2.1-rc.2`，使用专用 Node `v26.12.1`。支持桌面选择 Agent、单任务、文件 Read/Write/Edit、Gate 模型流式调用、认证 MCP、停止清理和失败恢复。目标平台仍为非 root 的 Darwin 25 / arm64，不开放 Bash、子进程或插件安装。
 
-首次执行 `bash scripts/install-dsh.sh`，按 [dsh 安装、配置和验收](docs/DSH-INTEGRATION.md) 设置独立安装路径、`HARBOR_DSH_MODEL_ORIGIN`、`HARBOR_DSH_MODEL_BASE_PATH`、`HARBOR_DSH_MODEL` 与 MCP 白名单，再构建启动。Codex 使用本机 `codex` CLI；设置 `HARBOR_CODEX_BIN`、`HARBOR_CODEX_MODEL_ORIGIN`、`HARBOR_CODEX_MODEL_BASE_PATH` 和 `HARBOR_CODEX_MODEL` 后选择 `OpenAI Codex`，连接 `codex-model`。配置页选择 `DeepSeek dsh` 后连接 `dsh-model`；Key 仅在桌面输入。
+首次执行 `bash scripts/install-dsh.sh`，按 [dsh 安装、配置和验收](docs/DSH-INTEGRATION.md) 设置独立运行时路径和当前预置 profile 所需的 `HARBOR_DSH_MODEL_ORIGIN`、`HARBOR_DSH_MODEL`；上游有路径前缀时再设置 `HARBOR_DSH_MODEL_BASE_PATH`（DeepSeek 为 `/anthropic`）。桌面「模型」页选择 `DeepSeek dsh` 后连接 `dsh-model`；Key 仅在桌面输入，MCP 地址可在「工具」页配置。
 
 真实 dsh + 受控上游已完成文件/MCP、多轮运行、停止和认证故障恢复验证；真实 DeepSeek 账号与远程 MCP 验收仍待测试凭据。
+
+## OpenAI Codex
+
+已接入 OpenAI Codex CLI，使用 Responses API、私有 `CODEX_HOME` 和受控子进程 Runtime。Codex 仅继承工作区、网络白名单和提权边界，支持 Harbor MCP；宿主 `~/.codex`、认证文件和历史不会挂载到执行面。详细配置和限制见 [Codex 适配文档](docs/CODEX-INTEGRATION.md)。
+
+```bash
+export HARBOR_CODEX_MODEL_ORIGIN="https://api.openai.com"
+export HARBOR_CODEX_MODEL="实际 Responses 模型ID"
+```
+
+上述变量用于当前预置 `codex-model`。本机 `codex` 应在应用的 PATH 中；上游有路径前缀时再设置 `HARBOR_CODEX_MODEL_BASE_PATH`。桌面应用中选择 `OpenAI Codex`，连接 `codex-model`。API Key 只在模型页输入，不通过环境变量传给应用。
 
 ## 目录
 
@@ -163,7 +182,7 @@ HARBOR_NO_COMMIT=1 ./scripts/github-push.sh
 | HOME | 会话中心；运行中 x/2；新会话 / 打开工作台 / 停止 / 销毁 |
 | 新会话 Wizard | 四步：工作区 → Agent → 模型 → 工具（可跳过）；挂载默认安全副本（clone） |
 | 工作台 | 边界条 + 当前模型切换 + PTY + 摘要；顶栏切换焦点会话 |
-| 模型 | **仅** OpenAPI：名称 + 地址 + Key；自由添加；列表无「未配置」占位 |
+| 模型 | OpenAPI 自定义账号，或 Agent 对应的预置 profile（Claude `demo-model`、dsh `dsh-model`、Codex `codex-model`）；Key 提交后清空 |
 | 工具 | MCP **双轨**：浏览器 OAuth/SSO **或** Token；编辑 / 删除 |
 | 设置 | Agent 检测、默认挂载、结束与清理、记住的网站、侧栏偏好、关于 |
 | Onboarding | 一屏三句 + 隔离检测 |

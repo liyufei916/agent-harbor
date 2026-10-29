@@ -45,6 +45,7 @@ jobs:
         run: |
           go test -coverprofile=coverage.out ./...
           go tool cover -func=coverage.out | tee coverage-summary.txt
+          python3 scripts/coverage-badge.py coverage-summary.txt coverage.svg
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -53,6 +54,7 @@ jobs:
           path: |
             coverage.out
             coverage-summary.txt
+            coverage.svg
           retention-days: 7
 
       - name: Run vet
@@ -105,3 +107,53 @@ jobs:
 
       - name: Validate example report
         run: python security/checks.py security/fixtures/acceptance.example.json
+
+  coverage-badge:
+    name: Publish main coverage badge
+    needs: [go, python]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    concurrency:
+      group: main-coverage-badge
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download coverage report
+        uses: actions/download-artifact@v4
+        with:
+          name: go-unit-coverage
+          path: ${{ runner.temp }}/coverage-report
+
+      - name: Publish coverage badge
+        shell: bash
+        env:
+          REPORT_DIR: ${{ runner.temp }}/coverage-report
+        run: |
+          # 较早的运行不得覆盖 main 最新提交的报告。
+          git fetch origin main
+          if [ "$(git rev-parse origin/main)" != "$GITHUB_SHA" ]; then
+            echo "main 已更新，跳过旧覆盖率报告"
+            exit 0
+          fi
+          if [ -n "$(git ls-remote --heads origin coverage-badge)" ]; then
+            git fetch origin coverage-badge
+            git switch -c coverage-badge FETCH_HEAD
+          else
+            git switch --orphan coverage-badge
+          fi
+          cp "$REPORT_DIR/coverage.svg" coverage.svg
+          cp "$REPORT_DIR/coverage-summary.txt" coverage-summary.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add coverage.svg coverage-summary.txt
+          if git diff --cached --quiet; then
+            echo "覆盖率报告未变化"
+            exit 0
+          fi
+          git commit -m "更新 main 覆盖率徽章"
+          git push origin HEAD:coverage-badge

@@ -48,6 +48,20 @@ func TestBuildHappyPath(t *testing.T) {
 	}
 }
 
+func TestDefaultModelForHostUsesExplicitAndHostDefaults(t *testing.T) {
+	t.Setenv("HARBOR_CLAUDE_MODEL", "")
+	if got := defaultModelForHost("api.deepseek.com", ""); got != "deepseek-chat" {
+		t.Fatalf("DeepSeek 默认模型=%q", got)
+	}
+	if got := defaultModelForHost("api.example.test", "explicit-model"); got != "explicit-model" {
+		t.Fatalf("显式模型未优先=%q", got)
+	}
+	t.Setenv("HARBOR_CLAUDE_MODEL", "env-model")
+	if got := defaultModelForHost("api.example.test", ""); got != "env-model" {
+		t.Fatalf("环境模型未生效=%q", got)
+	}
+}
+
 func TestDenyHomeWorkspace(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {

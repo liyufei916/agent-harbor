@@ -2,6 +2,7 @@ package gate
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,21 @@ import (
 	"github.com/liyufei916/agent-harbor/internal/policy"
 	"github.com/liyufei916/agent-harbor/internal/secrets"
 )
+
+func TestMapProbeErrClassifiesCancellationTimeoutAndUpstreamFailure(t *testing.T) {
+	if got := mapProbeErr(context.Background(), context.Canceled); got != ErrCancelled {
+		t.Fatalf("cancel=%v", got)
+	}
+	if got := mapProbeErr(context.Background(), context.DeadlineExceeded); got != ErrUpstreamTimeout {
+		t.Fatalf("deadline=%v", got)
+	}
+	if got := mapProbeErr(context.Background(), errors.New("dial timeout")); got != ErrUpstreamTimeout {
+		t.Fatalf("timeout=%v", got)
+	}
+	if got := mapProbeErr(context.Background(), errors.New("connection reset")); !errors.Is(got, ErrUpstreamDown) {
+		t.Fatalf("upstream=%v", got)
+	}
+}
 
 func TestReviewConnectRejectsUnauthenticated404(t *testing.T) {
 	up := httptest.NewServer(http.NotFoundHandler())

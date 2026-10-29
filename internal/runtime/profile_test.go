@@ -90,3 +90,62 @@ func TestDSHEnvironmentCannotEscapePrivateHome(t *testing.T) {
 		t.Fatal("允许关闭遥测禁用约束")
 	}
 }
+
+func TestEndpointPortAcceptsOnlyLoopbackTCPPorts(t *testing.T) {
+	valid := []string{"127.0.0.1:1", "127.0.0.1:41001", "127.0.0.1:65535"}
+	for _, address := range valid {
+		if port, err := endpointPort(address); err != nil || port < 1 {
+			t.Fatalf("有效地址被拒绝: %s, %v", address, err)
+		}
+	}
+	invalid := []string{
+		"localhost:41001", "127.0.0.2:41001", "0.0.0.0:41001",
+		"127.0.0.1:0", "127.0.0.1:65536", "127.0.0.1:041001",
+		"127.0.0.1", "[::1]:41001", "127.0.0.1:41001:extra",
+	}
+	for _, address := range invalid {
+		if _, err := endpointPort(address); err == nil {
+			t.Fatalf("危险或非法地址被接受: %s", address)
+		}
+	}
+}
+
+func TestCanonicalPathResolvesSymlinksAndRejectsMissing(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "target")
+	if err := os.Mkdir(target, 0700); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(root, "link")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	want, err := filepath.EvalSymlinks(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := canonicalPath(link)
+	if err != nil || got != want {
+		t.Fatalf("symlink=%q err=%v want=%q", got, err, want)
+	}
+	if _, err := canonicalPath(filepath.Join(root, "missing")); err == nil {
+		t.Fatal("不存在路径应被拒绝")
+	}
+	if _, err := canonicalPath("relative"); err == nil {
+		t.Fatal("相对路径应被拒绝")
+	}
+}
+
+func TestWithinRejectsParentEscape(t *testing.T) {
+	root := filepath.Join(string(filepath.Separator), "tmp", "workspace")
+	for _, path := range []string{root, filepath.Join(root, "nested", "file.txt")} {
+		if !within(root, path) {
+			t.Fatalf("工作区内路径被拒绝: %s", path)
+		}
+	}
+	for _, path := range []string{filepath.Join(root, "..", "outside"), filepath.Join(string(filepath.Separator), "tmp", "other")} {
+		if within(root, path) {
+			t.Fatalf("工作区外路径被接受: %s", path)
+		}
+	}
+}

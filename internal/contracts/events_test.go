@@ -2,6 +2,16 @@ package contracts
 
 import "testing"
 
+func TestNewAppErrorImplementsErrorContract(t *testing.T) {
+	err := NewAppError(ErrTargetDenied, "目标被拒绝", true)
+	if err.Code != ErrTargetDenied || err.Message != "目标被拒绝" || !err.Retryable {
+		t.Fatalf("错误字段不完整: %+v", err)
+	}
+	if err.Error() != err.Message {
+		t.Fatalf("Error() 应返回公开消息: %q", err.Error())
+	}
+}
+
 func TestEventValidateRequiresOneTypedPayload(t *testing.T) {
 	base := Event{SessionID: "session", Seq: 1}
 	if base.Validate() == nil {

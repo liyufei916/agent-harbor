@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/liyufei916/agent-harbor/internal/contracts"
+	"github.com/liyufei916/agent-harbor/internal/policy"
+	"github.com/liyufei916/agent-harbor/internal/secrets"
 )
 
 func TestCreateSessionBeforeWire(t *testing.T) {
@@ -177,6 +179,152 @@ func TestSwitchModelForwardsToSessionService(t *testing.T) {
 	response := NewDesktopAPI(app).SwitchModel(input)
 	if svc.input != input || response.Error != nil || response.Session == nil || response.Session.SessionID != input.SessionID {
 		t.Fatalf("切换未转交：%+v", response)
+	}
+}
+
+type extendedSession struct {
+	recordingSession
+	snapshot contracts.SessionSnapshot
+	err      error
+	input    contracts.PtyInput
+	boundary contracts.PermissionOverview
+	resolved contracts.ResolvePermissionInput
+}
+
+func (s *extendedSession) Get(context.Context, string) (contracts.SessionSnapshot, error) {
+	return s.snapshot, s.err
+}
+func (s *extendedSession) Stop(context.Context, string) (contracts.SessionSnapshot, error) {
+	return s.snapshot, s.err
+}
+func (s *extendedSession) Destroy(context.Context, string) (contracts.SessionSnapshot, error) {
+	return s.snapshot, s.err
+}
+func (s *extendedSession) SyncBack(context.Context, string) (contracts.SessionSnapshot, error) {
+	return s.snapshot, s.err
+}
+func (s *extendedSession) Boundary(context.Context, string) (contracts.PermissionOverview, error) {
+	return s.boundary, s.err
+}
+func (s *extendedSession) ResolvePermission(_ context.Context, in contracts.ResolvePermissionInput) error {
+	s.resolved = in
+	return s.err
+}
+func (s *extendedSession) ProjectWorkspace(context.Context, string) (string, error) {
+	return "/tmp/project", s.err
+}
+func (s *extendedSession) SwitchModel(_ context.Context, in contracts.SwitchModelInput) (contracts.SessionSnapshot, error) {
+	s.snapshot.ModelAccountID = in.ModelAccountID
+	return s.snapshot, s.err
+}
+func (s *extendedSession) WritePty(_ context.Context, in contracts.PtyInput) error {
+	s.input = in
+	return s.err
+}
+func (s *extendedSession) ResizePty(_ context.Context, in contracts.PtyInput) error {
+	s.input = in
+	return s.err
+}
+
+func TestDesktopSessionLifecycleAndPtyBindings(t *testing.T) {
+	app := NewApp()
+	svc := &extendedSession{snapshot: contracts.SessionSnapshot{SessionID: "s1", State: contracts.StateRunning}}
+	app.SetSessionService(svc)
+	api := NewDesktopAPI(app)
+
+	if got := api.GetSession("s1"); got.Error != nil || got.Session == nil {
+		t.Fatalf("get=%+v", got)
+	}
+	if got := api.StopSession("s1"); got.Error != nil || got.Session == nil {
+		t.Fatalf("stop=%+v", got)
+	}
+	if got := api.DestroySession("s1"); got.Error != nil || got.Session == nil {
+		t.Fatalf("destroy=%+v", got)
+	}
+	if got := api.SyncBackWorkspace("s1"); got.Error != nil || got.Session == nil {
+		t.Fatalf("sync=%+v", got)
+	}
+	input := contracts.PtyInput{SessionID: "s1", Data: "next"}
+	if got := api.WritePty(input); got.Error != nil || svc.input != input {
+		t.Fatalf("write=%+v input=%+v", got, svc.input)
+	}
+	if got := api.ResizePty(input); got.Error != nil || svc.input != input {
+		t.Fatalf("resize=%+v input=%+v", got, svc.input)
+	}
+}
+
+func TestDesktopPermissionOverviewAndRememberedHost(t *testing.T) {
+	app := NewApp()
+	svc := &extendedSession{boundary: contracts.PermissionOverview{SessionID: "s1", Workspace: "/tmp/project", AllowedHosts: []string{"api.example.test"}}}
+	app.SetSessionService(svc)
+	api := NewDesktopAPI(app)
+
+	got := api.GetPermissionOverview("s1")
+	if got.Error != nil || got.Overview == nil || got.Overview.Workspace != "/tmp/project" {
+		t.Fatalf("boundary=%+v", got)
+	}
+	input := contracts.ResolvePermissionInput{SessionID: "s1", Target: "docs.example.test", Decision: "project"}
+	if response := api.ResolvePermission(input); response.Error != nil || svc.resolved != input {
+		t.Fatalf("resolve=%+v input=%+v", response, svc.resolved)
+	}
+	hosts := api.ListRememberedHosts("/tmp/project")
+	if len(hosts.Hosts) != 1 || hosts.Hosts[0].Host != input.Target {
+		t.Fatalf("hosts=%+v", hosts)
+	}
+	if response := api.RevokeRememberedHost(contracts.RevokeHostInput{Workspace: "/tmp/project", Host: input.Target}); response.Error != nil {
+		t.Fatalf("revoke=%+v", response)
+	}
+	if response := api.RevokeRememberedHost(contracts.RevokeHostInput{}); response.Error == nil {
+		t.Fatal("空主机应被拒绝")
+	}
+}
+
+func TestDesktopOptionalBindingsReturnUnimplemented(t *testing.T) {
+	api := NewDesktopAPI(NewApp())
+	if got := api.GetPermissionOverview("missing"); got.Error == nil || got.Error.Code != contracts.ErrUnimplemented {
+		t.Fatalf("boundary=%+v", got)
+	}
+	if got := api.SwitchModel(contracts.SwitchModelInput{SessionID: "s", ModelAccountID: "m"}); got.Error == nil || got.Error.Code != contracts.ErrUnimplemented {
+		t.Fatalf("switch=%+v", got)
+	}
+	if got := api.WritePty(contracts.PtyInput{SessionID: "s", Data: "x"}); got.Error == nil || got.Error.Code != contracts.ErrUnimplemented {
+		t.Fatalf("write=%+v", got)
+	}
+}
+
+func TestRemoveAccountDeletesSecretAndMapsMissing(t *testing.T) {
+	app := NewApp()
+	api := NewDesktopAPI(app)
+	accountID, err := app.secrets.Put(context.Background(), contracts.AccountInfo{Kind: "model", Name: "fixture", ProfileID: "m", Host: "example.test"}, []byte("secret"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response := api.RemoveAccount(accountID); response.Error != nil {
+		t.Fatalf("删除账号失败: %+v", response)
+	}
+	if response := api.RemoveAccount(accountID); response.Error == nil || response.Error.Code != contracts.ErrAccountNotFound {
+		t.Fatalf("重复删除应返回 ACCOUNT_NOT_FOUND: %+v", response)
+	}
+}
+
+func TestMapErrorCoversCommonFailures(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		code string
+	}{
+		{"cancelled", context.Canceled, contracts.ErrCancelled},
+		{"deadline", context.DeadlineExceeded, contracts.ErrUpstreamTimeout},
+		{"invalid", contracts.NewAppError(contracts.ErrInvalidArgument, "bad", false), contracts.ErrInvalidArgument},
+		{"workspace", policy.ErrInvalidWorkspace, contracts.ErrWorkspaceDenied},
+		{"not-found", secrets.ErrNotFound, contracts.ErrAccountNotFound},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := mapError(tc.err); got.Code != tc.code {
+				t.Fatalf("got=%+v want=%s", got, tc.code)
+			}
+		})
 	}
 }
 

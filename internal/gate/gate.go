@@ -158,13 +158,13 @@ func (h *Harbor) Start(ctx context.Context, spec GateSpec, audit func(contracts.
 		extra[host] = scope
 	}
 	rt := &sessionRuntime{
-		spec:       spec,
-		sentinel:   sentinel,
-		model:      mp,
-		mcp:        gw,
-		modelAddr:  modelLn.Addr().String(),
-		cancel:     cancel,
-		ctx:        runCtx, done: make(chan struct{}),
+		spec:      spec,
+		sentinel:  sentinel,
+		model:     mp,
+		mcp:       gw,
+		modelAddr: modelLn.Addr().String(),
+		cancel:    cancel,
+		ctx:       runCtx, done: make(chan struct{}),
 		audit:      audit,
 		fatal:      fatal,
 		extraHosts: extra,
