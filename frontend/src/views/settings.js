@@ -75,7 +75,7 @@ export function mountSettings(root, ctx) {
 
     <section class="card" style="margin-top:12px">
       <h3>关于</h3>
-      <p class="meta">分支 feat/page-design-full · 对照 PAGE-DESIGN 全量。</p>
+      <p class="meta">对照 PAGE-DESIGN 全量（已合入 main）。</p>
       <p class="meta" id="about-health">—</p>
       <p class="meta hidden" id="about-onboard-note"></p>
       <div class="actions">

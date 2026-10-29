@@ -48,7 +48,7 @@
 
 ## 十分钟 live 话术（I1/I2 评审向 · P0-C-DOC-2）
 
-**前置（B/A 已备好）**：本机 Claude（Detect 绿灯；文档基线 2.1.x）或已装 dsh；模型已连（如 DeepSeek）；`./scripts/dev-desktop.sh`；顶栏 **真实绑定**；侧栏 **隔离就绪**。
+**前置（B/A 已备好）**：本机 Claude / Codex（Detect 绿灯）或已装 dsh；模型已连（Claude 用 Messages；Codex 用 Responses）；`./scripts/dev-desktop.sh`；顶栏 **真实绑定**；侧栏 **隔离就绪**。
 
 | 时间 | 说什么 / 做什么 | 观众应看到 |
 |---|---|---|
@@ -57,7 +57,7 @@
 | 1:00 | Agent=Claude；重新检测 Available | ● 版本；含 plutil 等运行只读路径 |
 | 1:30 | 模型已连则跳过；否则添加 Origin+Key | 仅账号引用；Key 清空 |
 | 3:00 | 工作区 `demos/workspace` 绝对路径；开始 | provisioning→running |
-| 4:00 | 工作台 **xterm** | Claude 走 Gate/--print（非 Ink TUI）；有 stream 输出；可键盘多轮 |
+| 4:00 | 工作台对话区 | Claude：Gate + stream-json；Codex：app-server delta 流式；均可键盘多轮 |
 | 5:30 | 诱导跨主机重定向或未授权出站 | `permission_needed` Modal；三选一 |
 | 7:00 | 选 once/project；指审计与权限一览 | 无「全网」；project 可撤销 |
 | 8:00 | 停止 → 再开一轮 | 第二轮能进工作台（I10 方向） |

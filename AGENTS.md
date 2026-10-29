@@ -60,8 +60,8 @@ Agent Harbor 是安全优先的桌面 Agent 沙箱：在隔离环境中运行 Cl
 | [开工检查](docs/GO-CHECKLIST.md) | **本分支开工**：遗漏/未拍板收口、本周 ABC、禁止项 |
 | [V1 总纲](docs/SYSTEM-DESIGN.md) | **本分支**：架构分层、模块所有权、ABC 分工；易混主责见 §6.1 |
 | [接口契约](docs/CONTRACT.md) | **唯一方法/DTO 来源（v1.2 全量）**；含 OAuth/PTY/clone/SwitchModel |
-| [任务拆分](docs/TASK-SPLIT-ABC.md) | A/B/C 任务卡（**v2.0 全量 PAGE**；分支 `feat/page-design-full`） |
-| [页面设计](docs/PAGE-DESIGN.md) | **本分支产品真源**：导航与各屏（含双会话≤2、OAuth、PTY、clone） |
+| [任务拆分](docs/TASK-SPLIT-ABC.md) | A/B/C 任务卡（**v2.0 全量 PAGE**；已合入 `main`） |
+| [页面设计](docs/PAGE-DESIGN.md) | **产品真源**：导航与各屏（含双会话≤2、OAuth、对话区/PTY、clone） |
 | [屏 ↔ API](docs/PAGE-API-MAP.md) | 哪一屏调哪些 DesktopAPI |
 | [实施决策](docs/DECISIONS.md) / [验收清单](docs/ACCEPTANCE.md) | 环境/上游登记；独立开发与真实集成检查 |
 | [Go/Wails 目录设计](docs/DIRECTORY-STRUCTURE.md) | 目录、模块职责、三人分工、依赖方向 |
@@ -71,7 +71,7 @@ Agent Harbor 是安全优先的桌面 Agent 沙箱：在隔离环境中运行 Cl
 | [三人两天核心方案](docs/MVP-2D3P.md) | **历史两天裁剪**；本分支冲突时以 SYSTEM-DESIGN / PAGE-DESIGN / CONTRACT 为准 |
 | [三天竖切](docs/SPIKE-3D3P.md) | 历史 Spike；不得当产品安全保证 |
 
-文档口径：隔离分期按 `IMPLEMENTATION.md` 与 `DESIGN.md` §7.4 / §7.6；**本分支并发上限 2**、挂载含 `clone`、工具含 OAuth、工作台含 PTY，见 PAGE-DESIGN / CONTRACT v1.2。遇到未消解冲突先澄清，不自行把 MVP「延后」列当成已定砍法。
+文档口径：隔离分期按 `IMPLEMENTATION.md` 与 `DESIGN.md` §7.4 / §7.6；**并发上限 2**、挂载含 `clone`、工具含 OAuth、工作台含对话区/WritePty，见 PAGE-DESIGN / CONTRACT v1.2。遇到未消解冲突先澄清，不自行把 MVP「延后」列当成已定砍法。
 
 ### 两平面与组件边界
 

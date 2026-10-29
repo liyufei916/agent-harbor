@@ -243,7 +243,7 @@ function syncBadge() {
     badge.className = "badge mock";
     if (banner) {
       banner.textContent =
-        "feat/page-design-full · PAGE-DESIGN 全量（含 OAuth/clone/PTY）。mock 不能记入 I1–I11。";
+        "PAGE-DESIGN 全量（含 OAuth/clone/对话多轮）。mock 不能记入 I1–I11。";
     }
   } else {
     badge.textContent = "真实绑定";

@@ -1,15 +1,15 @@
-# 接口契约 v1.2（全量 PAGE-DESIGN · feat/page-design-full）
+# 接口契约 v1.2（全量 PAGE-DESIGN）
 
 | 项 | 内容 |
 |---|---|
-| 状态 | **v1.2 本分支全量 PAGE**（`feat/page-design-full`）；实现以本文 + `internal/contracts` 为准 |
+| 状态 | **v1.2 全量 PAGE**（历史上 `feat/page-design-full`，**已合入 `main`**）；实现以本文 + `internal/contracts` 为准 |
 | 架构总纲 | [SYSTEM-DESIGN.md](SYSTEM-DESIGN.md) v2 |
 | 屏级映射 | [PAGE-API-MAP.md](PAGE-API-MAP.md) |
 | 进度 | 共享类型与编排已落地；真实隔离/上游兼容性仍见 [DEV-A](DEV-A.md) |
 
-A/B 将声明落成 Go 类型与绑定，C 按本文 + [PAGE-DESIGN](PAGE-DESIGN.md) 开发页面与 mock。与旧「裁剪版」冲突时：**本分支以 PAGE-DESIGN 全量为准**。
+A/B 将声明落成 Go 类型与绑定，C 按本文 + [PAGE-DESIGN](PAGE-DESIGN.md) 开发页面与 mock。与旧「裁剪版」冲突时：**以 PAGE-DESIGN 全量为准**。
 
-**本分支包含（不再延后）**：MCP OAuth、工作区 `clone`、内嵌 PTY、`SwitchModel`。
+**已包含（不再延后）**：MCP OAuth、工作区 `clone`、内嵌 PTY、`SwitchModel`。
 
 ### 1.0 全量能力最小约定（开工补注 · 2026-10-25）
 
@@ -502,9 +502,9 @@ policy 的固定 profile 来自 B 管理的后端配置，不从前端或 Agent 
 
 - **v1**：七方法 + 四类事件；单会话；mcpIds 长度 1；固定 profile。
 - **v1.1**：健康/列表/扩权/多账号/Prefs 等。
-- **v1.2（本分支）**：恢复并定义 OAuth、`clone`、`SwitchModel`、PTY（`WritePty`/`ResizePty` + 事件 `pty`）。形状未实现时可 `UNIMPLEMENTED`，**不得缺方法名**。
+- **v1.2**：恢复并定义 OAuth、`clone`、`SwitchModel`、PTY（`WritePty`/`ResizePty` + 事件 `pty`）。形状未实现时可 `UNIMPLEMENTED`，**不得缺方法名**。
 
-当前实现注记：macOS Runtime 仍为严格单进程子集；已支持 clone 安全副本（拒绝符号链接及特殊文件），原目录仍作为并发互斥键，副本随 Runtime 清理删除。真实 PTY 与 Agent 多轮协议仍须继续验证。证据见 [DEV-A](DEV-A.md)。
+当前实现注记：Claude/dsh 仍为严格单进程；Codex 会话为受控子进程（`AllowDescendants`）。已支持 clone 安全副本（拒绝符号链接及特殊文件），原目录仍作为并发互斥键；副本可 `SyncBackWorkspace` 导回，随 `DestroySession` 清理。WritePty 多轮：Claude stream-json、Codex `app-server` 桥接已接线；完整真实验收见 [DEV-A](DEV-A.md) / [CODEX-INTEGRATION](CODEX-INTEGRATION.md)。
 
 公开 Event 须满足 `contracts.Event.Validate`。本文是并行实现的唯一方法/字段来源；变更先改本文与 `internal/contracts`，再 sync mock/bindings。
 

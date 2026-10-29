@@ -9,7 +9,7 @@
 
 桌面 Agent **安全沙箱**：密钥留在本机、Agent 隔离运行、出站经 Harbor Gate。产品真源 [PAGE-DESIGN](docs/PAGE-DESIGN.md) 全量；契约 [CONTRACT](docs/CONTRACT.md) v1.2。
 
-仓库：https://github.com/liyufei916/agent-harbor · 产品分支 `feat/page-design-full`
+仓库：https://github.com/liyufei916/agent-harbor · 默认分支 `main`（全量 PAGE 已合入）
 
 ---
 
@@ -22,8 +22,8 @@
 | **安全副本 / 一键导回** | 默认 `clone` 在副本改文件；工作台 **导回原文件夹** 合并写回；也可选直接编辑 |
 | **Harbor Gate 出站** | 模型 / MCP 只走白名单主机；扩权三选一（拒绝 / 仅本次 / 本项目），**无全网放行** |
 | **多会话 ≤2** | HOME 会话中心；同工作区禁双开；停止后可 **再次开始**（沿用配置直进工作台） |
-| **工作台 PTY** | 边界条 + 可读输出 + 下方输入发下一轮；支持切换模型、权限一览 |
-| **多 Agent** | Claude Code / DeepSeek dsh / OpenAI Codex；页面配置上游，非硬编码供应商 |
+| **工作台对话** | 边界条 + 过滤协议 JSON 的可读输出 + 下方输入发下一轮；Claude/Codex 均支持同会话多轮 |
+| **多 Agent** | Claude Code / DeepSeek dsh / OpenAI Codex；同一模型账号可勾选多 Agent（须上游协议匹配） |
 | **MCP 双轨** | Token 或浏览器 OAuth；记住主机可撤销 |
 
 叙事用语：「隔离运行」「密钥留在本机」「经安全闸口」。交付形态是 **桌面 App**；浏览器 mock 只看 UI，**不计** I1–I11。
@@ -104,14 +104,20 @@ go test -tags production,harbor_desktop -run TestNativeDesktopBindingsAndShutdow
 
 ## OpenAI Codex
 
-已接入 OpenAI Codex CLI，使用 Responses API、私有 `CODEX_HOME` 和受控子进程 Runtime。Codex 仅继承工作区、网络白名单和提权边界，支持 Harbor MCP；宿主 `~/.codex`、认证文件和历史不会挂载到执行面。详细配置和限制见 [Codex 适配文档](docs/CODEX-INTEGRATION.md)。
+已接入 OpenAI Codex CLI（Responses API）。执行面使用私有 `CODEX_HOME`、外层 Seatbelt + 受控子进程白名单；宿主 `~/.codex` 不挂载。会话经常驻 `app-server` 桥接多轮，工作台流式显示助手增量；详细行为与排障见 [Codex 适配文档](docs/CODEX-INTEGRATION.md)。
+
+本机需 `codex`（建议 ≥0.157）与 `node` 在应用 PATH 中。两种配模方式：
+
+1. **自定义 Responses 网关**（推荐试 GPT 代理）：模型页填 Origin（如 `https://llmapi.qiniu.io`）+ Key + 模型名，**勾选 Codex**（可同时勾 Claude，若网关双协议）。勿对 DeepSeek `/anthropic` 勾 Codex。
+2. **预置 `codex-model`**：启动前登记宿主上游，再点「OpenAI Codex」快捷项：
 
 ```bash
 export HARBOR_CODEX_MODEL_ORIGIN="https://api.openai.com"
 export HARBOR_CODEX_MODEL="实际 Responses 模型ID"
+# 可选：export HARBOR_CODEX_MODEL_BASE_PATH="…"
 ```
 
-上述变量用于当前预置 `codex-model`。本机 `codex` 应在应用的 PATH 中；上游有路径前缀时再设置 `HARBOR_CODEX_MODEL_BASE_PATH`。桌面应用中选择 `OpenAI Codex`，连接 `codex-model`。API Key 只在模型页输入，不通过环境变量传给应用。
+API Key 只在模型页输入，不通过环境变量传给应用。
 
 ## 目录
 
@@ -131,9 +137,9 @@ agent-harbor/
 
 模块职责见 [internal/README.md](internal/README.md) 和 [frontend/README.md](frontend/README.md)。A 负责 Runtime/Kit/编排，B 负责 Gate/Policy/Secrets 与 Wails 绑定，C 负责页面与演示。并行开发先读 [SYSTEM-DESIGN](docs/SYSTEM-DESIGN.md)（含 §6.1 易混主责）、[模块设计](docs/MODULE-DESIGN.md)、[接口契约](docs/CONTRACT.md) **v1.2** 与 [TASK-SPLIT](docs/TASK-SPLIT-ABC.md) **v2.0**；版本与命令见 [实施决策](docs/DECISIONS.md)，验收见 [ACCEPTANCE.md](docs/ACCEPTANCE.md)。目录映射见 [DIRECTORY-STRUCTURE.md](docs/DIRECTORY-STRUCTURE.md)。
 
-**分支 `feat/page-design-full`**：按 [PAGE-DESIGN](docs/PAGE-DESIGN.md) **全量**做；live 新方法可暂 `UNIMPLEMENTED`，**不以排期砍范围**。与 [MVP-2D3P](docs/MVP-2D3P.md)「两天裁剪」冲突时 **以 PAGE-DESIGN / 本分支为准**。
+产品范围以 [PAGE-DESIGN](docs/PAGE-DESIGN.md) 为准（历史上在 `feat/page-design-full` 落地，**已合入 `main`**）。与 [MVP-2D3P](docs/MVP-2D3P.md)「两天裁剪」冲突时以 PAGE-DESIGN 为准。
 
-当前基线：macOS、Claude Code / DeepSeek dsh、Gate 反代与认证 MCP；C 侧前端/mock 已对齐全量 PAGE（含阻断页、多账号、工作台/PTY/扩权）；后端新能力多为占位待 A/B 接线。
+当前基线：macOS；Claude / Codex / dsh；Gate 反代与认证 MCP；工作台多轮对话、clone 导回、扩权与双会话。
 
 ## GitHub 推送 / 拉取
 
@@ -167,7 +173,7 @@ HARBOR_NO_COMMIT=1 ./scripts/github-push.sh
 | 3 | [docs/IMPLEMENTATION.md](./docs/IMPLEMENTATION.md) | 分期任务与验收 |
 | 可选 | [docs/SPIKE-3D3P.md](./docs/SPIKE-3D3P.md) | 短周期证明「密钥不进沙箱」的竖切 |
 
-## 全量产品要点（PAGE-DESIGN / `feat/page-design-full`）
+## 全量产品要点（PAGE-DESIGN）
 
 **形态与原则**
 
@@ -181,8 +187,8 @@ HARBOR_NO_COMMIT=1 ./scripts/github-push.sh
 |---|---|
 | HOME | 会话中心；运行中 x/2；新会话 / 打开工作台 / 停止 / 销毁 |
 | 新会话 Wizard | 四步：工作区 → Agent → 模型 → 工具（可跳过）；挂载默认安全副本（clone） |
-| 工作台 | 边界条 + 当前模型切换 + PTY + 摘要；顶栏切换焦点会话 |
-| 模型 | OpenAPI 自定义账号，或 Agent 对应的预置 profile（Claude `demo-model`、dsh `dsh-model`、Codex `codex-model`）；Key 提交后清空 |
+| 工作台 | 边界条 + 当前模型切换 + 对话区（过滤协议 JSON）+ 摘要；顶栏切换焦点会话 |
+| 模型 | 自定义 Origin+Key（可多选 Agent），或预置 profile（`demo-model` / `dsh-model` / `codex-model`）；Key 提交后清空 |
 | 工具 | MCP **双轨**：浏览器 OAuth/SSO **或** Token；编辑 / 删除 |
 | 设置 | Agent 检测、默认挂载、结束与清理、记住的网站、侧栏偏好、关于 |
 | Onboarding | 一屏三句 + 隔离检测 |
@@ -198,7 +204,7 @@ HARBOR_NO_COMMIT=1 ./scripts/github-push.sh
 
 - 边界条常驻；扩权一句话「谁访什么」；三选一：拒绝 / 仅本次 / 本项目始终允许；**无「全网」**。
 - 权限一览可撤销「本项目始终允许」；与设置「已记住的网站」同一数据。
-- PTY 内嵌回显（mock 可演示；live 待 A/B）；停止可询问是否清除隔离数据。
+- 对话区过滤协议 JSON 后展示可读行（Claude stream-json / Codex app-server delta）；下方输入发下一轮；停止可询问是否清除隔离数据。
 
 **隔离与状态灯**
 
