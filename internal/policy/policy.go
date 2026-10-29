@@ -26,6 +26,8 @@ type EndpointRule struct {
 	Origin   string
 	BasePath string
 	Paths    []string
+	// Model：账号落盘的上游模型名；Gate 出站可按此改写请求体，避免 Agent 默认名越权。
+	Model string
 }
 
 // PolicyRequest 是编排层确认后的非敏感输入。
@@ -159,6 +161,7 @@ func (b *Builder) Build(_ context.Context, req PolicyRequest) (PolicySnapshot, e
 			Origin:   modelProf.Origin,
 			BasePath: modelProf.BasePath,
 			Paths:    append([]string{}, modelProf.Paths...),
+			Model:    strings.TrimSpace(modelProf.Model),
 		},
 		MCPMounts: mounts,
 	}

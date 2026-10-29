@@ -59,6 +59,18 @@ func TestCodexProfileAllowsOnlyManagedRequirementFiles(t *testing.T) {
 			t.Fatalf("Codex profile 未允许最小偏好服务查询: %s", service)
 		}
 	}
+	if !strings.Contains(profile, `(allow mach-lookup (local-name "com.apple.cfprefsd.agent"))`) {
+		t.Fatal("Codex profile 未允许 cfprefsd local-name")
+	}
+	if !strings.Contains(profile, `(allow user-preference-read)`) {
+		t.Fatal("Codex profile 未允许 user-preference-read")
+	}
+	if !strings.Contains(profile, `(allow ipc-posix-shm-read* (ipc-posix-name-prefix "apple.cfprefs."))`) {
+		t.Fatal("Codex profile 未允许 apple.cfprefs POSIX shm 读")
+	}
+	if strings.Contains(profile, "(allow user-preference-write)") {
+		t.Fatal("Codex profile 不应开放 user-preference-write")
+	}
 	if strings.Contains(profile, "(allow file-read* (subpath \"/etc\"))") {
 		t.Fatal("Codex profile 不应开放整个 /etc")
 	}
@@ -71,10 +83,10 @@ func TestCodexProfileAllowsOnlyManagedRequirementFiles(t *testing.T) {
 }
 
 func TestDSHEnvironmentCannotEscapePrivateHome(t *testing.T) {
-	if _, err := launchEnvironment("/private/home", map[string]string{"DSH_HOME": "/Users/host/.dsh"}); err == nil {
+	if _, err := launchEnvironment("/private/home", "", map[string]string{"DSH_HOME": "/Users/host/.dsh"}); err == nil {
 		t.Fatal("允许借用宿主 HOME")
 	}
-	if _, err := launchEnvironment("/private/home", map[string]string{"DSH_TELEMETRY_DISABLED": ""}); err == nil {
+	if _, err := launchEnvironment("/private/home", "", map[string]string{"DSH_TELEMETRY_DISABLED": ""}); err == nil {
 		t.Fatal("允许关闭遥测禁用约束")
 	}
 }

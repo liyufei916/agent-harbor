@@ -46,7 +46,31 @@ func NormalizeModelAgents(profileID string, agents []string) []string {
 	return out
 }
 
-// AccountAllowsAgent 判断模型账号是否可供该 Agent 开会话。
+// accountProtocols 连接时探测到的协议；缺省按 profile 推断（旧账号无 protocols 字段）。
+func accountProtocols(account contracts.AccountInfo) []string {
+	if len(account.Protocols) > 0 {
+		return account.Protocols
+	}
+	switch strings.TrimSpace(account.ProfileID) {
+	case ProfileCodexModel:
+		return []string{"openai-responses"}
+	case ProfileDSHModel, ProfileDemoModel, ProfileCustom:
+		return []string{"anthropic"}
+	default:
+		return nil
+	}
+}
+
+func accountHasProtocol(account contracts.AccountInfo, want string) bool {
+	for _, p := range accountProtocols(account) {
+		if p == want {
+			return true
+		}
+	}
+	return false
+}
+
+// AccountAllowsAgent 判断模型账号是否可供该 Agent 开会话（含协议能力）。
 func AccountAllowsAgent(account contracts.AccountInfo, agentID string) bool {
 	agentID = strings.TrimSpace(agentID)
 	agents := append([]string(nil), account.Agents...)
@@ -57,12 +81,24 @@ func AccountAllowsAgent(account contracts.AccountInfo, agentID string) bool {
 		// 未知/测试 profile 且未声明 agents：不在此拦截（兼容单测假账号）。
 		return true
 	}
+	listed := false
 	for _, a := range agents {
 		if strings.TrimSpace(a) == agentID {
-			return true
+			listed = true
+			break
 		}
 	}
-	return false
+	if !listed {
+		return false
+	}
+	switch agentID {
+	case "claude", "dsh":
+		return accountHasProtocol(account, "anthropic")
+	case "codex":
+		return accountHasProtocol(account, "openai-responses")
+	default:
+		return false
+	}
 }
 
 // ModelProfileForAgent 按会话 Agent 从账号元信息合成出站 FixedProfile。
@@ -104,6 +140,9 @@ func ModelProfileForAgent(agentID string, account contracts.AccountInfo, registe
 
 	switch agentID {
 	case "claude", "dsh":
+		if !accountHasProtocol(account, "anthropic") {
+			return FixedProfile{}, ErrKindMismatch
+		}
 		origin := "https://" + host
 		if basePath != "" {
 			origin = origin + basePath
@@ -123,6 +162,10 @@ func ModelProfileForAgent(agentID string, account contracts.AccountInfo, registe
 		}
 		return custom, nil
 	case "codex":
+		if !accountHasProtocol(account, "openai-responses") {
+			// 典型误用：DeepSeek Anthropic 账号勾了 Codex 但未通过 Responses 探测。
+			return FixedProfile{}, ErrKindMismatch
+		}
 		if modelName == "" {
 			modelName = "gpt-5-codex"
 		}

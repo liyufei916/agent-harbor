@@ -14,7 +14,8 @@ func TestSharedModelAccountAllowsClaudeAndCodex(t *testing.T) {
 	account := contracts.AccountInfo{
 		ID: "m1", Kind: "model", ProfileID: ProfileCustom,
 		Host: "gateway.example.test", BasePath: "/anthropic", Model: "shared-model",
-		Agents: []string{"claude", "codex"},
+		Agents:    []string{"claude", "codex"},
+		Protocols: []string{"anthropic", "openai-responses"},
 	}
 	dir := t.TempDir()
 	for _, agent := range []string{"claude", "codex"} {
@@ -47,5 +48,27 @@ func TestNormalizeModelAgentsDefaults(t *testing.T) {
 	}
 	if got := NormalizeModelAgents(ProfileCustom, []string{"codex", "claude", "codex"}); len(got) != 2 {
 		t.Fatalf("%v", got)
+	}
+}
+
+func TestDeepSeekAnthropicRejectsCodexWithoutResponses(t *testing.T) {
+	// 旧数据：agents 误含 codex，无 protocols → 仅 Anthropic
+	account := contracts.AccountInfo{
+		ID: "ds", Kind: "model", ProfileID: ProfileCustom,
+		Host: "api.deepseek.com", Model: "deepseek-chat",
+		Agents: []string{"claude", "codex"},
+	}
+	if AccountAllowsAgent(account, "claude") != true {
+		t.Fatal("claude should be allowed")
+	}
+	if AccountAllowsAgent(account, "codex") {
+		t.Fatal("codex must be rejected without openai-responses protocol")
+	}
+	b := NewBuilder(nil)
+	dir := t.TempDir()
+	if _, err := b.Build(context.Background(), PolicyRequest{
+		Workspace: dir, AgentID: "codex", MountMode: "clone", Model: account,
+	}); err == nil {
+		t.Fatal("expected KindMismatch for codex on anthropic-only account")
 	}
 }

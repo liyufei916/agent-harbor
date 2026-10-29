@@ -1,10 +1,14 @@
 package gate
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,7 +57,8 @@ func (p *modelProxy) handle(w http.ResponseWriter, r *http.Request) {
 	defer rt.active.Done()
 	originAuth := authorityOfOrigin(rt.spec.Policy.Model.Origin)
 	host := hostOfOrigin(rt.spec.Policy.Model.Origin)
-	if !policy.PathAllowed(rt.spec.Policy.Model, r.URL.Path) {
+	reqPath := normalizeModelRequestPath(rt.spec.Policy.Model, r.URL.Path)
+	if !policy.PathAllowed(rt.spec.Policy.Model, reqPath) {
 		p.h.emitAudit(rt, contracts.AuditData{Target: host, Tool: auditToolModel, Result: "denied"})
 		http.Error(w, "path not allowed", http.StatusForbidden)
 		return
@@ -69,7 +74,7 @@ func (p *modelProxy) handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	modelURL := *r.URL
-	modelURL.Path = policy.JoinBasePath(rt.spec.Policy.Model.BasePath, r.URL.Path)
+	modelURL.Path = policy.JoinBasePath(rt.spec.Policy.Model.BasePath, reqPath)
 	upstreamURL, err := joinOrigin(rt.spec.Policy.Model.Origin, &modelURL)
 	if err != nil {
 		http.Error(w, "bad upstream", http.StatusBadGateway)
@@ -77,13 +82,31 @@ func (p *modelProxy) handle(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := p.h.upstreamContext(r.Context())
 	defer cancel()
-	outReq, err := http.NewRequestWithContext(ctx, r.Method, upstreamURL, r.Body)
+	body := io.Reader(r.Body)
+	// 账号配置了模型名时，改写出站 JSON 的 model，避免 Claude 默认 claude-sonnet-* 打到只允许 GPT 的 Key。
+	wantModel := strings.TrimSpace(rt.spec.Policy.Model.Model)
+	if wantModel == "" {
+		if acc, err := p.h.secrets.Lookup(r.Context(), modelAccountID); err == nil {
+			wantModel = strings.TrimSpace(acc.Model)
+		}
+	}
+	if r.Method == http.MethodPost && wantModel != "" && r.Body != nil {
+		if rewritten, ok := rewriteJSONModelField(r.Body, wantModel); ok {
+			body = rewritten
+			r.Body = io.NopCloser(bytes.NewReader(nil))
+		}
+	}
+	outReq, err := http.NewRequestWithContext(ctx, r.Method, upstreamURL, body)
 	if err != nil {
 		http.Error(w, "bad request", http.StatusBadGateway)
 		return
 	}
 	copyHeaders(outReq.Header, r.Header)
 	outReq.Header.Set("Accept-Encoding", "identity")
+	if buf, ok := body.(*bytes.Reader); ok {
+		outReq.ContentLength = int64(buf.Len())
+		outReq.Header.Set("Content-Length", strconv.Itoa(buf.Len()))
+	}
 	key, err := p.h.secrets.Resolve(r.Context(), modelAccountID)
 	if err != nil {
 		http.Error(w, "credential missing", http.StatusBadGateway)
@@ -148,6 +171,37 @@ func (p *modelProxy) applyModelKey(req *http.Request, keyStr string) {
 	if req.Header.Get("Authorization") == "" {
 		req.Header.Set("Authorization", "Bearer "+keyStr)
 	}
+}
+
+// normalizeModelRequestPath：Codex 在 base_url 无 /v1 时会 POST /responses；
+// 若策略已放行 /v1/responses，则归一到该路径再做白名单与上游拼接。
+func normalizeModelRequestPath(rule policy.EndpointRule, path string) string {
+	if path == "/responses" && policy.PathAllowed(rule, "/v1/responses") {
+		return "/v1/responses"
+	}
+	return path
+}
+
+// rewriteJSONModelField 将 JSON 对象顶层 "model" 改为账号模型名；失败则原样透传。
+func rewriteJSONModelField(r io.Reader, model string) (*bytes.Reader, bool) {
+	raw, err := io.ReadAll(io.LimitReader(r, 2<<20))
+	if err != nil || len(raw) == 0 {
+		return nil, false
+	}
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(raw, &obj) != nil {
+		return bytes.NewReader(raw), true
+	}
+	enc, err := json.Marshal(model)
+	if err != nil {
+		return bytes.NewReader(raw), true
+	}
+	obj["model"] = enc
+	out, err := json.Marshal(obj)
+	if err != nil {
+		return bytes.NewReader(raw), true
+	}
+	return bytes.NewReader(out), true
 }
 
 func joinOrigin(origin string, u *url.URL) (string, error) {

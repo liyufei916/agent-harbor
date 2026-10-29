@@ -290,7 +290,14 @@ func (r *MacOS) Exec(ctx context.Context, handle Handle, launch LaunchSpec, outp
 			return nil, runtimeError("INVALID_ARGUMENT")
 		}
 	}
-	env, err := launchEnvironment(handle.PrivateHome, launch.Env)
+	projectHome := handle.PrivateHome
+	if ph := strings.TrimSpace(launch.ProjectHome); ph != "" {
+		if ph != e.workspace {
+			return nil, runtimeError("INVALID_ARGUMENT")
+		}
+		projectHome = ph
+	}
+	env, err := launchEnvironment(projectHome, handle.PrivateHome, launch.Env)
 	if err != nil {
 		return nil, err
 	}

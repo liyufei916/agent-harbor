@@ -444,7 +444,11 @@ export function mountSession(root, ctx) {
         modelAccountId: els.model.value,
       });
       if (res.error) {
-        els.error.textContent = `${res.error.code}: ${res.error.message}`;
+        const line = `${res.error.code}: ${res.error.message}`;
+        els.error.textContent = line;
+        showToast(line, "bad");
+        // 切失败时下拉仍停在新选项，拉回当前会话账号以免误导
+        fillModels(ctx.state.lastSnapshot?.modelAccountId);
       }
     };
   }

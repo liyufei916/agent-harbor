@@ -27,9 +27,35 @@ export function accountAgents(account) {
   return defaultAgentsForProfile(account.profileId);
 }
 
+/** 连接探测成功的协议；缺省按 profile（旧账号无 protocols）。 */
+export function accountProtocols(account) {
+  if (!account) return [];
+  if (Array.isArray(account.protocols) && account.protocols.length) {
+    return account.protocols;
+  }
+  if (account.profileId === "codex-model") return ["openai-responses"];
+  if (
+    account.profileId === "dsh-model" ||
+    account.profileId === "demo-model" ||
+    account.profileId === "custom"
+  ) {
+    return ["anthropic"];
+  }
+  return [];
+}
+
+function agentNeedsProtocol(agentId) {
+  if (agentId === "codex") return "openai-responses";
+  if (agentId === "claude" || agentId === "dsh") return "anthropic";
+  return "";
+}
+
 export function modelFitsAgent(account, agentId, _agents = []) {
   if (!account || account.kind !== "model") return false;
-  return accountAgents(account).includes(agentId);
+  if (!accountAgents(account).includes(agentId)) return false;
+  const need = agentNeedsProtocol(agentId);
+  if (!need) return false;
+  return accountProtocols(account).includes(need);
 }
 
 export function filterModelsForAgent(accounts, agentId, agents = []) {
@@ -41,10 +67,16 @@ export function agentsForModelProfile(profileId) {
 }
 
 export function modelCompatLabel(accountOrProfileId) {
-  const agents =
-    typeof accountOrProfileId === "string"
-      ? agentsForModelProfile(accountOrProfileId)
-      : accountAgents(accountOrProfileId);
+  let agents;
+  if (typeof accountOrProfileId === "string") {
+    agents = agentsForModelProfile(accountOrProfileId);
+  } else {
+    const protocols = accountProtocols(accountOrProfileId);
+    agents = accountAgents(accountOrProfileId).filter((id) => {
+      const need = agentNeedsProtocol(id);
+      return need && protocols.includes(need);
+    });
+  }
   if (!agents.length) return "未知兼容";
   if (agents.length === 1) return `仅 ${agents[0]}`;
   return `可用于 ${agents.join(" / ")}`;

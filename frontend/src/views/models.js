@@ -5,6 +5,7 @@
  */
 import * as api from "../api.js";
 import { defaultAgentsForProfile, modelCompatLabel } from "../agent-compat.js";
+import { showToast } from "../toast.js";
 
 const AGENT_OPTS = [
   { id: "claude", label: "Claude" },
@@ -18,7 +19,8 @@ const PRESETS = [
   { name: "DeepSeek", origin: "https://api.deepseek.com/anthropic", model: "deepseek-chat" },
   // 两套七牛网关 Key 不互通：官方 Token API vs LiteLLM
   { name: "七牛官方", origin: "https://api.qnaigc.com", model: "" },
-  { name: "七牛LiteLLM", origin: "https://llmapi.qiniu.io", model: "GPT-5.6" },
+  // Codex/OpenAI 兼容网关常用小写 id（如 gpt-5.6-sol）；Anthropic 路由另填 Claude 模型名
+  { name: "七牛LiteLLM", origin: "https://llmapi.qiniu.io", model: "gpt-5.6-sol" },
 ];
 
 /** 固定 profile：不填 Origin，走宿主机 HARBOR_* 登记上游（Codex / dsh）。 */
@@ -241,8 +243,8 @@ export function mountModels(root, ctx, opts = {}) {
         <div class="actions">
           <button type="button" class="btn" id="m-cancel">取消</button>
           <button type="button" class="btn primary" id="m-save">保存</button>
-          <span class="meta" id="m-status"></span>
         </div>
+        <p class="meta" id="m-status" role="status"></p>
       </section>`;
     const nameEl = form.querySelector("#m-name");
     const originEl = form.querySelector("#m-origin");
@@ -332,6 +334,18 @@ export function mountModels(root, ctx, opts = {}) {
         else nameEl.focus();
         return;
       }
+      const originLow = origin.toLowerCase();
+      if (
+        !fixedProfileId &&
+        agents.includes("codex") &&
+        (originLow.includes("deepseek") || originLow.includes("/anthropic"))
+      ) {
+        const msg =
+          "Codex 不能使用 DeepSeek 或 …/anthropic 地址。请改用「OpenAI Codex」，或取消 Codex 勾选后保存给 Claude。";
+        status.innerHTML = `<span class="bad">INVALID_ARGUMENT: ${msg}</span>`;
+        showToast(msg, "bad");
+        return;
+      }
       status.innerHTML = `<span class="meta">正在保存…</span>`;
       const saveBtn = form.querySelector("#m-save");
       saveBtn.disabled = true;
@@ -358,22 +372,36 @@ export function mountModels(root, ctx, opts = {}) {
               },
         );
         if (res.error) {
+          const wantsCodex =
+            agents.includes("codex") || fixedProfileId === "codex-model";
           let hint = "";
           if (res.error.code === "UPSTREAM_AUTH_FAILED") {
-            hint = fixedProfileId
-              ? " 核对 Key 与 HARBOR_*_MODEL_ORIGIN 是否同一套上游。"
-              : " 请用终端验证：export KEY='完整Key'; ./scripts/probe-model-auth.sh " +
-                origin.replace(/'/g, "");
+            hint = wantsCodex
+              ? " Responses 认证失败时请核对 Key 与 Origin（Codex 不用 DeepSeek Anthropic Key）。"
+              : fixedProfileId
+                ? " 核对 Key 与 HARBOR_*_MODEL_ORIGIN 是否同一套上游。"
+                : " 请用终端验证：export KEY='完整Key'; ./scripts/probe-model-auth.sh " +
+                  origin.replace(/'/g, "");
           } else if (res.error.code === "UPSTREAM_UNAVAILABLE") {
-            hint = fixedProfileId
-              ? " 确认已 export 对应 HARBOR_*_MODEL_ORIGIN，且上游支持 Responses/登记协议。"
-              : " 上游可达但协议/模型名可能不对；可改「模型名」后重试。";
+            hint = wantsCodex
+              ? " Codex 依赖 POST /v1/responses；DeepSeek 仅 Anthropic 时请改用「OpenAI Codex」快捷项。"
+              : fixedProfileId
+                ? " 确认已 export 对应 HARBOR_*_MODEL_ORIGIN，且上游支持登记协议。"
+                : " 上游可达但协议/模型名可能不对；可改「模型名」后重试。";
+          } else if (res.error.code === "UPSTREAM_TIMEOUT") {
+            hint = wantsCodex
+              ? " 七牛/代理上 Responses 首包可能很慢；确认模型名 gpt-5.6-sol、网络可达，稍后重试。仍超时则网关可能未真正支持 /v1/responses。"
+              : " 网络或上游过慢，请稍后重试。";
           } else if (res.error.code === "INVALID_ARGUMENT") {
-            hint = fixedProfileId
-              ? " 常见：未启动前登记 HARBOR_CODEX_MODEL_ORIGIN / HARBOR_DSH_MODEL_ORIGIN，profile 不可用。"
-              : "";
+            hint = wantsCodex
+              ? " 常见：未 export HARBOR_CODEX_MODEL_ORIGIN，或跳过探测时勾了 Codex。"
+              : fixedProfileId
+                ? " 常见：未启动前登记 HARBOR_*_MODEL_ORIGIN，profile 不可用。"
+                : "";
           }
-          status.innerHTML = `<span class="bad">${res.error.code}: ${res.error.message}</span>${hint ? `<span class="meta">${hint}</span>` : ""}`;
+          const line = `${res.error.code}: ${res.error.message}`;
+          status.innerHTML = `<span class="bad">${line}</span>${hint ? `<br/><span class="meta">${hint}</span>` : ""}`;
+          showToast(line, "bad");
           return;
         }
         keyEl.value = "";

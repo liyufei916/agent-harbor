@@ -317,12 +317,12 @@ export function mountWizard(root, ctx, opts = {}) {
           } else if (res.error.code === "INVALID_ARGUMENT") {
             if (draft.agentId === "codex") {
               hint =
-                "Codex 不能配自定义/DeepSeek（Anthropic）模型。请到「模型」用「OpenAI Codex」添加 codex-model，并确保启动前已 export HARBOR_CODEX_MODEL_ORIGIN。若勾了自定义 MCP，删除后重连以落盘 tools。";
-              cta = `<button type="button" class="btn" id="wz-to-models">去模型</button> <button type="button" class="btn" id="wz-to-tools">去工具</button>`;
+                "Codex 需要已通过 Responses（/v1/responses）探测的模型账号。MCP 可选（工具:0 正常）。DeepSeek Anthropic 账号不可用；请确认「模型」页该账号勾选了 Codex。";
+              cta = `<button type="button" class="btn" id="wz-to-models">去模型</button>`;
             } else {
               hint =
-                "若勾了自定义 MCP：到「工具」删除后重新添加（须带工具列表）。也检查 Agent 与模型 profile 是否匹配。";
-              cta = `<button type="button" class="btn" id="wz-to-tools">去工具</button>`;
+                "该模型可能只勾了 Codex。Claude 请选用 Anthropic 账号，或到「模型」勾选 Claude 后重存。自定义 MCP 须带工具列表。";
+              cta = `<button type="button" class="btn" id="wz-to-models">去模型</button> <button type="button" class="btn" id="wz-to-tools">去工具</button>`;
             }
           }
           msg.innerHTML = `<span class="bad">${res.error.code}: ${res.error.message}</span>${hint ? `<p class="meta">${hint}</p>` : ""}${cta ? `<div class="actions">${cta}</div>` : ""}`;

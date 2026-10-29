@@ -33,7 +33,7 @@ func TestBrewRuntimeDoesNotAuthorizeAllHostConfiguration(t *testing.T) {
 }
 
 func input() kits.KitInput {
-	return kits.KitInput{Task: "特殊字符 ' \" $(touch never)\n中文", PrivateHome: "/private/test home", ModelBaseURL: "http://127.0.0.1:41001/model", MCPURL: "http://127.0.0.1:41002/mcp", Sentinel: sentinel}
+	return kits.KitInput{Task: "特殊字符 ' \" $(touch never)\n中文", PrivateHome: "/private/test home", Workspace: "/private/workspace", ModelBaseURL: "http://127.0.0.1:41001/model", MCPURL: "http://127.0.0.1:41002/mcp", Sentinel: sentinel}
 }
 
 func TestBuildOnlyContainsGateConfiguration(t *testing.T) {
@@ -58,10 +58,13 @@ func TestBuildOnlyContainsGateConfiguration(t *testing.T) {
 	if strings.Contains(args, input().Task) || strings.Contains(args, sentinel) {
 		t.Fatal("任务或令牌进入命令行")
 	}
-	for _, flag := range []string{"--print", "--strict-mcp-config", "--setting-sources", "--no-session-persistence", "--permission-mode dontAsk", "--tools Read,Write,Edit"} {
+	for _, flag := range []string{"--print", "--strict-mcp-config", "--setting-sources", "--no-session-persistence", "--permission-mode dontAsk", "--tools Read,Write,Edit", "--add-dir", "--append-system-prompt"} {
 		if !strings.Contains(args, flag) {
 			t.Fatalf("缺少限制参数 %s", flag)
 		}
+	}
+	if !strings.Contains(args, "/private/workspace") {
+		t.Fatal("须传入工作区绝对路径")
 	}
 	if strings.Contains(args, "--permission-prompts") {
 		t.Fatal("新 CLI 已移除 --permission-prompts，不应再传入")

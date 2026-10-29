@@ -53,11 +53,11 @@ func TestConfigPathsAndPermissions(t *testing.T) {
 
 func TestEnvironmentAllowsOnlyKitInputs(t *testing.T) {
 	for _, key := range []string{"HOME", "PATH", "TMPDIR", "CLAUDE_CODE_TMPDIR", "DYLD_INSERT_LIBRARIES", "NODE_OPTIONS", "SSH_AUTH_SOCK", "AWS_SECRET_ACCESS_KEY"} {
-		if _, err := launchEnvironment("/private/home", map[string]string{key: "value"}); err == nil {
+		if _, err := launchEnvironment("/private/home", "", map[string]string{key: "value"}); err == nil {
 			t.Fatalf("接受危险环境变量 %s", key)
 		}
 	}
-	env, err := launchEnvironment("/private/home", map[string]string{"ANTHROPIC_API_KEY": "test-sentinel"})
+	env, err := launchEnvironment("/private/home", "", map[string]string{"ANTHROPIC_API_KEY": "test-sentinel"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,13 +67,27 @@ func TestEnvironmentAllowsOnlyKitInputs(t *testing.T) {
 }
 
 func TestCodexEnvironmentGetsToolchainPathOnlyWithPrivateCodexHome(t *testing.T) {
-	env, err := launchEnvironment("/private/home", map[string]string{"CODEX_HOME": "/private/home/codex"})
+	env, err := launchEnvironment("/private/home", "", map[string]string{"CODEX_HOME": "/private/home/codex"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	joined := strings.Join(env, "\n")
 	if !strings.Contains(joined, "PATH=/usr/bin:/bin:/opt/homebrew/bin:/usr/local/bin") {
 		t.Fatalf("Codex 未获得受控工具链 PATH: %v", env)
+	}
+}
+
+func TestLaunchEnvironmentProjectHomeKeepsPrivateTmp(t *testing.T) {
+	env, err := launchEnvironment("/private/workspace", "/private/home", map[string]string{"ANTHROPIC_API_KEY": "test-sentinel"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(env, "\n")
+	if !strings.Contains(joined, "HOME=/private/workspace\n") {
+		t.Fatalf("HOME 应为工作区: %v", env)
+	}
+	if !strings.Contains(joined, "TMPDIR=/private/home/tmp\n") || !strings.Contains(joined, "CLAUDE_CODE_TMPDIR=/private/home/tmp\n") {
+		t.Fatalf("临时目录须留在私有 HOME: %v", env)
 	}
 }
 

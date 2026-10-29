@@ -37,9 +37,10 @@ var controlledExecutablePaths = []string{
 	"/bin/cat", "/bin/cp", "/bin/ls", "/bin/mkdir", "/bin/mv", "/bin/rm", "/bin/sh", "/bin/echo",
 	"/bin/zsh", "/bin/bash", "/usr/bin/awk", "/usr/bin/env", "/usr/bin/false", "/usr/bin/find",
 	"/usr/bin/git", "/usr/bin/grep", "/usr/bin/head", "/usr/bin/node", "/usr/bin/printf",
-	"/usr/bin/pwd", "/usr/bin/sed", "/usr/bin/tail", "/usr/bin/true", "/usr/bin/which", "/usr/bin/xargs",
+	"/usr/bin/pwd", "/usr/bin/sed", "/usr/bin/sort", "/usr/bin/tail", "/usr/bin/true", "/usr/bin/wc",
+	"/usr/bin/which", "/usr/bin/xargs",
 	"/usr/local/bin/node", "/opt/homebrew/bin/node", "/opt/homebrew/bin/npm", "/opt/homebrew/bin/npx",
-	"/opt/homebrew/bin/go", "/usr/local/go/bin/go",
+	"/opt/homebrew/bin/go", "/opt/homebrew/bin/rg", "/usr/local/go/bin/go",
 }
 
 // Codex 启动时会探测系统级 managed requirements；只允许读取固定策略文件，不能读取整个 /etc。
@@ -102,10 +103,15 @@ func makeProfile(workspace, home string, readOnly, addresses []string, allowChil
 			fmt.Fprintf(&rules, "(allow file-read* (literal %s))\n", quoted)
 			fmt.Fprintf(&rules, "(allow file-read-metadata (path-ancestors %s))\n", quoted)
 		}
-		// Codex 启动时通过 cfprefsd 同步系统 managed preferences；只放行查询服务，
-		// 不开放用户配置目录、钥匙串或其它宿主 IPC。
+		// Codex 0.157+ 启动时 CFPreferencesAppSynchronize(com.openai.codex)。
+		// 仅 mach-lookup 不够：还须 user-preference-read 与 apple.cfprefs.* POSIX shm
+		//（与上游 seatbelt_permissions MacOsPreferencesPermission::ReadOnly 对齐）。
+		// 不开放 user-preference-write / 钥匙串 / 其它宿主 IPC。
+		rules.WriteString("(allow ipc-posix-shm-read* (ipc-posix-name-prefix \"apple.cfprefs.\"))\n")
 		rules.WriteString("(allow mach-lookup (global-name \"com.apple.cfprefsd.daemon\"))\n")
 		rules.WriteString("(allow mach-lookup (global-name \"com.apple.cfprefsd.agent\"))\n")
+		rules.WriteString("(allow mach-lookup (local-name \"com.apple.cfprefsd.agent\"))\n")
+		rules.WriteString("(allow user-preference-read)\n")
 	}
 	for _, address := range addresses {
 		port, err := endpointPort(address)

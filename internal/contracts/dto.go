@@ -47,6 +47,8 @@ type AccountInfo struct {
 	KeyHint   string   `json:"keyHint,omitempty"`  // 仅末四位提示，如 …a1b2；永不含完整 Key
 	Tools     []string `json:"tools,omitempty"`    // 自定义 MCP：连接探测时 tools/list 快照，供会话白名单
 	Agents    []string `json:"agents,omitempty"`   // 可选用的 Agent id；空=仅按 profileId 单绑
+	// Protocols：连接时实际探测成功的协议（anthropic / openai-responses）；开会话按 Agent 校验。
+	Protocols []string `json:"protocols,omitempty"`
 }
 
 // SessionSpec 是创建会话的前端请求。

@@ -468,6 +468,30 @@ export async function connectModel(input) {
     else if (profileId === "dsh-model") agents = ["dsh"];
     else agents = ["claude"];
   }
+  const protocols = [];
+  if (agents.includes("claude") || agents.includes("dsh") || profileId === "custom" || profileId === "demo-model" || profileId === "dsh-model") {
+    if (agents.includes("claude") || agents.includes("dsh") || (!agents.includes("codex") && profileId !== "codex-model")) {
+      protocols.push("anthropic");
+    }
+  }
+  if (agents.includes("codex") || profileId === "codex-model") {
+    protocols.push("openai-responses");
+  }
+  // 模拟：DeepSeek 官方域名即使勾了 Codex 也不给 Responses（与真机探测一致）
+  const protocolsFinal =
+    host === "api.deepseek.com"
+      ? protocols.filter((p) => p !== "openai-responses")
+      : [...new Set(protocols)];
+  if (host === "api.deepseek.com" && agents.includes("codex") && !protocolsFinal.includes("openai-responses")) {
+    return {
+      account: null,
+      error: err(
+        "UPSTREAM_UNAVAILABLE",
+        "已勾选 Codex，但该地址未通过 Responses 探测。api.deepseek.com 不能配 Codex；请用「OpenAI Codex」。",
+        true,
+      ),
+    };
+  }
   const account = {
     id,
     kind: "model",
@@ -478,6 +502,7 @@ export async function connectModel(input) {
     model: input.model || "",
     keyHint: keyHint(input.apiKey),
     agents,
+    protocols: protocolsFinal.length ? protocolsFinal : undefined,
   };
   modelAccounts.set(id, account);
   return { account: { ...account }, error: null };

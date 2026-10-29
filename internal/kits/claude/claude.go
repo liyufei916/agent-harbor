@@ -380,13 +380,29 @@ func (k *Kit) Build(ctx context.Context, input kits.KitInput) (runtime.LaunchSpe
 	if err != nil {
 		return runtime.LaunchSpec{}, kitError("INVALID_ARGUMENT")
 	}
+	model := strings.TrimSpace(input.Model)
+	if model == "" {
+		model = k.model
+	}
+	workspace := strings.TrimSpace(input.Workspace)
+	if workspace == "" || !filepath.IsAbs(workspace) || filepath.Clean(workspace) != workspace || strings.ContainsRune(workspace, 0) {
+		return runtime.LaunchSpec{}, kitError("INVALID_ARGUMENT")
+	}
+	// Claude Code 常把进程 cwd 切到 $HOME；须显式锁定工作区。
+	// 非 Claude 上游（如 GPT via Anthropic 兼容网关）易漏传 tool 参数，须强调 file_path。
+	workHint := "Project workspace (absolute): " + workspace +
+		". All Read/Write/Edit must use absolute paths under this directory only. " +
+		"When calling the Read tool you MUST include the required JSON field file_path (never call Read with an empty input). " +
+		"Same for Write/Edit: path/file_path is required. Do not use $HOME or AgentHarbor session private dirs as the project root."
 	// --print + stream-json：经 ANTHROPIC_BASE_URL（Gate）出站；工作台 xterm 用 WritePty 多轮。
 	// 不用 Ink TUI：其预检固定请求 api.anthropic.com，沙箱内 ENOTFOUND 且绕过 Gate。
 	args := append(append([]string{}, launch.Args...),
 		"--print", "--output-format", "stream-json", "--verbose", "--input-format", "stream-json",
 		"--no-session-persistence", "--strict-mcp-config", "--mcp-config", mcpPath, "--settings", settingsPath,
 		"--setting-sources", "", "--permission-mode", "dontAsk", "--disable-slash-commands", "--no-chrome",
-		"--tools", "Read,Write,Edit", "--model", k.model,
+		"--tools", "Read,Write,Edit", "--model", model,
+		"--add-dir", workspace,
+		"--append-system-prompt", workHint,
 	)
 	return runtime.LaunchSpec{
 		Command:     launch.Command,
@@ -396,6 +412,8 @@ func (k *Kit) Build(ctx context.Context, input kits.KitInput) (runtime.LaunchSpe
 		Interactive: true,
 		EncodeInput: encodeMessage,
 		ConfigFiles: []runtime.ConfigFile{{RelativePath: "harbor-mcp.json", Content: mcp}, {RelativePath: "harbor-settings.json", Content: settings}},
+		// HOME=工作区，避免 Claude chdir 到私有 home 后 Read 全部 InputValidationError。
+		ProjectHome: workspace,
 	}, nil
 }
 

@@ -40,12 +40,15 @@ func (o *Service) SwitchModel(ctx context.Context, input contracts.SwitchModelIn
 	if err != nil {
 		return contracts.SessionSnapshot{}, safeError(err, "ACCOUNT_NOT_FOUND")
 	}
-	if next.ID != input.ModelAccountID || next.Kind != "model" || current.Kind != "model" || next.Host != current.Host {
+	if next.ID != input.ModelAccountID || next.Kind != "model" || current.Kind != "model" {
 		return contracts.SessionSnapshot{}, publicError("INVALID_ARGUMENT")
+	}
+	if next.Host != current.Host {
+		return contracts.SessionSnapshot{}, contracts.NewAppError(contracts.ErrInvalidArgument, "切换模型须为同一上游主机（当前 "+current.Host+"）。要换到 "+next.Host+" 请停止后新开会话。", false)
 	}
 	// 同 Host 下可换账号；须均兼容当前会话 Agent（含多 Agent 共用模型）。
 	if !policy.AccountAllowsAgent(next, agentID) || !policy.AccountAllowsAgent(current, agentID) {
-		return contracts.SessionSnapshot{}, publicError("INVALID_ARGUMENT")
+		return contracts.SessionSnapshot{}, contracts.NewAppError(contracts.ErrInvalidArgument, "该模型账号未兼容当前 Agent（"+agentID+"）。请到「模型」编辑账号并勾选对应 Agent 后重新保存。", false)
 	}
 	if next.ProfileID != current.ProfileID && len(next.Agents) == 0 && len(current.Agents) == 0 {
 		return contracts.SessionSnapshot{}, publicError("INVALID_ARGUMENT")

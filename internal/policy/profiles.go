@@ -52,6 +52,35 @@ func CustomModelProfile(origin, modelName string) (FixedProfile, error) {
 	return p, nil
 }
 
+// CustomResponsesModelProfile 由用户 Origin 构造 Codex Responses 探测 profile（忽略 Anthropic BasePath）。
+func CustomResponsesModelProfile(origin, modelName string) (FixedProfile, error) {
+	raw := strings.TrimSpace(origin)
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme == "" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return FixedProfile{}, errors.New("policy: invalid custom origin")
+	}
+	host := strings.ToLower(u.Hostname())
+	model := strings.TrimSpace(modelName)
+	if model == "" {
+		model = "gpt-5-codex"
+	}
+	p := FixedProfile{
+		ID:       ProfileCustom,
+		Kind:     "model",
+		Protocol: "openai-responses",
+		Model:    model,
+		Origin:   u.Scheme + "://" + u.Host,
+		Host:     host,
+		BasePath: "",
+		Paths:    []string{"/v1/responses"},
+		TestPath: "/v1/responses",
+	}
+	if !p.ValidConnection() {
+		return FixedProfile{}, errors.New("policy: custom responses origin not allowed")
+	}
+	return p, nil
+}
+
 // CustomModelProbeCandidates 返回自定义 Origin 的探测候选（BasePath × 模型）。
 // 先试用户显式 path/模型，再为 DeepSeek 等补 /anthropic 与厂商模型名。
 func CustomModelProbeCandidates(origin, modelName string) ([]FixedProfile, error) {

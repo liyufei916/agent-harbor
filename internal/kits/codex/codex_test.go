@@ -2,11 +2,24 @@ package codex
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/liyufei916/agent-harbor/internal/kits"
 )
+
+func TestPackageRootForScriptIncludesNpmPackageNotJustBin(t *testing.T) {
+	script := filepath.Join(string(filepath.Separator), "opt", "homebrew", "lib", "node_modules", "@openai", "codex", "bin", "codex.js")
+	got := packageRootForScript(script)
+	want := filepath.Join(string(filepath.Separator), "opt", "homebrew", "lib", "node_modules", "@openai", "codex")
+	if got != want {
+		t.Fatalf("packageRoot=%q want %q", got, want)
+	}
+	if packageRootForScript("/tmp/codex.js") != "/tmp" {
+		t.Fatalf("非 bin 布局应退回脚本目录")
+	}
+}
 
 func validInput() kits.KitInput {
 	return kits.KitInput{
@@ -15,6 +28,7 @@ func validInput() kits.KitInput {
 		ModelBaseURL: "http://127.0.0.1:41001",
 		MCPURL:       "http://127.0.0.1:41002/mcp",
 		Sentinel:     strings.Repeat("s", 64),
+		Workspace:    "/private/tmp/harbor-ws",
 	}
 }
 
@@ -34,13 +48,36 @@ func TestBuildUsesResponsesProviderAndPrivateCodexHome(t *testing.T) {
 		t.Fatalf("Codex 配置路径错误: %+v", launch.ConfigFiles)
 	}
 	config := string(launch.ConfigFiles[0].Content)
-	for _, required := range []string{"wire_api = \"responses\"", "env_key = \"OPENAI_API_KEY\"", "[mcp_servers.harbor]", "http://127.0.0.1:41002/mcp"} {
+	for _, required := range []string{"wire_api = \"responses\"", "env_key = \"OPENAI_API_KEY\"", "[mcp_servers.harbor]", "http://127.0.0.1:41002/mcp", `base_url = "http://127.0.0.1:41001/v1"`, `sandbox_mode = "danger-full-access"`, `approval_policy = "never"`} {
 		if !strings.Contains(config, required) {
 			t.Fatalf("Codex 配置缺少 %q: %s", required, config)
 		}
 	}
+	if strings.Contains(config, "workspace-write") {
+		t.Fatal("外层已 Seatbelt 时不应再启用 Codex workspace-write 嵌套沙箱")
+	}
+	if strings.Contains(config, `base_url = "http://127.0.0.1:41001"`) && !strings.Contains(config, `base_url = "http://127.0.0.1:41001/v1"`) {
+		t.Fatal("Codex base_url 缺少 /v1，会打到 Gate 未放行的 /responses")
+	}
 	if strings.Contains(config, "api_key") {
 		t.Fatal("Codex 配置写入了 api_key 字段")
+	}
+	joined := strings.Join(launch.Args, " ")
+	if !strings.Contains(joined, "--dangerously-bypass-approvals-and-sandbox") {
+		t.Fatalf("缺少外部沙箱 bypass 旗标: %v", launch.Args)
+	}
+	if launch.Interactive {
+		t.Fatal("原生/替身二进制路径不应启用 turn_bridge")
+	}
+}
+
+func TestEncodePromptJSONLine(t *testing.T) {
+	got, err := encodePrompt([]byte("下一轮\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "\"下一轮\"\n" {
+		t.Fatalf("encode=%q", got)
 	}
 }
 
@@ -67,5 +104,38 @@ func TestBuildRejectsNonGateURLs(t *testing.T) {
 	input.ModelBaseURL = "https://api.openai.com/v1"
 	if _, err := k.Build(context.Background(), input); err == nil {
 		t.Fatal("Codex 接受了非 Gate 地址")
+	}
+}
+
+func TestBuildAllowsZeroMCP(t *testing.T) {
+	k, _ := New("/bin/sh", "gpt-5-codex")
+	input := validInput()
+	input.MCPURL = ""
+	input.MCPURLs = nil
+	launch, err := k.Build(context.Background(), input)
+	if err != nil {
+		t.Fatalf("无 MCP 时应可启动 Codex: %v", err)
+	}
+	config := string(launch.ConfigFiles[0].Content)
+	if strings.Contains(config, "[mcp_servers.") {
+		t.Fatalf("无 MCP 不应写入 mcp_servers: %s", config)
+	}
+	if !strings.Contains(config, "wire_api = \"responses\"") {
+		t.Fatalf("缺少 Responses: %s", config)
+	}
+}
+
+func TestBuildUsesMCPURLs(t *testing.T) {
+	k, _ := New("/bin/sh", "gpt-5-codex")
+	input := validInput()
+	input.MCPURL = ""
+	input.MCPURLs = []string{"http://127.0.0.1:41002/mcp/0", "http://127.0.0.1:41003/mcp/1"}
+	launch, err := k.Build(context.Background(), input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := string(launch.ConfigFiles[0].Content)
+	if !strings.Contains(config, "[mcp_servers.harbor]") || !strings.Contains(config, "[mcp_servers.harbor-2]") {
+		t.Fatalf("多 MCP 配置错误: %s", config)
 	}
 }
