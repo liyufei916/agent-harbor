@@ -6,6 +6,7 @@
 |---|---|
 | 相对路径 | `demos/workspace/`（相对仓库根） |
 | 允许改动 | 仅本目录；演示任务会创建/覆盖 `hello.txt` |
+| clone 对比 | 打包走查见 [DESKTOP-PACKAGE-TEST.md §7.9](../DESKTOP-PACKAGE-TEST.md#79-安全副本--原项目文件对比)：先确认 ORIG 不变，再测导回 |
 | 禁止 | 凭据、`.env`、私钥、工作区外路径 |
 | 默认 I2 任务 | 勿主动要扩权（见 demos 话术） |
 | 扩权 live | 专用清单 [`permission-live-test.md`](permission-live-test.md)；mock 演示扩权不算通过 |

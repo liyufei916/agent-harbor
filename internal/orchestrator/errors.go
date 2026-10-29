@@ -9,7 +9,7 @@ import (
 
 // 即使提供方错误含敏感文本，也只向页面发送固定模板。
 var messages = map[string]string{
-	"INVALID_ARGUMENT":      "会话参数不合法（常见：自定义 MCP 未保存工具列表，请到「工具」删除后重新添加；或 Agent 与模型不匹配）。",
+	"INVALID_ARGUMENT": "会话参数不合法。请检查 Agent 与模型是否匹配、自定义 MCP 是否已保存工具列表。",
 	"ACCOUNT_NOT_FOUND":     "账号尚未连接或不存在。",
 	"SESSION_BUSY":          "已有会话正在准备、运行或等待清理。",
 	"SESSION_LIMIT":         "已达到同时运行的会话上限。",
@@ -49,9 +49,10 @@ func safeError(err error, fallback string) *contracts.AppError {
 	switch {
 	case errors.Is(err, policy.ErrInvalidWorkspace):
 		return publicError("WORKSPACE_DENIED")
+	case errors.Is(err, policy.ErrKindMismatch):
+		return contracts.NewAppError(contracts.ErrInvalidArgument, "Agent 与模型不兼容。Codex 只能用已通过 Responses（/v1/responses）探测的账号；Claude/dsh 只能用 Anthropic 账号。请到「模型」勾选对应 Agent 后重新保存（GPT/七牛若只勾了 Claude，不能在 Codex 会话里选用）。", false)
 	case errors.Is(err, policy.ErrUnknownProfile),
 		errors.Is(err, policy.ErrHostMismatch),
-		errors.Is(err, policy.ErrKindMismatch),
 		errors.Is(err, policy.ErrMissingMCP),
 		errors.Is(err, policy.ErrInvalidAgent):
 		return publicError("INVALID_ARGUMENT")

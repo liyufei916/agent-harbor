@@ -7,5 +7,6 @@ export function showToast(message, kind = "") {
   el.setAttribute("role", "status");
   el.textContent = message;
   document.body.appendChild(el);
-  setTimeout(() => el.remove(), 2800);
+  const ms = kind === "bad" ? 5200 : 2800;
+  setTimeout(() => el.remove(), ms);
 }

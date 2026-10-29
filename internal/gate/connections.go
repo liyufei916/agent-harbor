@@ -40,7 +40,10 @@ func NewConnections(store *secrets.Store, pol *policy.Builder) *Connections {
 	return &Connections{
 		secrets: store,
 		policy:  pol,
-		client:  &http.Client{Transport: http.DefaultTransport.(*http.Transport).Clone(), Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
+		// 单次请求上限略高于 Connect 的 Codex 探测预算，避免 Client.Timeout 先于 ctx 掐断。
+	client: &http.Client{Transport: http.DefaultTransport.(*http.Transport).Clone(), Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}},
 	}
 }
 
@@ -69,12 +72,24 @@ func (c *Connections) connect(ctx context.Context, in contracts.ConnectInput, ki
 	var customCandidates []policy.FixedProfile
 	modelHint := strings.TrimSpace(in.Model)
 	if kind == "model" && (profileID == "" || profileID == policy.ProfileCustom) && origin != "" {
-		cands, err := policy.CustomModelProbeCandidates(origin, modelHint)
-		if err != nil || len(cands) == 0 {
-			return contracts.AccountInfo{}, ErrInvalidConnectInput
+		agentsPreview := policy.NormalizeModelAgents(policy.ProfileCustom, in.Agents)
+		onlyCodex := len(agentsPreview) == 1 && agentsPreview[0] == "codex"
+		if onlyCodex {
+			// 仅 Codex：直接探测 Responses，避免先走 Anthropic 成功后「看起来像保存成功」。
+			p, err := policy.CustomResponsesModelProfile(origin, modelHint)
+			if err != nil {
+				return contracts.AccountInfo{}, ErrInvalidConnectInput
+			}
+			customCandidates = []policy.FixedProfile{p}
+			prof = p
+		} else {
+			cands, err := policy.CustomModelProbeCandidates(origin, modelHint)
+			if err != nil || len(cands) == 0 {
+				return contracts.AccountInfo{}, ErrInvalidConnectInput
+			}
+			customCandidates = cands
+			prof = cands[0]
 		}
-		customCandidates = cands
-		prof = cands[0]
 		profileID = policy.ProfileCustom
 	} else if kind == "mcp" && origin != "" && (profileID == "" || profileID == policy.ProfileCustom || profileID == policy.ProfileDemoMCP) {
 		// 填了服务地址：按自定义 MCP 处理（demo-mcp + 异主机不再误报「输入不合法」）。
@@ -112,6 +127,13 @@ func (c *Connections) connect(ctx context.Context, in contracts.ConnectInput, ki
 			return contracts.AccountInfo{}, contracts.NewAppError(contracts.ErrInvalidArgument, "后端接入配置尚未完整登记或不受支持。", false)
 		}
 	}
+	modelAgents := policy.NormalizeModelAgents(profileID, in.Agents)
+	if kind == "model" {
+		// 已知不兼容组合先拦，避免 DNS/探测拖延或沙箱无解析时误报「主机校验失败」。
+		if err := rejectCodexOnAnthropicOnlyHost(prof.Host, prof.BasePath, origin, modelAgents); err != nil {
+			return contracts.AccountInfo{}, err
+		}
+	}
 	if !prof.AllowInsecureLoopback {
 		if err := ValidatePublicHostname(prof.Host); err != nil {
 			return contracts.AccountInfo{}, contracts.NewAppError(contracts.ErrInvalidArgument, "目标主机未通过出站校验（须为可解析公网地址）。", false)
@@ -119,9 +141,16 @@ func (c *Connections) connect(ctx context.Context, in contracts.ConnectInput, ki
 	}
 	skipProbe := in.SkipProbe && kind == "model" && profileID == policy.ProfileCustom
 	if skipProbe {
+		// 跳过探测时不得勾选需另一协议的 Agent（例如 custom Anthropic + Codex）。
+		for _, a := range modelAgents {
+			if a == "codex" {
+				return contracts.AccountInfo{}, contracts.NewAppError(contracts.ErrInvalidArgument, "跳过探测时不能勾选 Codex（须探测 /v1/responses）。请取消跳过，或只用 Claude。", false)
+			}
+		}
 		meta := contracts.AccountInfo{
 			Kind: kind, Name: name, ProfileID: profileID,
 			Host: prof.Host, BasePath: prof.BasePath, Model: prof.Model,
+			Agents: modelAgents,
 		}
 		id, err := c.secrets.Put(ctx, meta, []byte(key))
 		if err != nil {
@@ -130,7 +159,20 @@ func (c *Connections) connect(ctx context.Context, in contracts.ConnectInput, ki
 		meta.ID = id
 		return meta, nil
 	}
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	// Codex Responses 首包偶发较慢（冷启动/代理排队）；Anthropic/MCP 仍 10s。
+	probeBudget := 10 * time.Second
+	if kind == "model" {
+		for _, a := range modelAgents {
+			if a == "codex" {
+				probeBudget = 25 * time.Second
+				break
+			}
+		}
+		if prof.Protocol == "openai-responses" {
+			probeBudget = 25 * time.Second
+		}
+	}
+	ctx, cancel := context.WithTimeout(ctx, probeBudget)
 	defer cancel()
 	defer c.client.CloseIdleConnections()
 	if kind == "mcp" {
@@ -179,14 +221,14 @@ func (c *Connections) connect(ctx context.Context, in contracts.ConnectInput, ki
 		ok := false
 		for _, cand := range customCandidates {
 			if err := c.probe(ctx, cand, key); err != nil {
-				if ctx.Err() != nil {
-					return contracts.AccountInfo{}, mapProbeErr(ctx, ctx.Err())
-				}
 				probeErr = err
 				if isUpstreamAuthErr(err) {
 					sawAuth = true
 				} else {
 					sawOther = true
+				}
+				if ctx.Err() != nil {
+					return contracts.AccountInfo{}, preferProbeErr(probeErr, ctx.Err())
 				}
 				continue
 			}
@@ -208,11 +250,28 @@ func (c *Connections) connect(ctx context.Context, in contracts.ConnectInput, ki
 		}
 	} else if err := c.probe(ctx, prof, key); err != nil {
 		if ctx.Err() != nil {
-			return contracts.AccountInfo{}, mapProbeErr(ctx, ctx.Err())
+			return contracts.AccountInfo{}, preferProbeErr(err, ctx.Err())
 		}
 		return contracts.AccountInfo{}, err
 	}
 
+	var protocols []string
+	if kind == "model" {
+		if prof.Protocol == "openai-responses" {
+			protocols = append(protocols, "openai-responses")
+		}
+		if prof.Protocol == "anthropic" {
+			protocols = append(protocols, "anthropic")
+		}
+		extra, err := c.probeExtraAgentProtocols(ctx, prof, key, modelAgents)
+		if err != nil {
+			if ctx.Err() != nil {
+				return contracts.AccountInfo{}, mapProbeErr(ctx, ctx.Err())
+			}
+			return contracts.AccountInfo{}, err
+		}
+		protocols = append(protocols, extra...)
+	}
 	meta := contracts.AccountInfo{
 		Kind:      kind,
 		Name:      name,
@@ -220,6 +279,10 @@ func (c *Connections) connect(ctx context.Context, in contracts.ConnectInput, ki
 		Host:      prof.Host,
 		BasePath:  prof.BasePath,
 		Model:     prof.Model,
+	}
+	if kind == "model" {
+		meta.Agents = append([]string(nil), modelAgents...)
+		meta.Protocols = uniqStrings(protocols)
 	}
 	if kind == "mcp" && profileID == policy.ProfileCustom {
 		meta.Tools = append([]string(nil), prof.Tools...)
@@ -235,6 +298,69 @@ func (c *Connections) connect(ctx context.Context, in contracts.ConnectInput, ki
 	return meta, nil
 }
 
+// probeExtraAgentProtocols：多 Agent 勾选时补测协议，返回本次额外成功的 protocol 名。
+func (c *Connections) probeExtraAgentProtocols(ctx context.Context, primary policy.FixedProfile, key string, agents []string) ([]string, error) {
+	needAnthropic, needResponses := false, false
+	for _, a := range agents {
+		if a == "claude" || a == "dsh" {
+			needAnthropic = true
+		}
+		if a == "codex" {
+			needResponses = true
+		}
+	}
+	var extra []string
+	if needResponses && primary.Protocol != "openai-responses" {
+		p := policy.FixedProfile{
+			ID: policy.ProfileCodexModel, Kind: "model", Protocol: "openai-responses",
+			Model: primary.Model, Origin: primary.Origin, Host: primary.Host,
+			Paths: []string{"/v1/responses"}, TestPath: "/v1/responses",
+			AllowInsecureLoopback: primary.AllowInsecureLoopback,
+		}
+		if strings.TrimSpace(p.Model) == "" {
+			p.Model = "gpt-5-codex"
+		}
+		if err := c.probe(ctx, p, key); err != nil {
+			// probe 已 wrapResponsesProbeErr；若仍是哨兵错误再补一句。
+			if ae, ok := err.(*contracts.AppError); ok && ae != nil {
+				return nil, ae
+			}
+			return nil, contracts.NewAppError(contracts.ErrUpstreamUnavailable, "已勾选 Codex，但该地址未通过 Responses（/v1/responses）探测。api.deepseek.com 等仅 Anthropic 的地址不能配 Codex；请改用「OpenAI Codex」或双协议网关。", true)
+		}
+		extra = append(extra, "openai-responses")
+	}
+	if needAnthropic && primary.Protocol != "anthropic" {
+		origin := primary.Origin
+		if bp := strings.TrimRight(strings.TrimSpace(primary.BasePath), "/"); bp != "" {
+			origin = strings.TrimRight(primary.Origin, "/") + bp
+		}
+		p, err := policy.CustomModelProfile(origin, primary.Model)
+		if err != nil {
+			return nil, contracts.NewAppError(contracts.ErrInvalidArgument, "已勾选 Claude/dsh，但无法从该地址构造 Anthropic 探测配置。", false)
+		}
+		p.AllowInsecureLoopback = primary.AllowInsecureLoopback
+		if err := c.probe(ctx, p, key); err != nil {
+			return nil, contracts.NewAppError(contracts.ErrUpstreamUnavailable, "已勾选 Claude/dsh，但该地址未通过 Anthropic Messages 探测。多 Agent 共用须网关同时提供两种协议。", true)
+		}
+		extra = append(extra, "anthropic")
+	}
+	return extra, nil
+}
+
+func uniqStrings(in []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, s := range in {
+		s = strings.TrimSpace(s)
+		if s == "" || seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	return out
+}
+
 const mcpProtocolVersion = "2025-03-26"
 
 func (c *Connections) probe(ctx context.Context, prof policy.FixedProfile, apiKey string) error {
@@ -243,7 +369,8 @@ func (c *Connections) probe(ctx context.Context, prof policy.FixedProfile, apiKe
 		return err
 	}
 	if prof.Protocol == "openai-responses" {
-		return c.probeOpenAIResponses(ctx, prof, apiKey)
+		err := c.probeOpenAIResponses(ctx, prof, apiKey)
+		return wrapResponsesProbeErr(err)
 	}
 	// 自定义：先 GET /v1/models 验 Key（与模型名无关），再 POST /v1/messages。
 	if prof.ID == policy.ProfileCustom {
@@ -283,8 +410,15 @@ func (c *Connections) probe(ctx context.Context, prof policy.FixedProfile, apiKe
 }
 
 func (c *Connections) probeOpenAIResponses(ctx context.Context, prof policy.FixedProfile, apiKey string) error {
-	body, _ := json.Marshal(map[string]any{"model": prof.Model, "input": "Reply OK", "max_output_tokens": 8, "store": false})
-	resp, err := c.probeRequest(ctx, prof, apiKey, "", http.MethodPost, body, modelAuthBearer)
+	// 强制非流式，避免代理以 SSE 挂起直到 Client/ctx 超时 → 笼统 UPSTREAM_TIMEOUT。
+	body, _ := json.Marshal(map[string]any{
+		"model":             prof.Model,
+		"input":             "Reply OK",
+		"max_output_tokens": 8,
+		"store":             false,
+		"stream":            false,
+	})
+	resp, err := c.probeRequestJSON(ctx, prof, apiKey, http.MethodPost, body, modelAuthBearer)
 	if err != nil {
 		return err
 	}
@@ -298,6 +432,65 @@ func (c *Connections) probeOpenAIResponses(ctx context.Context, prof policy.Fixe
 		return ErrUpstreamDown
 	}
 	return ctx.Err()
+}
+
+// preferProbeErr：超时时常有更具体的 AppError（如 Responses 文案），优先返回它。
+func preferProbeErr(probeErr, ctxErr error) error {
+	if probeErr != nil {
+		var ae *contracts.AppError
+		if errors.As(probeErr, &ae) && ae != nil && ae.Code != "" {
+			return ae
+		}
+		if errors.Is(probeErr, ErrUpstreamTimeout) || errors.Is(probeErr, context.DeadlineExceeded) {
+			return mapProbeErr(context.Background(), probeErr)
+		}
+	}
+	return mapProbeErr(context.Background(), ctxErr)
+}
+
+// rejectCodexOnAnthropicOnlyHost：已知仅 Anthropic 的地址禁止勾选 Codex（勿等探测误判）。
+// 例：api.deepseek.com 对 /v1/responses 也会回 401（路由存在），不能当作 Codex 可用。
+func rejectCodexOnAnthropicOnlyHost(host, basePath, origin string, agents []string) error {
+	wantsCodex := false
+	for _, a := range agents {
+		if strings.TrimSpace(a) == "codex" {
+			wantsCodex = true
+			break
+		}
+	}
+	if !wantsCodex {
+		return nil
+	}
+	h := strings.ToLower(strings.TrimSpace(host))
+	if h == "" {
+		h = strings.ToLower(hostOfOrigin(origin))
+	}
+	bp := strings.ToLower(strings.TrimRight(strings.TrimSpace(basePath), "/"))
+	o := strings.ToLower(strings.TrimSpace(origin))
+	if bp == "/anthropic" || strings.Contains(o, "/anthropic") || strings.Contains(h, "deepseek") {
+		return contracts.NewAppError(contracts.ErrInvalidArgument, "Codex 不能使用 DeepSeek 或 …/anthropic 地址（仅 Anthropic Messages）。请改用「OpenAI Codex」快捷项，或去掉 Codex 勾选后保存给 Claude。", false)
+	}
+	return nil
+}
+
+// wrapResponsesProbeErr 把 Responses 探测失败写成可展示文案（勿落成笼统「上游不可用」）。
+func wrapResponsesProbeErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	if ae, ok := err.(*contracts.AppError); ok && ae != nil {
+		return ae
+	}
+	if isUpstreamAuthErr(err) {
+		return contracts.NewAppError(contracts.ErrUpstreamAuthFailed, "OpenAI Responses（/v1/responses）认证失败：请检查 API Key 是否属于该 Origin。", false)
+	}
+	if errors.Is(err, ErrUpstreamTimeout) || errors.Is(err, context.DeadlineExceeded) {
+		return contracts.NewAppError(contracts.ErrUpstreamTimeout, "OpenAI Responses（/v1/responses）探测超时。请确认模型名（如 gpt-5.6-sol）与网关支持 Responses；七牛冷启动时可稍后重试。", true)
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, ErrCancelled) {
+		return err
+	}
+	return contracts.NewAppError(contracts.ErrUpstreamUnavailable, "OpenAI Responses（/v1/responses）探测失败。Codex 不能使用 DeepSeek/仅 Anthropic 地址；请用「OpenAI Codex」并 export HARBOR_CODEX_MODEL_ORIGIN，或改用双协议网关。", true)
 }
 
 // probeModelsList 用 GET /v1/models 验证 Key；多认证头轮试（LiteLLM 部署差异大）。
@@ -371,12 +564,20 @@ const (
 )
 
 func (c *Connections) probeRequest(ctx context.Context, prof policy.FixedProfile, key, session, method string, body []byte, authMode modelAuthMode) (*http.Response, error) {
+	return c.probeRequestAccept(ctx, prof, key, session, method, body, authMode, "application/json, text/event-stream")
+}
+
+func (c *Connections) probeRequestJSON(ctx context.Context, prof policy.FixedProfile, key, method string, body []byte, authMode modelAuthMode) (*http.Response, error) {
+	return c.probeRequestAccept(ctx, prof, key, "", method, body, authMode, "application/json")
+}
+
+func (c *Connections) probeRequestAccept(ctx context.Context, prof policy.FixedProfile, key, session, method string, body []byte, authMode modelAuthMode, accept string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, method, strings.TrimRight(prof.Origin, "/")+prof.BasePath+prof.TestPath, bytes.NewReader(body))
 	if err != nil {
 		return nil, ErrUpstreamDown
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json, text/event-stream")
+	req.Header.Set("Accept", accept)
 	if prof.Kind == "model" {
 		switch authMode {
 		case modelAuthBearer:

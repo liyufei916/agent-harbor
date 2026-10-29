@@ -1,7 +1,9 @@
 /**
  * PAGE-DESIGN §5.3 新会话四步：工作区 → Agent → 模型 → 工具（可跳过）
+ * 模型按账号 agents[] / profile 过滤；MCP 可跨 Agent 勾选。
  */
 import * as api from "../api.js";
+import { expectedModelProfile, filterModelsForAgent } from "../agent-compat.js";
 
 const STEPS = ["workspace", "agent", "model", "tools"];
 
@@ -77,33 +79,22 @@ export function mountWizard(root, ctx, opts = {}) {
 
   function goAddAccount(kind) {
     persist();
-    if (kind === "model") {
-      ctx.state.modelProfileIntent = draft.agentId === "dsh"
-        ? "dsh-model"
-        : draft.agentId === "codex"
-          ? "codex-model"
-          : "custom";
-    }
     ctx.state.returnAfterAccount = { kind, route: "wizard" };
     ctx.navigate(kind === "model" ? "models" : "tools", { intent: "add" });
-  }
-
-  function modelMatchesAgent(account) {
-    if (draft.agentId === "dsh") return account.profileId === "dsh-model";
-    if (draft.agentId === "codex") return account.profileId === "codex-model";
-    return account.profileId === "demo-model" || account.profileId === "custom";
   }
 
   async function paint() {
     persist();
     await Promise.all([refreshAgents(), refreshAccounts()]);
-    const models = (ctx.state.accounts || []).filter((a) => a.kind === "model" && modelMatchesAgent(a));
+    const agents = ctx.state.agents || [];
+    const allModels = (ctx.state.accounts || []).filter((a) => a.kind === "model");
+    const models = filterModelsForAgent(allModels, draft.agentId, agents);
     const mcps = (ctx.state.accounts || []).filter((a) => a.kind === "mcp");
     if (!draft.modelAccountId && models[0]) {
       draft.modelAccountId = models[0].id;
     }
-    if (draft.modelAccountId && !models.some((m) => m.id === draft.modelAccountId) && models[0]) {
-      draft.modelAccountId = models[0].id;
+    if (draft.modelAccountId && !models.some((m) => m.id === draft.modelAccountId)) {
+      draft.modelAccountId = models[0]?.id || "";
     }
     let body = "";
 
@@ -141,20 +132,26 @@ export function mountWizard(root, ctx, opts = {}) {
         </div>
       `;
     } else if (step === 2) {
+      const needProfile = expectedModelProfile(draft.agentId, agents);
       body = `
         <h2>本会话使用的模型</h2>
-        <p class="sub">同一时间只用一个；进入工作台后仍可切换。选项来自「模型」页已添加项。</p>
+        <p class="sub">同一时间只用一个。列表仅显示<strong>勾选了当前 Agent</strong>的模型（可在「模型」页多选 Claude/Codex/dsh）。</p>
+        <p class="meta">当前 Agent 默认 profile：<code>${needProfile}</code>。多 Agent 共用须上游同时支持对应协议。</p>
         <label class="field">模型
           <select id="wz-model" ${models.length ? "" : "disabled"}>
             ${models.map((m) => `<option value="${m.id}" ${draft.modelAccountId === m.id ? "selected" : ""}>${m.name} · ${m.host || m.profileId}</option>`).join("")}
           </select>
         </label>
-        ${models.length ? `<p class="meta"><button type="button" class="btn" id="wz-go-models">再添加一个</button></p>` : `<p class="meta bad">当前 Agent 没有兼容模型。<button type="button" class="btn" id="wz-go-models">去添加</button></p>`}
+        ${
+          models.length
+            ? `<p class="meta"><button type="button" class="btn" id="wz-go-models">再添加一个</button></p>`
+            : `<p class="meta bad">没有与当前 Agent 匹配的模型（需要 ${needProfile}${draft.agentId === "claude" ? " 或 custom" : ""}）。<button type="button" class="btn" id="wz-go-models">去添加</button></p>`
+        }
       `;
     } else {
       body = `
         <h2>需要哪些工具？（可跳过）</h2>
-        <p class="sub">与模型无关；这里是 MCP。未添加的请先去「工具」页。</p>
+        <p class="sub">MCP 可跨 Agent 挂载（与模型不同）。未添加的请先去「工具」页。</p>
         <div id="wz-mcps">
           ${
             mcps.length
@@ -240,8 +237,14 @@ export function mountWizard(root, ctx, opts = {}) {
       };
       wrap.querySelectorAll(".agent-card[data-id]").forEach((btn) => {
         btn.onclick = () => {
-          draft.agentId = btn.getAttribute("data-id");
-          ctx.state.agentId = draft.agentId;
+          const next = btn.getAttribute("data-id");
+          if (next !== draft.agentId) {
+            draft.agentId = next;
+            ctx.state.agentId = draft.agentId;
+            // 换 Agent 后旧模型多半不兼容，清空以免带到下一步。
+            draft.modelAccountId = "";
+            ctx.state.modelAccount = null;
+          }
           paint();
         };
       });
@@ -312,9 +315,15 @@ export function mountWizard(root, ctx, opts = {}) {
             hint =
               "工作区须是已存在的普通目录；不要选 Home、.ssh、系统目录。演示可用 demos/workspace 的绝对路径。";
           } else if (res.error.code === "INVALID_ARGUMENT") {
-            hint =
-              "若勾了自定义 MCP：到「工具」删除该账号后重新添加（须保存成功并带上工具列表）。也检查 Agent 与模型是否匹配。";
-            cta = `<button type="button" class="btn" id="wz-to-tools">去工具</button>`;
+            if (draft.agentId === "codex") {
+              hint =
+                "Codex 需要已通过 Responses（/v1/responses）探测的模型账号。MCP 可选（工具:0 正常）。DeepSeek Anthropic 账号不可用；请确认「模型」页该账号勾选了 Codex。";
+              cta = `<button type="button" class="btn" id="wz-to-models">去模型</button>`;
+            } else {
+              hint =
+                "该模型可能只勾了 Codex。Claude 请选用 Anthropic 账号，或到「模型」勾选 Claude 后重存。自定义 MCP 须带工具列表。";
+              cta = `<button type="button" class="btn" id="wz-to-models">去模型</button> <button type="button" class="btn" id="wz-to-tools">去工具</button>`;
+            }
           }
           msg.innerHTML = `<span class="bad">${res.error.code}: ${res.error.message}</span>${hint ? `<p class="meta">${hint}</p>` : ""}${cta ? `<div class="actions">${cta}</div>` : ""}`;
           msg.querySelector("#wz-to-home")?.addEventListener("click", () =>
@@ -322,6 +331,9 @@ export function mountWizard(root, ctx, opts = {}) {
           );
           msg.querySelector("#wz-to-tools")?.addEventListener("click", () =>
             ctx.navigate("tools"),
+          );
+          msg.querySelector("#wz-to-models")?.addEventListener("click", () =>
+            ctx.navigate("models", { intent: "add" }),
           );
           return;
         }

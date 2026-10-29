@@ -143,7 +143,11 @@ func (k *Kit) Build(ctx context.Context, input kits.KitInput) (runtime.LaunchSpe
 	if err != nil {
 		return runtime.LaunchSpec{}, err
 	}
-	files, err := buildProfile(input, k.model, k.conversation)
+	model := strings.TrimSpace(input.Model)
+	if model == "" {
+		model = k.model
+	}
+	files, err := buildProfile(input, model, k.conversation)
 	if err != nil {
 		return runtime.LaunchSpec{}, err
 	}

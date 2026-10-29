@@ -195,3 +195,49 @@ func TestOpenAIResponsesModelConnectionUsesBearerAndResponseShape(t *testing.T) 
 		t.Fatalf("Codex Responses 连接失败: %+v %v", account, err)
 	}
 }
+
+func TestRejectCodexOnDeepSeekAnthropicOrigin(t *testing.T) {
+	store := secrets.NewStore()
+	p := policy.NewBuilder(nil)
+	_, err := NewConnections(store, p).ConnectModel(context.Background(), contracts.ConnectInput{
+		ProfileID: "custom",
+		Name:      "我的 DeepSeek",
+		APIKey:    "sk-fixture-not-sent",
+		Origin:    "https://api.deepseek.com/anthropic",
+		Model:     "deepseek-chat",
+		Agents:    []string{"codex"},
+	})
+	if err == nil || store.Count() != 0 {
+		t.Fatal("DeepSeek+Codex 不应保存")
+	}
+	ae, ok := err.(*contracts.AppError)
+	if !ok || ae.Code != contracts.ErrInvalidArgument || !strings.Contains(ae.Message, "Codex") {
+		t.Fatalf("got %#v", err)
+	}
+}
+
+func TestOpenAIResponsesProbeFailureSurfacesAppError(t *testing.T) {
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = fmt.Fprint(w, `{"error":"no responses"}`)
+	}))
+	defer up.Close()
+	store := secrets.NewStore()
+	p := policy.NewBuilder(map[string]policy.FixedProfile{
+		"codex-model": {
+			ID: "codex-model", Kind: "model", Protocol: "openai-responses", Model: "gpt-5-codex",
+			Origin: up.URL, Host: "127.0.0.1", Paths: []string{"/v1/responses"}, TestPath: "/v1/responses",
+			AllowInsecureLoopback: true,
+		},
+	})
+	_, err := NewConnections(store, p).ConnectModel(context.Background(), contracts.ConnectInput{
+		ProfileID: "codex-model", Name: "Codex", APIKey: "fixture-key", Agents: []string{"codex"},
+	})
+	if err == nil || store.Count() != 0 {
+		t.Fatal("Responses 失败仍保存了账号")
+	}
+	ae, ok := err.(*contracts.AppError)
+	if !ok || ae.Code != contracts.ErrUpstreamUnavailable || !strings.Contains(ae.Message, "/v1/responses") {
+		t.Fatalf("期望带 /v1/responses 的 UPSTREAM_UNAVAILABLE，got %#v", err)
+	}
+}

@@ -10,10 +10,11 @@ import (
 
 // 固定 profileId：首小时确认后不得由前端随意改写 origin。
 const (
-	ProfileDemoModel = "demo-model"
-	ProfileDemoMCP   = "demo-mcp"
-	ProfileDSHModel  = "dsh-model"
-	ProfileCustom    = "custom" // 用户自填 Anthropic 兼容 origin（可带 /anthropic 等 BasePath）
+	ProfileDemoModel  = "demo-model"
+	ProfileDemoMCP    = "demo-mcp"
+	ProfileDSHModel   = "dsh-model"
+	ProfileCodexModel = "codex-model"
+	ProfileCustom     = "custom" // 用户自填 Anthropic 兼容 origin（可带 /anthropic 等 BasePath）
 )
 
 // CustomModelProfile 由用户 Origin 构造临时探测/策略 profile（不进 DefaultProfiles 表）。
@@ -47,6 +48,35 @@ func CustomModelProfile(origin, modelName string) (FixedProfile, error) {
 	}
 	if !p.ValidConnection() {
 		return FixedProfile{}, errors.New("policy: custom origin not allowed")
+	}
+	return p, nil
+}
+
+// CustomResponsesModelProfile 由用户 Origin 构造 Codex Responses 探测 profile（忽略 Anthropic BasePath）。
+func CustomResponsesModelProfile(origin, modelName string) (FixedProfile, error) {
+	raw := strings.TrimSpace(origin)
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme == "" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return FixedProfile{}, errors.New("policy: invalid custom origin")
+	}
+	host := strings.ToLower(u.Hostname())
+	model := strings.TrimSpace(modelName)
+	if model == "" {
+		model = "gpt-5-codex"
+	}
+	p := FixedProfile{
+		ID:       ProfileCustom,
+		Kind:     "model",
+		Protocol: "openai-responses",
+		Model:    model,
+		Origin:   u.Scheme + "://" + u.Host,
+		Host:     host,
+		BasePath: "",
+		Paths:    []string{"/v1/responses"},
+		TestPath: "/v1/responses",
+	}
+	if !p.ValidConnection() {
+		return FixedProfile{}, errors.New("policy: custom responses origin not allowed")
 	}
 	return p, nil
 }
@@ -165,10 +195,13 @@ func DefaultProfiles() map[string]FixedProfile {
 			tools = append(tools, tool)
 		}
 	}
+	codexOrigin := envOr("HARBOR_CODEX_MODEL_ORIGIN", "")
+	codexBasePath := strings.TrimRight(strings.TrimSpace(os.Getenv("HARBOR_CODEX_MODEL_BASE_PATH")), "/")
 	return map[string]FixedProfile{
-		ProfileDSHModel:  {ID: ProfileDSHModel, Kind: "model", Protocol: "anthropic", Model: strings.TrimSpace(os.Getenv("HARBOR_DSH_MODEL")), Origin: envOr("HARBOR_DSH_MODEL_ORIGIN", ""), Host: hostOfOrigin(envOr("HARBOR_DSH_MODEL_ORIGIN", "")), BasePath: strings.TrimRight(strings.TrimSpace(os.Getenv("HARBOR_DSH_MODEL_BASE_PATH")), "/"), Paths: []string{"/v1/messages"}, TestPath: "/v1/messages"},
-		ProfileDemoModel: {ID: ProfileDemoModel, Kind: "model", Protocol: "anthropic", Model: strings.TrimSpace(os.Getenv("HARBOR_CLAUDE_MODEL")), Origin: modelOrigin, Host: hostOfOrigin(modelOrigin), BasePath: modelBasePath, Paths: []string{"/v1/messages"}, TestPath: "/v1/messages"},
-		ProfileDemoMCP:   {ID: ProfileDemoMCP, Kind: "mcp", Protocol: "streamable-http", Origin: mcpOrigin, Host: hostOfOrigin(mcpOrigin), Paths: []string{"/mcp"}, TestPath: "/mcp", Tools: tools},
+		ProfileDSHModel:   {ID: ProfileDSHModel, Kind: "model", Protocol: "anthropic", Model: strings.TrimSpace(os.Getenv("HARBOR_DSH_MODEL")), Origin: envOr("HARBOR_DSH_MODEL_ORIGIN", ""), Host: hostOfOrigin(envOr("HARBOR_DSH_MODEL_ORIGIN", "")), BasePath: strings.TrimRight(strings.TrimSpace(os.Getenv("HARBOR_DSH_MODEL_BASE_PATH")), "/"), Paths: []string{"/v1/messages"}, TestPath: "/v1/messages"},
+		ProfileCodexModel: {ID: ProfileCodexModel, Kind: "model", Protocol: "openai-responses", Model: strings.TrimSpace(os.Getenv("HARBOR_CODEX_MODEL")), Origin: codexOrigin, Host: hostOfOrigin(codexOrigin), BasePath: codexBasePath, Paths: []string{"/v1/responses"}, TestPath: "/v1/responses"},
+		ProfileDemoModel:  {ID: ProfileDemoModel, Kind: "model", Protocol: "anthropic", Model: strings.TrimSpace(os.Getenv("HARBOR_CLAUDE_MODEL")), Origin: modelOrigin, Host: hostOfOrigin(modelOrigin), BasePath: modelBasePath, Paths: []string{"/v1/messages"}, TestPath: "/v1/messages"},
+		ProfileDemoMCP:    {ID: ProfileDemoMCP, Kind: "mcp", Protocol: "streamable-http", Origin: mcpOrigin, Host: hostOfOrigin(mcpOrigin), Paths: []string{"/mcp"}, TestPath: "/mcp", Tools: tools},
 	}
 }
 

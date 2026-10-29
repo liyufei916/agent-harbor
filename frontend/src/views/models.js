@@ -1,9 +1,17 @@
 /**
- * PAGE-DESIGN §5.7 模型：自定义 OpenAPI 或预置 Agent profile。
- * Live 自定义 origin 须 Anthropic 兼容 /v1/messages；预置 profile 的
- * 上游由宿主环境登记，页面只接收显示名和 Key。
+ * PAGE-DESIGN §5.7 模型：自由添加 OpenAPI（名 + 地址 + Key）
+ * Live 自定义 origin 须 Anthropic 兼容 /v1/messages。
+ * Codex Agent 须另存 profileId=codex-model（Responses；Origin 来自宿主机 env）。
  */
 import * as api from "../api.js";
+import { defaultAgentsForProfile, modelCompatLabel } from "../agent-compat.js";
+import { showToast } from "../toast.js";
+
+const AGENT_OPTS = [
+  { id: "claude", label: "Claude" },
+  { id: "codex", label: "Codex" },
+  { id: "dsh", label: "dsh" },
+];
 
 const PRESETS = [
   { name: "Anthropic", origin: "https://api.anthropic.com", model: "claude-haiku-4-5-20251001" },
@@ -11,7 +19,22 @@ const PRESETS = [
   { name: "DeepSeek", origin: "https://api.deepseek.com/anthropic", model: "deepseek-chat" },
   // 两套七牛网关 Key 不互通：官方 Token API vs LiteLLM
   { name: "七牛官方", origin: "https://api.qnaigc.com", model: "" },
-  { name: "七牛LiteLLM", origin: "https://llmapi.qiniu.io", model: "GPT-5.6" },
+  // Codex/OpenAI 兼容网关常用小写 id（如 gpt-5.6-sol）；Anthropic 路由另填 Claude 模型名
+  { name: "七牛LiteLLM", origin: "https://llmapi.qiniu.io", model: "gpt-5.6-sol" },
+];
+
+/** 固定 profile：不填 Origin，走宿主机 HARBOR_* 登记上游（Codex / dsh）。 */
+const FIXED_PRESETS = [
+  {
+    name: "OpenAI Codex",
+    profileId: "codex-model",
+    hint: "Responses API；须已 export HARBOR_CODEX_MODEL_ORIGIN（如 https://api.openai.com）",
+  },
+  {
+    name: "DeepSeek dsh",
+    profileId: "dsh-model",
+    hint: "须已 export HARBOR_DSH_MODEL_ORIGIN 等",
+  },
 ];
 
 export function mountModels(root, ctx, opts = {}) {
@@ -19,6 +42,8 @@ export function mountModels(root, ctx, opts = {}) {
   let editing = opts.intent === "add" || returning ? "new" : null;
   let pendingDelete = "";
   let listStatus = "";
+  /** null=自定义 Anthropic；否则为固定 profileId（codex-model / dsh-model） */
+  let fixedProfileId = null;
 
   function clearReturn() {
     if (ctx.state.returnAfterAccount?.kind === "model") {
@@ -55,7 +80,7 @@ export function mountModels(root, ctx, opts = {}) {
       <div class="page-head row" style="justify-content:space-between">
         <div>
           <h2>模型</h2>
-          <p class="sub">给 Agent 一把「嘴」。自行添加：名称、API 地址、API Key。无浏览器登录。</p>
+          <p class="sub">给 Agent 一把「嘴」。可勾选兼容多个 Agent（须上游同时支持对应协议）；列表显示可用范围。</p>
         </div>
         <button type="button" class="btn primary" id="btn-add-model">+ 添加</button>
       </div>
@@ -85,7 +110,7 @@ export function mountModels(root, ctx, opts = {}) {
         <div class="row" style="justify-content:space-between">
           <div>
             <strong>${a.name}</strong>
-            <span class="meta">${a.host || a.profileId || ""}</span>
+            <span class="meta">${a.host || a.profileId || ""} · ${modelCompatLabel(a)}</span>
             ${a.invalid ? `<span class="bad">▲ 无效</span>` : ""}
           </div>
           <div class="row">
@@ -105,6 +130,7 @@ export function mountModels(root, ctx, opts = {}) {
       editing = "new";
       pendingDelete = "";
       listStatus = "";
+      fixedProfileId = null;
       paint();
       paintForm();
     };
@@ -118,6 +144,11 @@ export function mountModels(root, ctx, opts = {}) {
       btn.onclick = () => {
         editing = btn.getAttribute("data-edit");
         pendingDelete = "";
+        const acc = (ctx.state.modelAccounts || []).find((a) => a.id === editing);
+        fixedProfileId =
+          acc?.profileId === "codex-model" || acc?.profileId === "dsh-model"
+            ? acc.profileId
+            : null;
         paint();
         paintForm();
       };
@@ -160,30 +191,38 @@ export function mountModels(root, ctx, opts = {}) {
     const form = root.querySelector("#model-form");
     const acc =
       editing === "new"
-        ? { name: "", host: "", profileId: ctx.state.modelProfileIntent || "custom" }
+        ? { name: "", host: "", profileId: "custom" }
         : (ctx.state.modelAccounts || []).find((a) => a.id === editing) || {};
     const originValue =
       acc.origin ||
       (acc.host ? "https://" + acc.host + (acc.basePath || "") : "");
     form.classList.remove("hidden");
+    const isFixed = !!fixedProfileId;
+    const fixedMeta = FIXED_PRESETS.find((p) => p.profileId === fixedProfileId);
+    const profileForAgents = fixedProfileId || acc.profileId || "custom";
+    const selectedAgents =
+      Array.isArray(acc.agents) && acc.agents.length
+        ? acc.agents
+        : defaultAgentsForProfile(profileForAgents);
     form.innerHTML = `
       <section class="card">
         <h3>${editing === "new" ? "添加模型" : "编辑模型"}</h3>
         <label class="field">名称<input id="m-name" value="${acc.name || ""}" maxlength="100"/></label>
-        <label class="field">Agent profile
-          <select id="m-profile" ${editing !== "new" ? "disabled" : ""}>
-            <option value="custom" ${acc.profileId === "custom" ? "selected" : ""}>自定义模型（Claude）</option>
-            <option value="demo-model" ${acc.profileId === "demo-model" ? "selected" : ""}>Claude Code（预置上游）</option>
-            <option value="dsh-model" ${acc.profileId === "dsh-model" ? "selected" : ""}>DeepSeek dsh</option>
-            <option value="codex-model" ${acc.profileId === "codex-model" ? "selected" : ""}>OpenAI Codex</option>
-          </select>
-        </label>
-        <div id="custom-model-fields">
+        <div id="m-custom-fields" class="${isFixed ? "hidden" : ""}">
           <label class="field">API 地址<input id="m-origin" value="${originValue}" placeholder="https://api.deepseek.com/anthropic"/></label>
-          <p class="meta">自定义模型须 Anthropic 兼容 Messages API（探测 <code>POST …/v1/messages</code>）。</p>
+          <p class="meta">须 Anthropic 兼容 Messages API（探测 <code>POST …/v1/messages</code>）。七牛两套 Key 不能混用。若同时勾选 Codex，地址须为<strong>同时提供 Messages + Responses</strong> 的网关。</p>
           <label class="field">模型名（可选）<input id="m-model" value="${acc.model || ""}" placeholder="空则按主机推断，如 deepseek-chat"/></label>
         </div>
-        <p class="meta" id="fixed-profile-hint">预置 profile 的地址和模型由启动环境登记，页面不重复填写。</p>
+        <div id="m-fixed-fields" class="${isFixed ? "" : "hidden"}">
+          <p class="meta ok">固定 profile：<code>${fixedProfileId || ""}</code>。${fixedMeta?.hint || "上游由启动环境变量登记，页面不填 Origin。"}</p>
+        </div>
+        <p class="meta">可用于哪些 Agent（可多选）：</p>
+        <div class="row" id="m-agents">
+          ${AGENT_OPTS.map(
+            (o) =>
+              `<label class="check-row"><input type="checkbox" data-agent="${o.id}" ${selectedAgents.includes(o.id) ? "checked" : ""}/> ${o.label}</label>`,
+          ).join("")}
+        </div>
         <label class="field">API Key（提交后清空）<input id="m-key" type="password" autocomplete="off" spellcheck="false" placeholder="${editing === "new" ? "粘贴完整 sk-… Key" : "重贴新 Key（不回显旧值）"}"/></label>
         <p class="meta" id="m-key-hint">${
           editing !== "new" && acc.keyHint
@@ -193,22 +232,23 @@ export function mountModels(root, ctx, opts = {}) {
               : ""
         }</p>
         <p class="meta" id="m-key-len"></p>
-        <p class="meta">快捷填入（可选）：
+        <p class="meta">Anthropic 兼容快捷填入：
           ${PRESETS.map((p) => `<button type="button" class="btn" data-preset="${p.origin}" data-pname="${p.name}" data-model="${p.model || ""}">${p.name}</button>`).join(" ")}
         </p>
-        <label class="check-row"><input type="checkbox" id="m-skip-probe"/> 跳过上游探测并保存（仅自定义；会话时仍可能因 Key 无效失败）</label>
+        <p class="meta">固定 Agent 上游（Codex / dsh）：
+          ${FIXED_PRESETS.map((p) => `<button type="button" class="btn" data-fixed="${p.profileId}" data-pname="${p.name}">${p.name}</button>`).join(" ")}
+          <button type="button" class="btn" id="m-use-custom">改回自定义 Anthropic</button>
+        </p>
+        <label class="check-row ${isFixed ? "hidden" : ""}"><input type="checkbox" id="m-skip-probe"/> 跳过上游探测并保存（仅自定义；会话时仍可能因 Key 无效失败）</label>
         <div class="actions">
           <button type="button" class="btn" id="m-cancel">取消</button>
           <button type="button" class="btn primary" id="m-save">保存</button>
-          <span class="meta" id="m-status"></span>
         </div>
+        <p class="meta" id="m-status" role="status"></p>
       </section>`;
     const nameEl = form.querySelector("#m-name");
     const originEl = form.querySelector("#m-origin");
     const modelEl = form.querySelector("#m-model");
-    const profileEl = form.querySelector("#m-profile");
-    const customFields = form.querySelector("#custom-model-fields");
-    const fixedHint = form.querySelector("#fixed-profile-hint");
     const keyEl = form.querySelector("#m-key");
     const status = form.querySelector("#m-status");
     const keyLenEl = form.querySelector("#m-key-len");
@@ -223,35 +263,41 @@ export function mountModels(root, ctx, opts = {}) {
     const clearStatus = () => {
       status.textContent = "";
     };
-    const syncProfileFields = () => {
-      const fixed = profileEl?.value !== "custom";
-      customFields?.classList.toggle("hidden", fixed);
-      if (fixedHint) {
-        fixedHint.classList.toggle("hidden", !fixed);
-        fixedHint.textContent = profileEl?.value === "dsh-model"
-          ? "dsh 使用 HARBOR_DSH_* 环境变量登记的上游。"
-          : "Codex 使用 HARBOR_CODEX_* 环境变量登记的 Responses 上游。";
-      }
-    };
-    profileEl?.addEventListener("change", () => {
-      syncProfileFields();
-      clearStatus();
-    });
-    syncProfileFields();
     form.querySelectorAll("[data-preset]").forEach((btn) => {
       btn.onclick = () => {
-        originEl.value = btn.getAttribute("data-preset") || "";
-        const presetModel = btn.getAttribute("data-model") || "";
-        if (presetModel) modelEl.value = presetModel;
+        fixedProfileId = null;
+        paintForm();
+        const o = form.querySelector("#m-origin");
+        const m = form.querySelector("#m-model");
+        const n = form.querySelector("#m-name");
+        if (o) o.value = btn.getAttribute("data-preset") || "";
+        if (m) {
+          const presetModel = btn.getAttribute("data-model") || "";
+          if (presetModel) m.value = presetModel;
+        }
+        if (n && !n.value.trim()) {
+          n.value = "我的 " + (btn.getAttribute("data-pname") || "");
+        }
+        form.querySelector("#m-key")?.focus();
+      };
+    });
+    form.querySelectorAll("[data-fixed]").forEach((btn) => {
+      btn.onclick = () => {
+        fixedProfileId = btn.getAttribute("data-fixed");
         if (!nameEl.value.trim()) {
           nameEl.value = "我的 " + (btn.getAttribute("data-pname") || "");
         }
-        clearStatus();
-        keyEl.focus();
+        paintForm();
+        form.querySelector("#m-key")?.focus();
       };
+    });
+    form.querySelector("#m-use-custom")?.addEventListener("click", () => {
+      fixedProfileId = null;
+      paintForm();
     });
     form.querySelector("#m-cancel").onclick = () => {
       editing = null;
+      fixedProfileId = null;
       if (returning) {
         clearReturn();
         ctx.navigate("wizard");
@@ -260,8 +306,8 @@ export function mountModels(root, ctx, opts = {}) {
       paint();
     };
     nameEl.addEventListener("input", clearStatus);
-    originEl.addEventListener("input", clearStatus);
-    modelEl.addEventListener("input", clearStatus);
+    originEl?.addEventListener("input", clearStatus);
+    modelEl?.addEventListener("input", clearStatus);
     keyEl.addEventListener("input", () => {
       clearStatus();
       updateKeyLen();
@@ -270,19 +316,34 @@ export function mountModels(root, ctx, opts = {}) {
     updateKeyLen();
     form.querySelector("#m-save").onclick = async () => {
       const name = nameEl.value.trim();
-      const profileId = profileEl?.value || "custom";
-      const origin = originEl?.value.trim().replace(/\/+$/, "") || "";
-      const model = modelEl.value.trim();
+      const origin = (originEl?.value || "").trim().replace(/\/+$/, "");
+      const model = (modelEl?.value || "").trim();
       const key = keyEl.value.trim();
+      const agents = [...form.querySelectorAll("[data-agent]:checked")].map((el) =>
+        el.getAttribute("data-agent"),
+      );
       const missing = [];
       if (!name) missing.push("名称");
-      if (profileId === "custom" && !origin) missing.push("API 地址");
+      if (!fixedProfileId && !origin) missing.push("API 地址");
       if (!key) missing.push("API Key");
+      if (!agents.length) missing.push("至少一个 Agent");
       if (missing.length) {
         status.innerHTML = `<span class="bad">请填写：${missing.join("、")}（灰色提示不是已填内容）</span>`;
-        if (!origin) originEl.focus();
+        if (!fixedProfileId && !origin) originEl?.focus();
         else if (!key) keyEl.focus();
         else nameEl.focus();
+        return;
+      }
+      const originLow = origin.toLowerCase();
+      if (
+        !fixedProfileId &&
+        agents.includes("codex") &&
+        (originLow.includes("deepseek") || originLow.includes("/anthropic"))
+      ) {
+        const msg =
+          "Codex 不能使用 DeepSeek 或 …/anthropic 地址。请改用「OpenAI Codex」，或取消 Codex 勾选后保存给 Claude。";
+        status.innerHTML = `<span class="bad">INVALID_ARGUMENT: ${msg}</span>`;
+        showToast(msg, "bad");
         return;
       }
       status.innerHTML = `<span class="meta">正在保存…</span>`;
@@ -297,27 +358,55 @@ export function mountModels(root, ctx, opts = {}) {
           }
         }
         const skipProbe = !!form.querySelector("#m-skip-probe")?.checked;
-        const res = await api.connectModel({
-          profileId,
-          name,
-          apiKey: key,
-          ...(profileId === "custom" ? { origin, model, skipProbe } : {}),
-        });
+        const res = await api.connectModel(
+          fixedProfileId
+            ? { profileId: fixedProfileId, name, apiKey: key, agents }
+            : {
+                profileId: "custom",
+                name,
+                apiKey: key,
+                origin,
+                model,
+                skipProbe,
+                agents,
+              },
+        );
         if (res.error) {
+          const wantsCodex =
+            agents.includes("codex") || fixedProfileId === "codex-model";
           let hint = "";
           if (res.error.code === "UPSTREAM_AUTH_FAILED") {
-            hint =
-              " 请用终端验证：export KEY='完整Key'; ./scripts/probe-model-auth.sh " +
-              origin.replace(/'/g, "");
+            hint = wantsCodex
+              ? " Responses 认证失败时请核对 Key 与 Origin（Codex 不用 DeepSeek Anthropic Key）。"
+              : fixedProfileId
+                ? " 核对 Key 与 HARBOR_*_MODEL_ORIGIN 是否同一套上游。"
+                : " 请用终端验证：export KEY='完整Key'; ./scripts/probe-model-auth.sh " +
+                  origin.replace(/'/g, "");
           } else if (res.error.code === "UPSTREAM_UNAVAILABLE") {
-            hint = " 上游可达但协议/模型名可能不对；可改「模型名」后重试。";
+            hint = wantsCodex
+              ? " Codex 依赖 POST /v1/responses；DeepSeek 仅 Anthropic 时请改用「OpenAI Codex」快捷项。"
+              : fixedProfileId
+                ? " 确认已 export 对应 HARBOR_*_MODEL_ORIGIN，且上游支持登记协议。"
+                : " 上游可达但协议/模型名可能不对；可改「模型名」后重试。";
+          } else if (res.error.code === "UPSTREAM_TIMEOUT") {
+            hint = wantsCodex
+              ? " 七牛/代理上 Responses 首包可能很慢；确认模型名 gpt-5.6-sol、网络可达，稍后重试。仍超时则网关可能未真正支持 /v1/responses。"
+              : " 网络或上游过慢，请稍后重试。";
+          } else if (res.error.code === "INVALID_ARGUMENT") {
+            hint = wantsCodex
+              ? " 常见：未 export HARBOR_CODEX_MODEL_ORIGIN，或跳过探测时勾了 Codex。"
+              : fixedProfileId
+                ? " 常见：未启动前登记 HARBOR_*_MODEL_ORIGIN，profile 不可用。"
+                : "";
           }
-          status.innerHTML = `<span class="bad">${res.error.code}: ${res.error.message}</span>${hint ? `<span class="meta">${hint}</span>` : ""}`;
+          const line = `${res.error.code}: ${res.error.message}`;
+          status.innerHTML = `<span class="bad">${line}</span>${hint ? `<br/><span class="meta">${hint}</span>` : ""}`;
+          showToast(line, "bad");
           return;
         }
         keyEl.value = "";
         editing = null;
-        ctx.state.modelProfileIntent = null;
+        fixedProfileId = null;
         ctx.onAccountsChanged?.();
         if (resumeWizard(res.account?.id)) return;
         await load();

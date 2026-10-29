@@ -50,7 +50,7 @@ export function mountTools(root, ctx, opts = {}) {
       <div class="page-head row" style="justify-content:space-between">
         <div>
           <h2>工具</h2>
-          <p class="sub">给 Agent 一双手（MCP）。认证二选一：浏览器登录 / SSO，或 API Key。</p>
+          <p class="sub">给 Agent 一双手（MCP）。可跨 Claude/Codex/dsh 挂载。模型可在「模型」页勾选多 Agent 共用。</p>
         </div>
         <button type="button" class="btn primary" id="btn-add-mcp">+ 添加</button>
       </div>

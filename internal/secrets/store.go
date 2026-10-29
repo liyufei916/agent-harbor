@@ -79,6 +79,8 @@ func (s *Store) Put(ctx context.Context, info contracts.AccountInfo, key []byte)
 		Model:     strings.TrimSpace(info.Model),
 		KeyHint:   keyHint(key),
 		Tools:     append([]string(nil), info.Tools...),
+		Agents:    append([]string(nil), info.Agents...),
+		Protocols: append([]string(nil), info.Protocols...),
 	}
 	keyCopy := append([]byte(nil), key...)
 	s.mu.Lock()

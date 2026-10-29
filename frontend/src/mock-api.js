@@ -433,7 +433,7 @@ export async function connectModel(input) {
     };
   }
   const profileId = input.profileId || "custom";
-  const allowed = [FIXED.modelProfileId, "dsh-model", "custom"];
+  const allowed = [FIXED.modelProfileId, "dsh-model", "codex-model", "custom"];
   if (!allowed.includes(profileId)) {
     return {
       account: null,
@@ -447,6 +447,8 @@ export async function connectModel(input) {
     };
   }
   let host = "demo-model.local";
+  if (profileId === "codex-model") host = "api.openai.com";
+  if (profileId === "dsh-model") host = "api.deepseek.com";
   if (input.origin) {
     try {
       host = new URL(input.origin).host;
@@ -460,6 +462,36 @@ export async function connectModel(input) {
   // 首个账号固定 id，兼容既有测试与 setup 流
   const id =
     modelAccounts.size === 0 ? "mock-model" : `mock-model-${++accountNumber}`;
+  let agents = Array.isArray(input.agents) ? input.agents.filter(Boolean) : [];
+  if (!agents.length) {
+    if (profileId === "codex-model") agents = ["codex"];
+    else if (profileId === "dsh-model") agents = ["dsh"];
+    else agents = ["claude"];
+  }
+  const protocols = [];
+  if (agents.includes("claude") || agents.includes("dsh") || profileId === "custom" || profileId === "demo-model" || profileId === "dsh-model") {
+    if (agents.includes("claude") || agents.includes("dsh") || (!agents.includes("codex") && profileId !== "codex-model")) {
+      protocols.push("anthropic");
+    }
+  }
+  if (agents.includes("codex") || profileId === "codex-model") {
+    protocols.push("openai-responses");
+  }
+  // 模拟：DeepSeek 官方域名即使勾了 Codex 也不给 Responses（与真机探测一致）
+  const protocolsFinal =
+    host === "api.deepseek.com"
+      ? protocols.filter((p) => p !== "openai-responses")
+      : [...new Set(protocols)];
+  if (host === "api.deepseek.com" && agents.includes("codex") && !protocolsFinal.includes("openai-responses")) {
+    return {
+      account: null,
+      error: err(
+        "UPSTREAM_UNAVAILABLE",
+        "已勾选 Codex，但该地址未通过 Responses 探测。api.deepseek.com 不能配 Codex；请用「OpenAI Codex」。",
+        true,
+      ),
+    };
+  }
   const account = {
     id,
     kind: "model",
@@ -469,6 +501,8 @@ export async function connectModel(input) {
     origin: input.origin || "",
     model: input.model || "",
     keyHint: keyHint(input.apiKey),
+    agents,
+    protocols: protocolsFinal.length ? protocolsFinal : undefined,
   };
   modelAccounts.set(id, account);
   return { account: { ...account }, error: null };
@@ -636,11 +670,18 @@ export async function createSession(spec) {
       error: err("INVALID_ARGUMENT", "请先连接模型账号"),
     };
   }
-  const expected = spec.agentId === "dsh" ? "dsh-model" : "demo-model";
-  if (modelAcc.profileId !== "custom" && modelAcc.profileId !== expected) {
+  const agents =
+    Array.isArray(modelAcc.agents) && modelAcc.agents.length
+      ? modelAcc.agents
+      : modelAcc.profileId === "codex-model"
+        ? ["codex"]
+        : modelAcc.profileId === "dsh-model"
+          ? ["dsh"]
+          : ["claude"];
+  if (!agents.includes(spec.agentId)) {
     return {
       session: null,
-      error: err("INVALID_ARGUMENT", "Agent 与模型 profile 不匹配"),
+      error: err("INVALID_ARGUMENT", "Agent 与模型不兼容（未勾选该 Agent）"),
     };
   }
   if (spec.mcpIds.length > 0) {
@@ -651,7 +692,7 @@ export async function createSession(spec) {
       };
     }
   }
-  if (![FIXED.agent.id, "dsh"].includes(spec.agentId)) {
+  if (![FIXED.agent.id, "dsh", "codex"].includes(spec.agentId)) {
     return {
       session: null,
       error: err("INVALID_ARGUMENT", "Agent 不受支持"),

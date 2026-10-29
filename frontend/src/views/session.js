@@ -11,6 +11,7 @@ import {
 } from "./permission-modal.js";
 import { showToast } from "../toast.js";
 import { askConfirm } from "../confirm-dialog.js";
+import { filterModelsForAgent } from "../agent-compat.js";
 
 export function mountSession(root, ctx) {
   const healthOk = ctx.state.health?.available !== false;
@@ -276,7 +277,9 @@ export function mountSession(root, ctx) {
     if (!els.model) return;
     if (typeof document === "undefined" || !document.createElement) return;
     const res = await api.listAccounts("model");
-    const accounts = res.accounts || [];
+    const agentId = ctx.state.lastSnapshot?.agentId || ctx.state.agentId || "";
+    const agents = ctx.state.agents || [];
+    const accounts = filterModelsForAgent(res.accounts || [], agentId, agents);
     const want =
       selectedId ||
       ctx.state.lastSnapshot?.modelAccountId ||
@@ -285,7 +288,7 @@ export function mountSession(root, ctx) {
     const options = accounts.map((a) => {
       const o = document.createElement("option");
       o.value = a.id;
-      o.textContent = `${a.name} · ${a.host || ""}`;
+      o.textContent = `${a.name} · ${a.host || a.profileId || ""}`;
       if (a.id === want) o.selected = true;
       return o;
     });
@@ -441,7 +444,11 @@ export function mountSession(root, ctx) {
         modelAccountId: els.model.value,
       });
       if (res.error) {
-        els.error.textContent = `${res.error.code}: ${res.error.message}`;
+        const line = `${res.error.code}: ${res.error.message}`;
+        els.error.textContent = line;
+        showToast(line, "bad");
+        // 切失败时下拉仍停在新选项，拉回当前会话账号以免误导
+        fillModels(ctx.state.lastSnapshot?.modelAccountId);
       }
     };
   }

@@ -68,4 +68,7 @@ type LaunchSpec struct {
 	Interactive bool                         // 保持 stdin 打开，允许同一会话多轮输入
 	EncodeInput func([]byte) ([]byte, error) // Kit 提供协议编码；Runtime 只负责受控写入
 	ConfigFiles []ConfigFile
+	// ProjectHome：非空时作为进程 HOME（须等于会话 Workspace）。Claude Code 会 chdir 到 homedir，
+	// 若 HOME 仍是私有 home，Read 会落到 AgentHarbor/sessions/.../home 并 InputValidationError。
+	ProjectHome string
 }

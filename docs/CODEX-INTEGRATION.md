@@ -25,11 +25,16 @@ export HARBOR_CODEX_MODEL_BASE_PATH=""
 ## 适配行为
 
 - 模型协议使用 OpenAI Responses API，固定请求路径为 `/v1/responses`；模型代理负责白名单、Sentinel 校验和真实 Key 替换。
+- Codex CLI 会把 `base_url` 与 `/responses` 拼接；Kit 写入的 `base_url` 带 `/v1`，使请求落在 Gate 白名单 `/v1/responses`。代理层对裸 `/responses` 也会归一到 `/v1/responses`（若策略已放行）。
 - Codex 配置使用 `wire_api = "responses"`、`OPENAI_API_KEY` 和 Harbor MCP 的 HTTP URL。
 - `CODEX_HOME` 指向 Runtime 私有目录，因此 Codex 只读取本会话生成的配置；`--ephemeral` 和 `--skip-git-repo-check` 防止持久化会话和依赖宿主 Git 状态。
+- 外层已是 Harbor Seatbelt，故 Codex 使用 `sandbox_mode = "danger-full-access"` 与 `--dangerously-bypass-approvals-and-sandbox`（官方「外部已沙箱」模式），避免嵌套 `sandbox-exec` 导致 `exec_command` EPERM / `apply_patch` read-only。实际文件与进程边界仍由 Runtime 白名单约束。
+- 多轮：Kit 启动常驻 `turn_bridge.mjs`（Interactive + EncodeInput），内部拉起一次 `codex app-server`（stdio JSON-RPC）。`thread/start` 后每轮 `turn/start`，避免每轮冷启动 CLI。桥接把 `item/agentMessage/delta` 转成 `agent_message.delta` JSONL，前端流式上屏。停止会话才结束 app-server。
 - Codex 启动会探测 `/etc/codex/requirements.toml` 和 `/etc/codex/managed_config.toml`；Runtime 仅对这两个固定路径授予只读探测权限，不开放整个 `/etc`。个人 `~/.codex` 不直接挂载，避免认证、历史和宿主权限配置进入执行面。
-- Codex 的 managed preferences 查询仅通过受控 profile 放行 `com.apple.cfprefsd.daemon` / `com.apple.cfprefsd.agent` 查询通道；其它宿主 IPC 仍拒绝。
+- Codex 0.157+ 启动会 `CFPreferencesAppSynchronize`；受控 profile 放行 `user-preference-read`、`apple.cfprefs.*` POSIX shm 读，以及 `cfprefsd` daemon/agent（含 local-name）查询通道。不开放 `user-preference-write`、钥匙串或其它宿主 IPC。
 - 运行参数通过固定参数数组传递，不拼接 shell 命令。
+- Homebrew 的 `codex` 是 `#!/usr/bin/env node` 脚本；隔离环境内不走 `env` 找 node，而是用真实 `node` 二进制 + `codex.js` 启动（与 Claude Kit 相同），并把 Node Cellar/opt 只读根加入白名单。
+- 只读白名单须覆盖整个 `@openai/codex` 包根（不是只放 `bin/`），否则沙箱读不到 `node_modules/@openai/codex-darwin-*` 原生包，会误报 Missing optional dependency。
 
 ## 验证
 
@@ -41,7 +46,13 @@ npm test --prefix frontend
 npm run build --prefix frontend
 ```
 
-然后在应用中选择 `OpenAI Codex`，连接 `codex-model`，选择专用工作区和已登记 MCP，执行只读任务。确认：
+然后在应用 **模型** 页：
+
+- 仅 Codex：点「OpenAI Codex」快捷项（`codex-model`），勾选 Codex，保存 OpenAI Key；或  
+- **与 Claude 共用**：填**双协议网关** Origin + Key，勾选 Claude **和** Codex（须同时通过 Messages 与 `/v1/responses` 探测；官方 `api.openai.com` 通常不能给 Claude 用）。  
+- **不要**给 `api.deepseek.com`（Anthropic 兼容）勾选 Codex：DeepSeek 无 Responses，开会话会 `INVALID_ARGUMENT`；Codex 请单独用「OpenAI Codex」。
+
+向导里选对应 Agent 后，下拉会出现该共用账号。确认：
 
 1. Agent 检测显示 Codex 版本和可用状态。
 2. 模型连接请求命中 `/v1/responses`，使用 `Authorization: Bearer`，连接成功后只保存脱敏账号信息。

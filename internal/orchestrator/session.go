@@ -685,7 +685,11 @@ func (o *Service) provision(s *session) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	launch, err := kit.Build(ctx, kits.KitInput{Task: s.spec.Task, PrivateHome: handle.PrivateHome, ModelBaseURL: binding.ModelBaseURL, MCPURLs: bindingMCPURLs(binding), Sentinel: binding.Sentinel})
+	launch, err := kit.Build(ctx, kits.KitInput{
+		Task: s.spec.Task, PrivateHome: handle.PrivateHome, ModelBaseURL: binding.ModelBaseURL,
+		MCPURLs: bindingMCPURLs(binding), Sentinel: binding.Sentinel, Model: strings.TrimSpace(model.Model),
+		Workspace: handle.Workspace,
+	})
 	if err != nil {
 		return safeError(err, "AGENT_UNSUPPORTED")
 	}

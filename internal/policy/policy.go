@@ -26,6 +26,8 @@ type EndpointRule struct {
 	Origin   string
 	BasePath string
 	Paths    []string
+	// Model：账号落盘的上游模型名；Gate 出站可按此改写请求体，避免 Agent 默认名越权。
+	Model string
 }
 
 // PolicyRequest 是编排层确认后的非敏感输入。
@@ -90,35 +92,9 @@ func (b *Builder) Build(_ context.Context, req PolicyRequest) (PolicySnapshot, e
 	if req.Model.Kind != "model" {
 		return PolicySnapshot{}, ErrKindMismatch
 	}
-	var modelProf FixedProfile
-	if req.Model.ProfileID == ProfileCustom {
-		if req.AgentID != "claude" {
-			return PolicySnapshot{}, ErrKindMismatch
-		}
-		origin := "https://" + strings.TrimSpace(req.Model.Host)
-		custom, err := CustomModelProfile(origin, req.Model.Model)
-		if err != nil {
-			return PolicySnapshot{}, ErrUnknownProfile
-		}
-		if bp := strings.TrimRight(strings.TrimSpace(req.Model.BasePath), "/"); bp != "" {
-			if !ValidBasePath(bp) {
-				return PolicySnapshot{}, ErrUnknownProfile
-			}
-			custom.BasePath = bp
-		}
-		if !custom.ValidConnection() {
-			return PolicySnapshot{}, ErrUnknownProfile
-		}
-		modelProf = custom
-	} else {
-		var ok bool
-		modelProf, ok = b.profiles[req.Model.ProfileID]
-		if !ok || modelProf.Kind != "model" {
-			return PolicySnapshot{}, ErrUnknownProfile
-		}
-		if req.AgentID == "dsh" && req.Model.ProfileID != ProfileDSHModel || req.AgentID == "claude" && req.Model.ProfileID != ProfileDemoModel {
-			return PolicySnapshot{}, ErrKindMismatch
-		}
+	modelProf, err := ModelProfileForAgent(req.AgentID, req.Model, b.profiles)
+	if err != nil {
+		return PolicySnapshot{}, err
 	}
 	if !ValidBasePath(modelProf.BasePath) {
 		return PolicySnapshot{}, ErrUnknownProfile
@@ -185,6 +161,7 @@ func (b *Builder) Build(_ context.Context, req PolicyRequest) (PolicySnapshot, e
 			Origin:   modelProf.Origin,
 			BasePath: modelProf.BasePath,
 			Paths:    append([]string{}, modelProf.Paths...),
+			Model:    strings.TrimSpace(modelProf.Model),
 		},
 		MCPMounts: mounts,
 	}

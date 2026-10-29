@@ -37,6 +37,10 @@ func (h *Harbor) SwitchModel(ctx context.Context, sessionID, accountID string) e
 		return contracts.NewAppError(contracts.ErrInvalidArgument, "模型账号与当前会话的协议或上游不兼容。", false)
 	}
 	rt.spec.ModelAccountID = accountID
+	// 同步策略中的模型名，供出站改写（否则仍用开会话时的默认名）。
+	if m := strings.TrimSpace(next.Model); m != "" {
+		rt.spec.Policy.Model.Model = m
+	}
 	return nil
 }
 
