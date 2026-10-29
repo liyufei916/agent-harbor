@@ -24,12 +24,29 @@ import (
 type oauthPending struct {
 	id          string
 	name        string
-	origin      string
+	origin      string // 用户填写的 MCP/IdP URL（可含路径）
+	authority   string // scheme://host，用于 /authorize 与换票
+	host        string
+	basePath    string
 	profileID   string
 	redirectURI string
 	ln          net.Listener
 	server      *http.Server
 	done        chan struct{}
+}
+
+func oauthAuthority(origin string) (authority, host, basePath string, err error) {
+	u, perr := url.Parse(origin)
+	if perr != nil || u.Scheme != "https" || u.Host == "" || u.User != nil {
+		return "", "", "", contracts.NewAppError(contracts.ErrInvalidArgument, "OAuth Origin 必须是 https://host[/path]", false)
+	}
+	authority = u.Scheme + "://" + u.Host
+	host = strings.ToLower(u.Hostname())
+	basePath = strings.TrimRight(u.Path, "/")
+	if basePath == "/" {
+		basePath = ""
+	}
+	return authority, host, basePath, nil
 }
 
 func (a *App) startMcpOAuth(in contracts.StartMcpOAuthInput) (authURL, pendingID string, err error) {
@@ -45,11 +62,11 @@ func (a *App) startMcpOAuth(in contracts.StartMcpOAuthInput) (authURL, pendingID
 		}
 	}
 	if origin == "" {
-		return "", "", contracts.NewAppError(contracts.ErrInvalidArgument, "OAuth 需要 HTTPS Origin", false)
+		return "", "", contracts.NewAppError(contracts.ErrInvalidArgument, "OAuth 需要 HTTPS 服务地址", false)
 	}
-	u, perr := url.Parse(origin)
-	if perr != nil || u.Scheme != "https" || u.Host == "" || u.User != nil {
-		return "", "", contracts.NewAppError(contracts.ErrInvalidArgument, "OAuth Origin 必须是 https://host", false)
+	authority, host, basePath, aerr := oauthAuthority(origin)
+	if aerr != nil {
+		return "", "", aerr
 	}
 	ln, lerr := net.Listen("tcp", "127.0.0.1:0")
 	if lerr != nil {
@@ -59,8 +76,12 @@ func (a *App) startMcpOAuth(in contracts.StartMcpOAuthInput) (authURL, pendingID
 	_, _ = rand.Read(b[:])
 	id := "oauth_" + hex.EncodeToString(b[:])
 	redirectURI := fmt.Sprintf("http://127.0.0.1:%d/callback", ln.Addr().(*net.TCPAddr).Port)
+	if profileID == "" {
+		profileID = policy.ProfileCustom
+	}
 	p := &oauthPending{
-		id: id, name: name, origin: origin, profileID: profileID,
+		id: id, name: name, origin: origin, authority: authority,
+		host: host, basePath: basePath, profileID: profileID,
 		redirectURI: redirectURI, ln: ln, done: make(chan struct{}),
 	}
 	mux := http.NewServeMux()
@@ -68,8 +89,10 @@ func (a *App) startMcpOAuth(in contracts.StartMcpOAuthInput) (authURL, pendingID
 		a.completeMcpOAuth(p, w, r)
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		_, _ = fmt.Fprintf(w, "Agent Harbor OAuth 回调就绪。请将 IdP 重定向到 /callback。")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = fmt.Fprintf(w, `<!doctype html><meta charset=utf-8><title>Harbor OAuth</title>
+<p>Agent Harbor OAuth 回调已就绪。请将 IdP 的 redirect_uri 设为：</p>
+<p><code>%s</code></p>`, redirectURI)
 	})
 	p.server = &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 	a.mu.Lock()
@@ -88,7 +111,7 @@ func (a *App) startMcpOAuth(in contracts.StartMcpOAuthInput) (authURL, pendingID
 	q.Set("redirect_uri", redirectURI)
 	q.Set("state", id)
 	q.Set("client_id", clientID)
-	authURL = origin + "/authorize?" + q.Encode()
+	authURL = authority + "/authorize?" + q.Encode()
 	openSystemBrowser(authURL)
 	return authURL, id, nil
 }
@@ -118,6 +141,15 @@ func (a *App) completeMcpOAuth(p *oauthPending, w http.ResponseWriter, r *http.R
 	q := r.URL.Query()
 	token := strings.TrimSpace(q.Get("access_token"))
 	code := strings.TrimSpace(q.Get("code"))
+	if errMsg := strings.TrimSpace(q.Get("error")); errMsg != "" {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprintf(w, `<!doctype html><meta charset=utf-8><title>Harbor OAuth</title>
+<p>授权失败：<code>%s</code> %s</p>
+<p>请回到 Agent Harbor 取消后重试，或改用 API Key / Token。</p>`,
+			htmlEscape(errMsg), htmlEscape(strings.TrimSpace(q.Get("error_description"))))
+		return
+	}
 	if token == "" && code == "" {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write([]byte(`<!doctype html><meta charset=utf-8><title>Harbor OAuth</title>
@@ -133,34 +165,54 @@ if (location.hash) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+	authority := p.authority
+	if authority == "" {
+		authority = p.origin
+	}
 	if token == "" && code != "" {
-		exchanged, err := exchangeAuthCode(ctx, p.origin, code, p.redirectURI, oauthClientID(), oauthClientSecret())
+		exchanged, err := exchangeAuthCode(ctx, authority, code, p.redirectURI, oauthClientID(), oauthClientSecret())
 		if err != nil {
-			http.Error(w, "token exchange failed", http.StatusBadGateway)
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = fmt.Fprintf(w, `<!doctype html><meta charset=utf-8><title>Harbor OAuth</title>
+<p>换票失败，未能写入 MCP 账号。</p>
+<p class="meta"><code>%s</code></p>
+<p>请回到 Agent Harbor 点「我已完成登录」会提示仍未写入；可取消后检查 IdP token 端点或改用 Token。</p>`, htmlEscape(err.Error()))
 			return
 		}
 		token = exchanged
 	}
-	host := ""
-	if u, err := url.Parse(p.origin); err == nil {
-		host = strings.ToLower(u.Hostname())
+	host := p.host
+	if host == "" {
+		if u, err := url.Parse(p.origin); err == nil {
+			host = strings.ToLower(u.Hostname())
+		}
 	}
 	profileID := p.profileID
 	if profileID == "" {
-		profileID = policy.ProfileDemoMCP
+		profileID = policy.ProfileCustom
 	}
 	meta := contracts.AccountInfo{
-		Kind: "mcp", Name: p.name, ProfileID: profileID, Host: host,
+		Kind: "mcp", Name: p.name, ProfileID: profileID, Host: host, BasePath: p.basePath,
 	}
 	id, err := a.secrets.Put(ctx, meta, []byte(token))
 	if err != nil {
-		http.Error(w, "save failed", http.StatusBadGateway)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = fmt.Fprintf(w, `<!doctype html><meta charset=utf-8><title>Harbor OAuth</title>
+<p>登录已拿到令牌，但保存 MCP 账号失败：<code>%s</code></p>`, htmlEscape(err.Error()))
 		return
 	}
 	_ = id
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	_, _ = w.Write([]byte("登录完成。可回到 Agent Harbor 工具页刷新列表。"))
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(`<!doctype html><meta charset=utf-8><title>Harbor OAuth</title>
+<p><strong>登录完成。</strong>请回到 Agent Harbor 工具页，点「我已完成登录」或等待列表自动刷新。</p>`))
 	go a.cancelMcpOAuth(p.id)
+}
+
+func htmlEscape(s string) string {
+	r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&quot;")
+	return r.Replace(s)
 }
 
 // exchangeAuthCode 用授权码换 access_token；可选 client_secret（机密客户端）。

@@ -8,7 +8,7 @@
 
 | 路径 | 状态 | 职责 | 负责人 |
 |---|---|---|---|
-| [index.html](index.html) / [src/](src/) | 全量 PAGE stub/mock | 侧栏 HOME/模型/工具/设置；顶栏会话切换；api/mock（含 OAuth/PTY） | C |
+| [index.html](index.html) / [src/](src/) | 全量 PAGE stub/mock | 侧栏 HOME/模型/工具/设置；顶栏会话切换 + **使用说明**；隔离逐条检测（`isolation-checks.js`）；api/mock（含 OAuth/PTY） | C |
 | [package.json](package.json) / Vite | B 已初始化 | 依赖与构建脚本 | B |
 | `bindings/` | 生成 | Wails v3 绑定，**不手改** | B |
 | `dist/` | 构建产物 | 供 Go embed | 构建生成 |
@@ -23,7 +23,7 @@ npm run dev
 # 可选 ?scenario=auth|busy|isolation|cleanup
 ```
 
-走的是同一套 PAGE 壳与 `mock-api.js`，适合对导航、向导、模型/工具、工作台/PTY 区、扩权 Modal。**不要**把浏览器会话记成真实联调。
+走的是同一套 PAGE 壳与 `mock-api.js`，适合对导航、向导、模型/工具、工作台对话区、扩权 Modal、引导/设置里的隔离逐条检测（`?scenario=isolation` 看阻断页）。顶栏「使用说明」与桌面同文案。**不要**把浏览器会话记成真实联调。
 
 静态预览也可用：`python3 -m http.server`（mock 不依赖已生成 bindings）。
 

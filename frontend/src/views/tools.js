@@ -13,6 +13,9 @@ export function mountTools(root, ctx, opts = {}) {
   let listStatus = "";
   let pendingId = "";
   let pendingTimer = null;
+  /** @type {Set<string>} */
+  let oauthSeenIds = new Set();
+  let oauthHint = "";
 
   function clearReturn() {
     if (ctx.state.returnAfterAccount?.kind === "mcp") {
@@ -157,25 +160,35 @@ export function mountTools(root, ctx, opts = {}) {
     if (editing) paintForm();
   }
 
+  function newOAuthAccounts(accounts) {
+    const now = accounts || [];
+    return now.filter((a) => a?.id && !oauthSeenIds.has(a.id));
+  }
+
+  async function finishOAuthSuccess(accounts) {
+    const added = newOAuthAccounts(accounts);
+    clearPendingWatch();
+    pendingId = "";
+    oauthHint = "";
+    editing = null;
+    ctx.state.mcpAccounts = accounts || [];
+    if (added[0]) ctx.state.mcpAccount = added[0];
+    else if (ctx.state.mcpAccounts[0]) ctx.state.mcpAccount = ctx.state.mcpAccounts[0];
+    ctx.onAccountsChanged?.();
+    if (resumeWizard()) return;
+    await load();
+  }
+
   function startPendingWatch() {
     clearPendingWatch();
-    const baseline = (ctx.state.mcpAccounts || []).length;
     pendingTimer = setInterval(async () => {
       if (!pendingId) {
         clearPendingWatch();
         return;
       }
       const res = await api.listAccounts("mcp");
-      const now = res.accounts || [];
-      const found =
-        now.length > baseline || now.some((a) => a.authMode === "oauth");
-      if (found && now.length) {
-        clearPendingWatch();
-        pendingId = "";
-        editing = null;
-        ctx.onAccountsChanged?.();
-        if (resumeWizard()) return;
-        await load();
+      if (newOAuthAccounts(res.accounts).length) {
+        await finishOAuthSuccess(res.accounts);
       }
     }, 500);
   }
@@ -216,7 +229,7 @@ export function mountTools(root, ctx, opts = {}) {
           <label class="field">profileId（一般勿改）<input id="t-profile" value="${acc.profileId || "custom"}" placeholder="custom 或 demo-mcp"/></label>
         </div>
         <div id="t-oauth-box" class="${mode === "oauth" && !isEdit ? "" : "hidden"}">
-          <p class="meta">将打开系统浏览器完成登录；成功后账号出现在列表（mock 约 1 秒）。</p>
+          <p class="meta">须填写上方 HTTPS 服务地址。将打开系统浏览器；IdP 须把回调指到本机 <code>127.0.0.1</code>。浏览器出现「登录完成」后，点下方按钮或等待自动刷新。</p>
           ${
             pendingId
               ? `<p class="meta ok">等待授权完成… pending <code>${pendingId}</code></p>
@@ -226,7 +239,7 @@ export function mountTools(root, ctx, opts = {}) {
                  </div>`
               : `<button type="button" class="btn primary" id="t-oauth">打开浏览器登录</button>`
           }
-          <span class="meta" id="t-oauth-status"></span>
+          <span class="meta" id="t-oauth-status">${oauthHint || ""}</span>
         </div>
         <div class="actions">
           <button type="button" class="btn" id="t-cancel">取消</button>
@@ -246,6 +259,7 @@ export function mountTools(root, ctx, opts = {}) {
         await api.cancelMcpOAuth(pendingId);
         clearPendingWatch();
         pendingId = "";
+        oauthHint = "";
       }
       editing = null;
       if (returning) {
@@ -316,13 +330,27 @@ export function mountTools(root, ctx, opts = {}) {
         const name = form.querySelector("#t-name").value.trim() || "OAuth MCP";
         const origin = form.querySelector("#t-origin").value.trim();
         const st = form.querySelector("#t-oauth-status");
-        const res = await api.startMcpOAuth({ name, profileId: "demo-mcp", origin });
+        if (!origin) {
+          oauthHint =
+            `<span class="bad">请先填写 HTTPS 服务地址，再打开浏览器登录。空地址无法完成 OAuth 回调写号。</span>`;
+          if (st) st.innerHTML = oauthHint;
+          return;
+        }
+        oauthSeenIds = new Set(
+          (ctx.state.mcpAccounts || []).map((a) => a.id).filter(Boolean),
+        );
+        const res = await api.startMcpOAuth({
+          name,
+          profileId: "custom",
+          origin,
+        });
         if (res.error) {
-          st.innerHTML = `<span class="bad">${res.error.code}: ${res.error.message}</span>`;
+          oauthHint = `<span class="bad">${res.error.code}: ${res.error.message}</span>`;
+          if (st) st.innerHTML = oauthHint;
           return;
         }
         pendingId = res.pendingId || "";
-        st.innerHTML = `<span class="ok">已打开系统浏览器授权（可轮询或点「我已完成」）。回调地址已就绪。</span>`;
+        oauthHint = `<span class="ok">已打开系统浏览器。请等到回调页显示「登录完成」，再点「我已完成登录」；也可稍候自动写入列表。</span>`;
         startPendingWatch();
         paintForm();
       };
@@ -330,18 +358,19 @@ export function mountTools(root, ctx, opts = {}) {
     const done = form.querySelector("#t-oauth-done");
     if (done) {
       done.onclick = async () => {
-        await load();
-        const has = (ctx.state.mcpAccounts || []).length > 0;
-        if (has) {
-          clearPendingWatch();
-          pendingId = "";
-          editing = null;
-          ctx.onAccountsChanged?.();
-          if (resumeWizard()) return;
-          paint();
-        } else {
-          const st = form.querySelector("#t-oauth-status");
-          if (st) st.innerHTML = `<span class="meta">尚未出现账号，请稍候再点或继续等待轮询</span>`;
+        done.disabled = true;
+        done.textContent = "检查中…";
+        try {
+          const res = await api.listAccounts("mcp");
+          if (newOAuthAccounts(res.accounts).length) {
+            await finishOAuthSuccess(res.accounts);
+            return;
+          }
+          oauthHint = `<span class="bad">仍未写入 MCP 账号。请确认：① 服务地址已填且为 HTTPS；② 浏览器已跳到本机回调并显示「登录完成」（不是仅关掉登录页）；③ IdP 已登记 redirect 为 Harbor 打开的 127.0.0.1 端口。也可取消后改用 API Key / Token。</span>`;
+          paintForm();
+        } finally {
+          done.disabled = false;
+          done.textContent = "我已完成登录";
         }
       };
     }
@@ -351,6 +380,7 @@ export function mountTools(root, ctx, opts = {}) {
         await api.cancelMcpOAuth(pendingId);
         clearPendingWatch();
         pendingId = "";
+        oauthHint = "";
         paintForm();
       };
     }

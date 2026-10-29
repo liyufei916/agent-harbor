@@ -21,6 +21,9 @@
           <span class="meta">当前会话</span>
           <select id="session-switch" aria-label="切换会话"></select>
         </label>
+        <button type="button" class="btn titlebar-help" id="usage-guide-btn" title="使用说明">
+          使用说明
+        </button>
       </header>
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
@@ -54,9 +57,7 @@
         </div>
       </aside>
       <div class="main-col">
-        <p class="warn-banner" id="mode-banner">
-          PAGE-DESIGN 全量（含 OAuth / clone / 对话区多轮）。mock ≠ I 验收。
-        </p>
+        <p class="warn-banner hidden" id="mode-banner"></p>
         <main id="view-home" class="view"></main>
         <main id="view-wizard" class="view hidden"></main>
         <main id="view-models" class="view hidden"></main>

@@ -13,12 +13,14 @@ import { mountSession } from "./views/session.js";
 import { mountOnboarding } from "./views/onboarding.js";
 import { mountBlock } from "./views/block.js";
 import { showToast } from "./toast.js";
+import { showUsageGuide } from "./usage-guide.js";
 import {
   mergeHistoryRow,
   buildRestartCreateSpec,
 } from "./session-history.js";
 
 const badge = document.getElementById("mode-badge");
+const usageGuideBtn = document.getElementById("usage-guide-btn");
 const sidebar = document.getElementById("sidebar");
 const healthDot = document.getElementById("health-dot");
 const healthText = document.getElementById("health-text");
@@ -40,6 +42,8 @@ const views = {
 let sessionView;
 let wizardView;
 let currentRoute = "home";
+/** 本次停留工作台期间用户是否手动展开过侧栏（离开工作台后清零，下次进入可再自动收缩） */
+let workbenchStayExpanded = false;
 
 const ctx = {
   state: {
@@ -117,7 +121,7 @@ const ctx = {
     } catch {}
     sessionView.resetForNewSession(snapshot);
     syncSessionSwitch();
-    navigate("session", { autoCollapse: true });
+    navigate("session");
   },
   /** 用已停止会话的配置再 Create 一次，直接进工作台（I10）。 */
   async restartSession(sessionId) {
@@ -242,17 +246,19 @@ function syncBadge() {
     badge.textContent = "模拟模式";
     badge.className = "badge mock";
     if (banner) {
-      banner.textContent =
-        "PAGE-DESIGN 全量（含 OAuth/clone/对话多轮）。mock 不能记入 I1–I11。";
+      banner.classList.remove("hidden");
+      banner.textContent = "模拟模式：仅看 UI，不能记入 I1–I11 真实验收。";
     }
   } else {
     badge.textContent = "真实绑定";
     badge.className = "badge live";
-    if (banner) {
-      banner.textContent =
-        "真实绑定：按 PAGE-DESIGN 全量；未接线方法可能返回 UNIMPLEMENTED。";
-    }
+    // 桌面真连不再展示开发期 UNIMPLEMENTED 横幅；说明见顶栏「使用说明」
+    banner?.classList.add("hidden");
   }
+}
+
+if (usageGuideBtn) {
+  usageGuideBtn.addEventListener("click", () => showUsageGuide());
 }
 
 function isWailsShell() {
@@ -266,19 +272,21 @@ function isWailsShell() {
 }
 
 function setSidebarCollapsed(collapsed, { persist = true } = {}) {
-  sidebar.classList.toggle("collapsed", collapsed);
+  const on = !!collapsed;
+  sidebar.classList.toggle("collapsed", on);
+  shell?.classList.toggle("sidebar-collapsed", on);
   const btn = document.getElementById("sidebar-toggle");
   if (btn) {
-    btn.textContent = collapsed ? "»" : "«";
-    btn.title = collapsed ? "展开侧栏" : "收缩侧栏";
+    btn.textContent = on ? "»" : "«";
+    btn.title = on ? "展开侧栏" : "收缩侧栏";
   }
   try {
-    localStorage.setItem("harbor-sidebar-collapsed", collapsed ? "1" : "0");
+    localStorage.setItem("harbor-sidebar-collapsed", on ? "1" : "0");
   } catch {}
   if (persist) {
     ctx.state.uiPrefs = {
       ...(ctx.state.uiPrefs || {}),
-      sidebarCollapsed: !!collapsed,
+      sidebarCollapsed: on,
     };
     api.setUIPrefs(ctx.state.uiPrefs).catch(() => {});
   }
@@ -294,10 +302,22 @@ function applyUIPrefs(prefs) {
     clearOnStopDefault:
       prefs.clearOnStopDefault === "clear" ? "clear" : "keep",
   };
+  // 工作台内若开了自动收缩且用户未手动展开，保持收窄，不把「默认展开」盖掉临时态
+  if (
+    currentRoute === "session" &&
+    ctx.state.uiPrefs.autoCollapseWorkbench &&
+    !workbenchStayExpanded
+  ) {
+    setSidebarCollapsed(true, { persist: false });
+    return;
+  }
   setSidebarCollapsed(!!prefs.sidebarCollapsed, { persist: false });
 }
 
 function navigate(name, opts = {}) {
+  const prev = currentRoute;
+  const leavingSession = prev === "session" && name !== "session";
+  const enteringSession = name === "session" && prev !== "session";
   currentRoute = name;
   Object.entries(views).forEach(([key, el]) => {
     el.classList.toggle("hidden", key !== name);
@@ -305,6 +325,10 @@ function navigate(name, opts = {}) {
   document.querySelectorAll(".nav-item").forEach((btn) => {
     btn.classList.toggle("on", btn.getAttribute("data-route") === name);
   });
+  if (leavingSession) {
+    workbenchStayExpanded = false;
+    setSidebarCollapsed(!!ctx.state.uiPrefs?.sidebarCollapsed, { persist: false });
+  }
   if (name === "home") {
     ctx.refreshHome();
   }
@@ -316,13 +340,12 @@ function navigate(name, opts = {}) {
     if (!ctx.state.sessionId) {
       sessionView?.showEmpty?.() || sessionView?.resetForNewSession?.(null);
     }
-    if (opts.autoCollapse) {
-      const auto = ctx.state.uiPrefs?.autoCollapseWorkbench !== false;
-      let userExpanded = false;
-      try {
-        userExpanded = localStorage.getItem("harbor-sidebar-user-expanded") === "1";
-      } catch {}
-      if (auto && !userExpanded) setSidebarCollapsed(true);
+    // 进入工作台：按「进入工作台时自动收缩」临时收窄（不写死默认偏好）
+    const auto =
+      opts.autoCollapse !== false &&
+      ctx.state.uiPrefs?.autoCollapseWorkbench !== false;
+    if (enteringSession && auto && !workbenchStayExpanded) {
+      setSidebarCollapsed(true, { persist: false });
     }
   }
   if (ctx.state.health && ctx.state.health.available === false && name === "wizard") {
@@ -332,45 +355,16 @@ function navigate(name, opts = {}) {
   }
 }
 
-function healthChecks(health) {
-  if (!health) return [];
-  if (health.available) {
-    return [
-      {
-        ok: true,
-        name: "隔离环境",
-        detail: health.isolationLevel
-          ? `可用 · ${health.isolationLevel}`
-          : "可用",
-      },
-      { ok: true, name: "安全闸口", detail: "可创建新会话" },
-    ];
-  }
-  return [
-    {
-      ok: false,
-      name: "隔离环境",
-      detail: health.reason || "当前无法建立隔离环境",
-    },
-    {
-      ok: false,
-      name: "安全闸口",
-      detail: "依赖隔离就绪；不会无隔离启动 Agent",
-    },
-  ];
-}
-
-async function refreshHealth() {
-  const health = await api.getRuntimeHealth();
+function applyHealthToShell(health) {
   ctx.state.health = health;
-  const ok = !!health.available;
+  const ok = !!health?.available;
   healthDot.className = `health-dot ${ok ? "ok" : "bad"}`;
   healthText.textContent = ok
     ? health.provisional
       ? "隔离就绪（占位）"
       : "隔离就绪"
     : "隔离不可用";
-  if (!ok) healthText.title = health.reason || "点击查看说明";
+  if (!ok) healthText.title = health?.reason || "点击查看说明";
   else healthText.title = "";
   const healthEl = document.getElementById("health-light");
   healthEl?.classList.toggle("clickable", !ok);
@@ -378,21 +372,26 @@ async function refreshHealth() {
   return health;
 }
 
+async function refreshHealth() {
+  const health = await api.getRuntimeHealth();
+  return applyHealthToShell(health);
+}
+
 function showBlock(reason) {
   const health = ctx.state.health;
   blockRoot.classList.remove("hidden");
   mountBlock(blockRoot, {
     reason: reason || health?.reason || "ISOLATION_UNAVAILABLE",
-    checks: healthChecks(health),
-    async onRecheck() {
-      const h = await refreshHealth();
-      if (h?.available) {
-        hideBlock();
-        if (currentRoute === "wizard") navigate("wizard");
-        else navigate(currentRoute || "home");
-        return;
-      }
-      showBlock(h?.reason);
+    health: health || { available: false, reason },
+    getHealth: async () => {
+      const h = await api.getRuntimeHealth();
+      applyHealthToShell(h);
+      return h;
+    },
+    onAvailable: () => {
+      hideBlock();
+      if (currentRoute === "wizard") navigate("wizard");
+      else navigate(currentRoute || "home");
     },
     onSettings: () => {
       hideBlock();
@@ -406,7 +405,7 @@ function hideBlock() {
   blockRoot.innerHTML = "";
 }
 
-function maybeOnboarding(health) {
+function maybeOnboarding(_health) {
   let done = false;
   try {
     done = localStorage.getItem("harbor-onboarded") === "1";
@@ -415,7 +414,12 @@ function maybeOnboarding(health) {
   shell.classList.add("hidden");
   onboardRoot.classList.remove("hidden");
   mountOnboarding(onboardRoot, {
-    health,
+    getHealth: async () => {
+      const h = await api.getRuntimeHealth();
+      applyHealthToShell(h);
+      return h;
+    },
+    onHealth: (h) => applyHealthToShell(h),
     onEnter() {
       try {
         localStorage.setItem("harbor-onboarded", "1");
@@ -452,9 +456,10 @@ async function boot() {
   document.getElementById("sidebar-toggle").onclick = () => {
     const next = !sidebar.classList.contains("collapsed");
     setSidebarCollapsed(next);
-    try {
-      localStorage.setItem("harbor-sidebar-user-expanded", next ? "0" : "1");
-    } catch {}
+    if (currentRoute === "session") {
+      // 工作台内手动展开：本次停留不再自动收；手动收窄可再被设置页偏好覆盖
+      workbenchStayExpanded = !next;
+    }
   };
 
   document.querySelectorAll(".nav-item").forEach((btn) => {

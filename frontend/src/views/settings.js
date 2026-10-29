@@ -3,6 +3,11 @@
  */
 import * as api from "../api.js";
 import { showToast } from "../toast.js";
+import {
+  freshCheckItems,
+  paintCheckList,
+  runIsolationProbe,
+} from "../isolation-checks.js";
 
 export function mountSettings(root, ctx) {
   root.innerHTML = `
@@ -76,7 +81,16 @@ export function mountSettings(root, ctx) {
     <section class="card" style="margin-top:12px">
       <h3>关于</h3>
       <p class="meta">对照 PAGE-DESIGN 全量（已合入 main）。</p>
-      <p class="meta" id="about-health">—</p>
+      <div class="isolation-checks-head">
+        <p class="meta" style="margin:0">隔离能力检测</p>
+        <button type="button" class="btn" id="btn-toggle-health-checks" aria-expanded="false" aria-controls="about-health-checks-wrap">
+          展开明细
+        </button>
+      </div>
+      <div id="about-health-checks-wrap" class="isolation-checks-wrap collapsed" hidden>
+        <ul class="block-checks" id="about-health-checks"></ul>
+      </div>
+      <p class="meta" id="about-health" role="status">—</p>
       <p class="meta hidden" id="about-onboard-note"></p>
       <div class="actions">
         <button type="button" class="btn" id="btn-rehealth">重新检测隔离</button>
@@ -84,6 +98,35 @@ export function mountSettings(root, ctx) {
       </div>
     </section>
   `;
+
+  const aboutChecks = root.querySelector("#about-health-checks");
+  const aboutChecksWrap = root.querySelector("#about-health-checks-wrap");
+  const toggleChecksBtn = root.querySelector("#btn-toggle-health-checks");
+  let aboutChecksExpanded = false;
+  let aboutChecksBusy = false;
+  let lastAboutCheckItems = freshCheckItems();
+  paintCheckList(aboutChecks, lastAboutCheckItems);
+
+  function setAboutChecksExpanded(expanded) {
+    aboutChecksExpanded = !!expanded;
+    if (!aboutChecksWrap) return;
+    aboutChecksWrap.classList.toggle("collapsed", !aboutChecksExpanded);
+    if (aboutChecksExpanded) {
+      aboutChecksWrap.removeAttribute("hidden");
+      paintCheckList(aboutChecks, lastAboutCheckItems);
+    } else {
+      aboutChecksWrap.setAttribute("hidden", "");
+    }
+    if (toggleChecksBtn) {
+      toggleChecksBtn.setAttribute("aria-expanded", aboutChecksExpanded ? "true" : "false");
+      toggleChecksBtn.textContent = aboutChecksExpanded ? "收起明细" : "展开明细";
+    }
+  }
+
+  toggleChecksBtn.onclick = () => {
+    if (aboutChecksBusy && aboutChecksExpanded) return; // 检测中勿收起，避免打断观感
+    setAboutChecksExpanded(!aboutChecksExpanded);
+  };
 
   async function refreshAgents() {
     const el = root.querySelector("#settings-agent");
@@ -228,9 +271,26 @@ export function mountSettings(root, ctx) {
     const btn = root.querySelector("#btn-rehealth");
     btn.disabled = true;
     btn.textContent = "检测中…";
+    aboutChecksBusy = true;
+    if (toggleChecksBtn) toggleChecksBtn.disabled = true;
+    const el = root.querySelector("#about-health");
+    el.textContent = "正在逐项检测…";
+    lastAboutCheckItems = freshCheckItems();
+    paintCheckList(aboutChecks, lastAboutCheckItems);
+    setAboutChecksExpanded(true);
     try {
-      const h = await ctx.refreshHealth?.();
-      const el = root.querySelector("#about-health");
+      const h = await runIsolationProbe({
+        getHealth: async () => {
+          if (typeof ctx.refreshHealth === "function") {
+            return ctx.refreshHealth();
+          }
+          return api.getRuntimeHealth();
+        },
+        onUpdate: (items) => {
+          lastAboutCheckItems = items;
+          paintCheckList(aboutChecks, items);
+        },
+      });
       if (h?.available) {
         el.innerHTML = `<span class="ok">● 隔离可用 ${h.isolationLevel || ""}</span>`;
         showToast("隔离检测通过", "ok");
@@ -239,6 +299,9 @@ export function mountSettings(root, ctx) {
         showToast(h?.reason || "隔离不可用", "bad");
       }
     } finally {
+      aboutChecksBusy = false;
+      if (toggleChecksBtn) toggleChecksBtn.disabled = false;
+      setAboutChecksExpanded(false);
       btn.disabled = false;
       btn.textContent = "重新检测隔离";
     }
