@@ -41,7 +41,7 @@ npm test --prefix frontend
 npm run build --prefix frontend
 ```
 
-然后在应用中选择 `OpenAI Codex`，连接 `codex-model`，选择专用工作区和已登记 MCP，执行只读任务。确认：
+然后在应用 **模型** 页点「OpenAI Codex」快捷项（`profileId=codex-model`，不填 Origin），用 OpenAI Key 保存；**不要**用 DeepSeek/自定义 Anthropic 账号配 Codex。向导里选 `OpenAI Codex` Agent 后再选该模型账号。确认：
 
 1. Agent 检测显示 Codex 版本和可用状态。
 2. 模型连接请求命中 `/v1/responses`，使用 `Authorization: Bearer`，连接成功后只保存脱敏账号信息。

@@ -81,16 +81,29 @@ export function mountWizard(root, ctx, opts = {}) {
     ctx.navigate(kind === "model" ? "models" : "tools", { intent: "add" });
   }
 
+  function expectedModelProfile(agentId) {
+    const a = (ctx.state.agents || []).find((x) => x.id === agentId);
+    return a?.modelProfileId || (agentId === "dsh" ? "dsh-model" : agentId === "codex" ? "codex-model" : "demo-model");
+  }
+
+  function modelFitsAgent(account, agentId) {
+    const expected = expectedModelProfile(agentId);
+    if (account.profileId === expected) return true;
+    // Claude 可用自定义 Anthropic 兼容账号
+    return agentId === "claude" && account.profileId === "custom";
+  }
+
   async function paint() {
     persist();
     await Promise.all([refreshAgents(), refreshAccounts()]);
-    const models = (ctx.state.accounts || []).filter((a) => a.kind === "model");
+    const allModels = (ctx.state.accounts || []).filter((a) => a.kind === "model");
+    const models = allModels.filter((m) => modelFitsAgent(m, draft.agentId));
     const mcps = (ctx.state.accounts || []).filter((a) => a.kind === "mcp");
     if (!draft.modelAccountId && models[0]) {
       draft.modelAccountId = models[0].id;
     }
-    if (draft.modelAccountId && !models.some((m) => m.id === draft.modelAccountId) && models[0]) {
-      draft.modelAccountId = models[0].id;
+    if (draft.modelAccountId && !models.some((m) => m.id === draft.modelAccountId)) {
+      draft.modelAccountId = models[0]?.id || "";
     }
     let body = "";
 
@@ -128,15 +141,27 @@ export function mountWizard(root, ctx, opts = {}) {
         </div>
       `;
     } else if (step === 2) {
+      const needProfile = expectedModelProfile(draft.agentId);
+      const agentHint =
+        draft.agentId === "codex"
+          ? `Codex 须用 profile <code>${needProfile}</code>（Responses API）。在「模型」页用「OpenAI Codex」快捷项添加，勿用 DeepSeek/自定义 Anthropic 账号。`
+          : draft.agentId === "dsh"
+            ? `dsh 须用 profile <code>${needProfile}</code>。`
+            : `Claude 可用 <code>demo-model</code> 或自定义 Anthropic 兼容账号。`;
       body = `
         <h2>本会话使用的模型</h2>
-        <p class="sub">同一时间只用一个；进入工作台后仍可切换。选项来自「模型」页已添加项。</p>
+        <p class="sub">同一时间只用一个；进入工作台后仍可切换。已按当前 Agent 过滤不兼容项。</p>
+        <p class="meta">${agentHint}</p>
         <label class="field">模型
           <select id="wz-model" ${models.length ? "" : "disabled"}>
             ${models.map((m) => `<option value="${m.id}" ${draft.modelAccountId === m.id ? "selected" : ""}>${m.name} · ${m.host || m.profileId}</option>`).join("")}
           </select>
         </label>
-        ${models.length ? `<p class="meta"><button type="button" class="btn" id="wz-go-models">再添加一个</button></p>` : `<p class="meta bad">还没有模型。<button type="button" class="btn" id="wz-go-models">去添加</button></p>`}
+        ${
+          models.length
+            ? `<p class="meta"><button type="button" class="btn" id="wz-go-models">再添加一个</button></p>`
+            : `<p class="meta bad">没有与当前 Agent 匹配的模型（需要 ${needProfile}${draft.agentId === "claude" ? " 或 custom" : ""}）。<button type="button" class="btn" id="wz-go-models">去添加</button></p>`
+        }
       `;
     } else {
       body = `
@@ -299,9 +324,15 @@ export function mountWizard(root, ctx, opts = {}) {
             hint =
               "工作区须是已存在的普通目录；不要选 Home、.ssh、系统目录。演示可用 demos/workspace 的绝对路径。";
           } else if (res.error.code === "INVALID_ARGUMENT") {
-            hint =
-              "若勾了自定义 MCP：到「工具」删除该账号后重新添加（须保存成功并带上工具列表）。也检查 Agent 与模型是否匹配。";
-            cta = `<button type="button" class="btn" id="wz-to-tools">去工具</button>`;
+            if (draft.agentId === "codex") {
+              hint =
+                "Codex 不能配自定义/DeepSeek（Anthropic）模型。请到「模型」用「OpenAI Codex」添加 codex-model，并确保启动前已 export HARBOR_CODEX_MODEL_ORIGIN。若勾了自定义 MCP，删除后重连以落盘 tools。";
+              cta = `<button type="button" class="btn" id="wz-to-models">去模型</button> <button type="button" class="btn" id="wz-to-tools">去工具</button>`;
+            } else {
+              hint =
+                "若勾了自定义 MCP：到「工具」删除后重新添加（须带工具列表）。也检查 Agent 与模型 profile 是否匹配。";
+              cta = `<button type="button" class="btn" id="wz-to-tools">去工具</button>`;
+            }
           }
           msg.innerHTML = `<span class="bad">${res.error.code}: ${res.error.message}</span>${hint ? `<p class="meta">${hint}</p>` : ""}${cta ? `<div class="actions">${cta}</div>` : ""}`;
           msg.querySelector("#wz-to-home")?.addEventListener("click", () =>
@@ -309,6 +340,9 @@ export function mountWizard(root, ctx, opts = {}) {
           );
           msg.querySelector("#wz-to-tools")?.addEventListener("click", () =>
             ctx.navigate("tools"),
+          );
+          msg.querySelector("#wz-to-models")?.addEventListener("click", () =>
+            ctx.navigate("models", { intent: "add" }),
           );
           return;
         }

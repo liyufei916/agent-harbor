@@ -92,6 +92,7 @@ func (b *Builder) Build(_ context.Context, req PolicyRequest) (PolicySnapshot, e
 	}
 	var modelProf FixedProfile
 	if req.Model.ProfileID == ProfileCustom {
+		// 自定义 Anthropic 兼容仅 Claude；Codex 须用固定 codex-model（Responses）。
 		if req.AgentID != "claude" {
 			return PolicySnapshot{}, ErrKindMismatch
 		}
@@ -116,8 +117,21 @@ func (b *Builder) Build(_ context.Context, req PolicyRequest) (PolicySnapshot, e
 		if !ok || modelProf.Kind != "model" {
 			return PolicySnapshot{}, ErrUnknownProfile
 		}
-		if req.AgentID == "dsh" && req.Model.ProfileID != ProfileDSHModel || req.AgentID == "claude" && req.Model.ProfileID != ProfileDemoModel {
-			return PolicySnapshot{}, ErrKindMismatch
+		switch req.AgentID {
+		case "claude":
+			if req.Model.ProfileID != ProfileDemoModel {
+				return PolicySnapshot{}, ErrKindMismatch
+			}
+		case "dsh":
+			if req.Model.ProfileID != ProfileDSHModel {
+				return PolicySnapshot{}, ErrKindMismatch
+			}
+		case "codex":
+			if req.Model.ProfileID != ProfileCodexModel {
+				return PolicySnapshot{}, ErrKindMismatch
+			}
+		default:
+			return PolicySnapshot{}, ErrInvalidAgent
 		}
 	}
 	if !ValidBasePath(modelProf.BasePath) {

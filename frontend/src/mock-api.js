@@ -433,7 +433,7 @@ export async function connectModel(input) {
     };
   }
   const profileId = input.profileId || "custom";
-  const allowed = [FIXED.modelProfileId, "dsh-model", "custom"];
+  const allowed = [FIXED.modelProfileId, "dsh-model", "codex-model", "custom"];
   if (!allowed.includes(profileId)) {
     return {
       account: null,
@@ -447,6 +447,8 @@ export async function connectModel(input) {
     };
   }
   let host = "demo-model.local";
+  if (profileId === "codex-model") host = "api.openai.com";
+  if (profileId === "dsh-model") host = "api.deepseek.com";
   if (input.origin) {
     try {
       host = new URL(input.origin).host;
@@ -636,8 +638,14 @@ export async function createSession(spec) {
       error: err("INVALID_ARGUMENT", "请先连接模型账号"),
     };
   }
-  const expected = spec.agentId === "dsh" ? "dsh-model" : "demo-model";
-  if (modelAcc.profileId !== "custom" && modelAcc.profileId !== expected) {
+  const expected =
+    spec.agentId === "dsh"
+      ? "dsh-model"
+      : spec.agentId === "codex"
+        ? "codex-model"
+        : "demo-model";
+  const customOk = spec.agentId === "claude" && modelAcc.profileId === "custom";
+  if (modelAcc.profileId !== expected && !customOk) {
     return {
       session: null,
       error: err("INVALID_ARGUMENT", "Agent 与模型 profile 不匹配"),
@@ -651,7 +659,7 @@ export async function createSession(spec) {
       };
     }
   }
-  if (![FIXED.agent.id, "dsh"].includes(spec.agentId)) {
+  if (![FIXED.agent.id, "dsh", "codex"].includes(spec.agentId)) {
     return {
       session: null,
       error: err("INVALID_ARGUMENT", "Agent 不受支持"),

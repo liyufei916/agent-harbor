@@ -170,6 +170,8 @@ wails3 dev
 
 打包烟测：`wails3 build` / `wails3 task darwin:package`（I11，B/C）。
 
+**打包产物全量走查清单**（启动自检 → 模型/工具 → 向导/工作台 → 多会话/设置）：[DESKTOP-PACKAGE-TEST.md](DESKTOP-PACKAGE-TEST.md)。
+
 逐步用例与证据格式：[MANUAL-INTEGRATION-TEST.md](../docs/MANUAL-INTEGRATION-TEST.md)。  
 C 实现笔记：[DEV-C.md](../docs/DEV-C.md)。
 
