@@ -1,6 +1,6 @@
 /**
- * Agent ↔ 模型账号兼容：各 Agent 模型互不通用。
- * MCP 工具账号可跨 Agent 共用（Gate 白名单按会话挂载）。
+ * Agent ↔ 模型账号：默认同 profile 单绑；账号可带 agents[] 供多 Agent 共用。
+ * MCP 工具账号可跨 Agent 挂载。
  */
 
 export function expectedModelProfile(agentId, agents = []) {
@@ -11,29 +11,41 @@ export function expectedModelProfile(agentId, agents = []) {
   return "demo-model";
 }
 
-/** Claude 可用 custom；Codex/dsh 仅固定 profile。 */
-export function modelFitsAgent(account, agentId, agents = []) {
+export function defaultAgentsForProfile(profileId) {
+  if (profileId === "codex-model") return ["codex"];
+  if (profileId === "dsh-model") return ["dsh"];
+  if (profileId === "demo-model" || profileId === "custom") return ["claude"];
+  return [];
+}
+
+/** 账号显式 agents，或按 profile 默认单绑。 */
+export function accountAgents(account) {
+  if (!account) return [];
+  if (Array.isArray(account.agents) && account.agents.length) {
+    return [...new Set(account.agents.filter(Boolean))];
+  }
+  return defaultAgentsForProfile(account.profileId);
+}
+
+export function modelFitsAgent(account, agentId, _agents = []) {
   if (!account || account.kind !== "model") return false;
-  const expected = expectedModelProfile(agentId, agents);
-  if (account.profileId === expected) return true;
-  return agentId === "claude" && account.profileId === "custom";
+  return accountAgents(account).includes(agentId);
 }
 
 export function filterModelsForAgent(accounts, agentId, agents = []) {
   return (accounts || []).filter((a) => modelFitsAgent(a, agentId, agents));
 }
 
-/** 列表展示：该模型账号可用于哪些 Agent。 */
 export function agentsForModelProfile(profileId) {
-  if (profileId === "codex-model") return ["codex"];
-  if (profileId === "dsh-model") return ["dsh"];
-  if (profileId === "custom") return ["claude"];
-  if (profileId === "demo-model") return ["claude"];
-  return [];
+  return defaultAgentsForProfile(profileId);
 }
 
-export function modelCompatLabel(profileId) {
-  const ids = agentsForModelProfile(profileId);
-  if (!ids.length) return "未知兼容";
-  return `仅 ${ids.join("/")}`;
+export function modelCompatLabel(accountOrProfileId) {
+  const agents =
+    typeof accountOrProfileId === "string"
+      ? agentsForModelProfile(accountOrProfileId)
+      : accountAgents(accountOrProfileId);
+  if (!agents.length) return "未知兼容";
+  if (agents.length === 1) return `仅 ${agents[0]}`;
+  return `可用于 ${agents.join(" / ")}`;
 }

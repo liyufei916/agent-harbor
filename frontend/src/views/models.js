@@ -4,7 +4,13 @@
  * Codex Agent 须另存 profileId=codex-model（Responses；Origin 来自宿主机 env）。
  */
 import * as api from "../api.js";
-import { modelCompatLabel } from "../agent-compat.js";
+import { defaultAgentsForProfile, modelCompatLabel } from "../agent-compat.js";
+
+const AGENT_OPTS = [
+  { id: "claude", label: "Claude" },
+  { id: "codex", label: "Codex" },
+  { id: "dsh", label: "dsh" },
+];
 
 const PRESETS = [
   { name: "Anthropic", origin: "https://api.anthropic.com", model: "claude-haiku-4-5-20251001" },
@@ -72,7 +78,7 @@ export function mountModels(root, ctx, opts = {}) {
       <div class="page-head row" style="justify-content:space-between">
         <div>
           <h2>模型</h2>
-          <p class="sub">给 Agent 一把「嘴」。Claude / Codex / dsh 的模型账号<strong>互不通用</strong>；列表标「仅 xxx」。</p>
+          <p class="sub">给 Agent 一把「嘴」。可勾选兼容多个 Agent（须上游同时支持对应协议）；列表显示可用范围。</p>
         </div>
         <button type="button" class="btn primary" id="btn-add-model">+ 添加</button>
       </div>
@@ -102,7 +108,7 @@ export function mountModels(root, ctx, opts = {}) {
         <div class="row" style="justify-content:space-between">
           <div>
             <strong>${a.name}</strong>
-            <span class="meta">${a.host || a.profileId || ""} · ${modelCompatLabel(a.profileId)}</span>
+            <span class="meta">${a.host || a.profileId || ""} · ${modelCompatLabel(a)}</span>
             ${a.invalid ? `<span class="bad">▲ 无效</span>` : ""}
           </div>
           <div class="row">
@@ -191,17 +197,29 @@ export function mountModels(root, ctx, opts = {}) {
     form.classList.remove("hidden");
     const isFixed = !!fixedProfileId;
     const fixedMeta = FIXED_PRESETS.find((p) => p.profileId === fixedProfileId);
+    const profileForAgents = fixedProfileId || acc.profileId || "custom";
+    const selectedAgents =
+      Array.isArray(acc.agents) && acc.agents.length
+        ? acc.agents
+        : defaultAgentsForProfile(profileForAgents);
     form.innerHTML = `
       <section class="card">
         <h3>${editing === "new" ? "添加模型" : "编辑模型"}</h3>
         <label class="field">名称<input id="m-name" value="${acc.name || ""}" maxlength="100"/></label>
         <div id="m-custom-fields" class="${isFixed ? "hidden" : ""}">
           <label class="field">API 地址<input id="m-origin" value="${originValue}" placeholder="https://api.deepseek.com/anthropic"/></label>
-          <p class="meta">须 Anthropic 兼容 Messages API（探测 <code>POST …/v1/messages</code>）。七牛两套 Key 不能混用。</p>
+          <p class="meta">须 Anthropic 兼容 Messages API（探测 <code>POST …/v1/messages</code>）。七牛两套 Key 不能混用。若同时勾选 Codex，地址须为<strong>同时提供 Messages + Responses</strong> 的网关。</p>
           <label class="field">模型名（可选）<input id="m-model" value="${acc.model || ""}" placeholder="空则按主机推断，如 deepseek-chat"/></label>
         </div>
         <div id="m-fixed-fields" class="${isFixed ? "" : "hidden"}">
           <p class="meta ok">固定 profile：<code>${fixedProfileId || ""}</code>。${fixedMeta?.hint || "上游由启动环境变量登记，页面不填 Origin。"}</p>
+        </div>
+        <p class="meta">可用于哪些 Agent（可多选）：</p>
+        <div class="row" id="m-agents">
+          ${AGENT_OPTS.map(
+            (o) =>
+              `<label class="check-row"><input type="checkbox" data-agent="${o.id}" ${selectedAgents.includes(o.id) ? "checked" : ""}/> ${o.label}</label>`,
+          ).join("")}
         </div>
         <label class="field">API Key（提交后清空）<input id="m-key" type="password" autocomplete="off" spellcheck="false" placeholder="${editing === "new" ? "粘贴完整 sk-… Key" : "重贴新 Key（不回显旧值）"}"/></label>
         <p class="meta" id="m-key-hint">${
@@ -299,10 +317,14 @@ export function mountModels(root, ctx, opts = {}) {
       const origin = (originEl?.value || "").trim().replace(/\/+$/, "");
       const model = (modelEl?.value || "").trim();
       const key = keyEl.value.trim();
+      const agents = [...form.querySelectorAll("[data-agent]:checked")].map((el) =>
+        el.getAttribute("data-agent"),
+      );
       const missing = [];
       if (!name) missing.push("名称");
       if (!fixedProfileId && !origin) missing.push("API 地址");
       if (!key) missing.push("API Key");
+      if (!agents.length) missing.push("至少一个 Agent");
       if (missing.length) {
         status.innerHTML = `<span class="bad">请填写：${missing.join("、")}（灰色提示不是已填内容）</span>`;
         if (!fixedProfileId && !origin) originEl?.focus();
@@ -324,7 +346,7 @@ export function mountModels(root, ctx, opts = {}) {
         const skipProbe = !!form.querySelector("#m-skip-probe")?.checked;
         const res = await api.connectModel(
           fixedProfileId
-            ? { profileId: fixedProfileId, name, apiKey: key }
+            ? { profileId: fixedProfileId, name, apiKey: key, agents }
             : {
                 profileId: "custom",
                 name,
@@ -332,6 +354,7 @@ export function mountModels(root, ctx, opts = {}) {
                 origin,
                 model,
                 skipProbe,
+                agents,
               },
         );
         if (res.error) {

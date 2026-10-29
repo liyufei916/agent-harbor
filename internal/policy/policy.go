@@ -90,49 +90,9 @@ func (b *Builder) Build(_ context.Context, req PolicyRequest) (PolicySnapshot, e
 	if req.Model.Kind != "model" {
 		return PolicySnapshot{}, ErrKindMismatch
 	}
-	var modelProf FixedProfile
-	if req.Model.ProfileID == ProfileCustom {
-		// 自定义 Anthropic 兼容仅 Claude；Codex 须用固定 codex-model（Responses）。
-		if req.AgentID != "claude" {
-			return PolicySnapshot{}, ErrKindMismatch
-		}
-		origin := "https://" + strings.TrimSpace(req.Model.Host)
-		custom, err := CustomModelProfile(origin, req.Model.Model)
-		if err != nil {
-			return PolicySnapshot{}, ErrUnknownProfile
-		}
-		if bp := strings.TrimRight(strings.TrimSpace(req.Model.BasePath), "/"); bp != "" {
-			if !ValidBasePath(bp) {
-				return PolicySnapshot{}, ErrUnknownProfile
-			}
-			custom.BasePath = bp
-		}
-		if !custom.ValidConnection() {
-			return PolicySnapshot{}, ErrUnknownProfile
-		}
-		modelProf = custom
-	} else {
-		var ok bool
-		modelProf, ok = b.profiles[req.Model.ProfileID]
-		if !ok || modelProf.Kind != "model" {
-			return PolicySnapshot{}, ErrUnknownProfile
-		}
-		switch req.AgentID {
-		case "claude":
-			if req.Model.ProfileID != ProfileDemoModel {
-				return PolicySnapshot{}, ErrKindMismatch
-			}
-		case "dsh":
-			if req.Model.ProfileID != ProfileDSHModel {
-				return PolicySnapshot{}, ErrKindMismatch
-			}
-		case "codex":
-			if req.Model.ProfileID != ProfileCodexModel {
-				return PolicySnapshot{}, ErrKindMismatch
-			}
-		default:
-			return PolicySnapshot{}, ErrInvalidAgent
-		}
+	modelProf, err := ModelProfileForAgent(req.AgentID, req.Model, b.profiles)
+	if err != nil {
+		return PolicySnapshot{}, err
 	}
 	if !ValidBasePath(modelProf.BasePath) {
 		return PolicySnapshot{}, ErrUnknownProfile

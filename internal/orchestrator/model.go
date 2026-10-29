@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/liyufei916/agent-harbor/internal/contracts"
+	"github.com/liyufei916/agent-harbor/internal/policy"
 )
 
 // ModelSwitcher 只更新 Gate 内存账号绑定，不执行上游请求、不回调编排。
@@ -29,6 +30,7 @@ func (o *Service) SwitchModel(ctx context.Context, input contracts.SwitchModelIn
 		return contracts.SessionSnapshot{}, publicError("INVALID_ARGUMENT")
 	}
 	oldID := s.spec.ModelAccountID
+	agentID := s.spec.AgentID
 	o.mu.Unlock()
 	current, err := o.deps.Catalog.Lookup(ctx, oldID)
 	if err != nil {
@@ -38,7 +40,14 @@ func (o *Service) SwitchModel(ctx context.Context, input contracts.SwitchModelIn
 	if err != nil {
 		return contracts.SessionSnapshot{}, safeError(err, "ACCOUNT_NOT_FOUND")
 	}
-	if next.ID != input.ModelAccountID || next.Kind != "model" || current.Kind != "model" || next.ProfileID != current.ProfileID || next.Host != current.Host {
+	if next.ID != input.ModelAccountID || next.Kind != "model" || current.Kind != "model" || next.Host != current.Host {
+		return contracts.SessionSnapshot{}, publicError("INVALID_ARGUMENT")
+	}
+	// 同 Host 下可换账号；须均兼容当前会话 Agent（含多 Agent 共用模型）。
+	if !policy.AccountAllowsAgent(next, agentID) || !policy.AccountAllowsAgent(current, agentID) {
+		return contracts.SessionSnapshot{}, publicError("INVALID_ARGUMENT")
+	}
+	if next.ProfileID != current.ProfileID && len(next.Agents) == 0 && len(current.Agents) == 0 {
 		return contracts.SessionSnapshot{}, publicError("INVALID_ARGUMENT")
 	}
 	switcher, ok := o.deps.Gate.(ModelSwitcher)

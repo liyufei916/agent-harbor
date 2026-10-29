@@ -117,11 +117,13 @@ func (c *Connections) connect(ctx context.Context, in contracts.ConnectInput, ki
 			return contracts.AccountInfo{}, contracts.NewAppError(contracts.ErrInvalidArgument, "目标主机未通过出站校验（须为可解析公网地址）。", false)
 		}
 	}
+	modelAgents := policy.NormalizeModelAgents(profileID, in.Agents)
 	skipProbe := in.SkipProbe && kind == "model" && profileID == policy.ProfileCustom
 	if skipProbe {
 		meta := contracts.AccountInfo{
 			Kind: kind, Name: name, ProfileID: profileID,
 			Host: prof.Host, BasePath: prof.BasePath, Model: prof.Model,
+			Agents: modelAgents,
 		}
 		id, err := c.secrets.Put(ctx, meta, []byte(key))
 		if err != nil {
@@ -213,6 +215,14 @@ func (c *Connections) connect(ctx context.Context, in contracts.ConnectInput, ki
 		return contracts.AccountInfo{}, err
 	}
 
+	if kind == "model" {
+		if err := c.probeExtraAgentProtocols(ctx, prof, key, modelAgents); err != nil {
+			if ctx.Err() != nil {
+				return contracts.AccountInfo{}, mapProbeErr(ctx, ctx.Err())
+			}
+			return contracts.AccountInfo{}, err
+		}
+	}
 	meta := contracts.AccountInfo{
 		Kind:      kind,
 		Name:      name,
@@ -220,6 +230,9 @@ func (c *Connections) connect(ctx context.Context, in contracts.ConnectInput, ki
 		Host:      prof.Host,
 		BasePath:  prof.BasePath,
 		Model:     prof.Model,
+	}
+	if kind == "model" {
+		meta.Agents = append([]string(nil), modelAgents...)
 	}
 	if kind == "mcp" && profileID == policy.ProfileCustom {
 		meta.Tools = append([]string(nil), prof.Tools...)
@@ -233,6 +246,48 @@ func (c *Connections) connect(ctx context.Context, in contracts.ConnectInput, ki
 	}
 	meta.ID = id
 	return meta, nil
+}
+
+// probeExtraAgentProtocols：多 Agent 勾选时，补测尚未覆盖的协议（同 Host/Key）。
+func (c *Connections) probeExtraAgentProtocols(ctx context.Context, primary policy.FixedProfile, key string, agents []string) error {
+	needAnthropic, needResponses := false, false
+	for _, a := range agents {
+		if a == "claude" || a == "dsh" {
+			needAnthropic = true
+		}
+		if a == "codex" {
+			needResponses = true
+		}
+	}
+	if needResponses && primary.Protocol != "openai-responses" {
+		p := policy.FixedProfile{
+			ID: policy.ProfileCodexModel, Kind: "model", Protocol: "openai-responses",
+			Model: primary.Model, Origin: primary.Origin, Host: primary.Host,
+			Paths: []string{"/v1/responses"}, TestPath: "/v1/responses",
+			AllowInsecureLoopback: primary.AllowInsecureLoopback,
+		}
+		if strings.TrimSpace(p.Model) == "" {
+			p.Model = "gpt-5-codex"
+		}
+		if err := c.probe(ctx, p, key); err != nil {
+			return contracts.NewAppError(contracts.ErrUpstreamUnavailable, "已勾选 Codex，但该地址未通过 Responses（/v1/responses）探测。多 Agent 共用须网关同时提供 Anthropic 与 Responses。", true)
+		}
+	}
+	if needAnthropic && primary.Protocol != "anthropic" {
+		origin := primary.Origin
+		if bp := strings.TrimRight(strings.TrimSpace(primary.BasePath), "/"); bp != "" {
+			origin = strings.TrimRight(primary.Origin, "/") + bp
+		}
+		p, err := policy.CustomModelProfile(origin, primary.Model)
+		if err != nil {
+			return contracts.NewAppError(contracts.ErrInvalidArgument, "已勾选 Claude/dsh，但无法从该地址构造 Anthropic 探测配置。", false)
+		}
+		p.AllowInsecureLoopback = primary.AllowInsecureLoopback
+		if err := c.probe(ctx, p, key); err != nil {
+			return contracts.NewAppError(contracts.ErrUpstreamUnavailable, "已勾选 Claude/dsh，但该地址未通过 Anthropic Messages 探测。多 Agent 共用须网关同时提供两种协议。", true)
+		}
+	}
+	return nil
 }
 
 const mcpProtocolVersion = "2025-03-26"

@@ -1,6 +1,6 @@
 /**
  * PAGE-DESIGN §5.3 新会话四步：工作区 → Agent → 模型 → 工具（可跳过）
- * 模型按 Agent 过滤（互不通用）；MCP 可跨 Agent 勾选。
+ * 模型按账号 agents[] / profile 过滤；MCP 可跨 Agent 勾选。
  */
 import * as api from "../api.js";
 import { expectedModelProfile, filterModelsForAgent } from "../agent-compat.js";
@@ -133,16 +133,10 @@ export function mountWizard(root, ctx, opts = {}) {
       `;
     } else if (step === 2) {
       const needProfile = expectedModelProfile(draft.agentId, agents);
-      const agentHint =
-        draft.agentId === "codex"
-          ? `Codex 须用 profile <code>${needProfile}</code>（Responses API）。勿用 Claude/DeepSeek 自定义账号。`
-          : draft.agentId === "dsh"
-            ? `dsh 须用 profile <code>${needProfile}</code>；与 Claude/Codex 模型不通用。`
-            : `Claude 可用 <code>demo-model</code> 或 <code>custom</code>；与 Codex/dsh 模型不通用。`;
       body = `
         <h2>本会话使用的模型</h2>
-        <p class="sub">同一时间只用一个。各 Agent 的模型账号<strong>互不兼容</strong>，列表已过滤。</p>
-        <p class="meta">${agentHint}</p>
+        <p class="sub">同一时间只用一个。列表仅显示<strong>勾选了当前 Agent</strong>的模型（可在「模型」页多选 Claude/Codex/dsh）。</p>
+        <p class="meta">当前 Agent 默认 profile：<code>${needProfile}</code>。多 Agent 共用须上游同时支持对应协议。</p>
         <label class="field">模型
           <select id="wz-model" ${models.length ? "" : "disabled"}>
             ${models.map((m) => `<option value="${m.id}" ${draft.modelAccountId === m.id ? "selected" : ""}>${m.name} · ${m.host || m.profileId}</option>`).join("")}

@@ -31,6 +31,8 @@ type ConnectInput struct {
 	Origin    string `json:"origin,omitempty"`
 	Model     string `json:"model,omitempty"`
 	SkipProbe bool   `json:"skipProbe,omitempty"`
+	// Agents：该模型可供哪些 Agent 选用；空则按 profileId 默认单 Agent。
+	Agents []string `json:"agents,omitempty"`
 }
 
 // AccountInfo 是脱敏后的账号元信息。
@@ -44,6 +46,7 @@ type AccountInfo struct {
 	Model     string   `json:"model,omitempty"`    // 探测成功时的模型名
 	KeyHint   string   `json:"keyHint,omitempty"`  // 仅末四位提示，如 …a1b2；永不含完整 Key
 	Tools     []string `json:"tools,omitempty"`    // 自定义 MCP：连接探测时 tools/list 快照，供会话白名单
+	Agents    []string `json:"agents,omitempty"`   // 可选用的 Agent id；空=仅按 profileId 单绑
 }
 
 // SessionSpec 是创建会话的前端请求。

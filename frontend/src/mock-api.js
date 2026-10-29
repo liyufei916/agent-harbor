@@ -462,6 +462,12 @@ export async function connectModel(input) {
   // 首个账号固定 id，兼容既有测试与 setup 流
   const id =
     modelAccounts.size === 0 ? "mock-model" : `mock-model-${++accountNumber}`;
+  let agents = Array.isArray(input.agents) ? input.agents.filter(Boolean) : [];
+  if (!agents.length) {
+    if (profileId === "codex-model") agents = ["codex"];
+    else if (profileId === "dsh-model") agents = ["dsh"];
+    else agents = ["claude"];
+  }
   const account = {
     id,
     kind: "model",
@@ -471,6 +477,7 @@ export async function connectModel(input) {
     origin: input.origin || "",
     model: input.model || "",
     keyHint: keyHint(input.apiKey),
+    agents,
   };
   modelAccounts.set(id, account);
   return { account: { ...account }, error: null };
@@ -638,17 +645,18 @@ export async function createSession(spec) {
       error: err("INVALID_ARGUMENT", "请先连接模型账号"),
     };
   }
-  const expected =
-    spec.agentId === "dsh"
-      ? "dsh-model"
-      : spec.agentId === "codex"
-        ? "codex-model"
-        : "demo-model";
-  const customOk = spec.agentId === "claude" && modelAcc.profileId === "custom";
-  if (modelAcc.profileId !== expected && !customOk) {
+  const agents =
+    Array.isArray(modelAcc.agents) && modelAcc.agents.length
+      ? modelAcc.agents
+      : modelAcc.profileId === "codex-model"
+        ? ["codex"]
+        : modelAcc.profileId === "dsh-model"
+          ? ["dsh"]
+          : ["claude"];
+  if (!agents.includes(spec.agentId)) {
     return {
       session: null,
-      error: err("INVALID_ARGUMENT", "Agent 与模型 profile 不匹配"),
+      error: err("INVALID_ARGUMENT", "Agent 与模型不兼容（未勾选该 Agent）"),
     };
   }
   if (spec.mcpIds.length > 0) {
