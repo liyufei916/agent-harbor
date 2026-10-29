@@ -1,7 +1,9 @@
 /**
  * PAGE-DESIGN §5.3 新会话四步：工作区 → Agent → 模型 → 工具（可跳过）
+ * 模型按 Agent 过滤（互不通用）；MCP 可跨 Agent 勾选。
  */
 import * as api from "../api.js";
+import { expectedModelProfile, filterModelsForAgent } from "../agent-compat.js";
 
 const STEPS = ["workspace", "agent", "model", "tools"];
 
@@ -81,23 +83,12 @@ export function mountWizard(root, ctx, opts = {}) {
     ctx.navigate(kind === "model" ? "models" : "tools", { intent: "add" });
   }
 
-  function expectedModelProfile(agentId) {
-    const a = (ctx.state.agents || []).find((x) => x.id === agentId);
-    return a?.modelProfileId || (agentId === "dsh" ? "dsh-model" : agentId === "codex" ? "codex-model" : "demo-model");
-  }
-
-  function modelFitsAgent(account, agentId) {
-    const expected = expectedModelProfile(agentId);
-    if (account.profileId === expected) return true;
-    // Claude 可用自定义 Anthropic 兼容账号
-    return agentId === "claude" && account.profileId === "custom";
-  }
-
   async function paint() {
     persist();
     await Promise.all([refreshAgents(), refreshAccounts()]);
+    const agents = ctx.state.agents || [];
     const allModels = (ctx.state.accounts || []).filter((a) => a.kind === "model");
-    const models = allModels.filter((m) => modelFitsAgent(m, draft.agentId));
+    const models = filterModelsForAgent(allModels, draft.agentId, agents);
     const mcps = (ctx.state.accounts || []).filter((a) => a.kind === "mcp");
     if (!draft.modelAccountId && models[0]) {
       draft.modelAccountId = models[0].id;
@@ -141,16 +132,16 @@ export function mountWizard(root, ctx, opts = {}) {
         </div>
       `;
     } else if (step === 2) {
-      const needProfile = expectedModelProfile(draft.agentId);
+      const needProfile = expectedModelProfile(draft.agentId, agents);
       const agentHint =
         draft.agentId === "codex"
-          ? `Codex 须用 profile <code>${needProfile}</code>（Responses API）。在「模型」页用「OpenAI Codex」快捷项添加，勿用 DeepSeek/自定义 Anthropic 账号。`
+          ? `Codex 须用 profile <code>${needProfile}</code>（Responses API）。勿用 Claude/DeepSeek 自定义账号。`
           : draft.agentId === "dsh"
-            ? `dsh 须用 profile <code>${needProfile}</code>。`
-            : `Claude 可用 <code>demo-model</code> 或自定义 Anthropic 兼容账号。`;
+            ? `dsh 须用 profile <code>${needProfile}</code>；与 Claude/Codex 模型不通用。`
+            : `Claude 可用 <code>demo-model</code> 或 <code>custom</code>；与 Codex/dsh 模型不通用。`;
       body = `
         <h2>本会话使用的模型</h2>
-        <p class="sub">同一时间只用一个；进入工作台后仍可切换。已按当前 Agent 过滤不兼容项。</p>
+        <p class="sub">同一时间只用一个。各 Agent 的模型账号<strong>互不兼容</strong>，列表已过滤。</p>
         <p class="meta">${agentHint}</p>
         <label class="field">模型
           <select id="wz-model" ${models.length ? "" : "disabled"}>
@@ -166,7 +157,7 @@ export function mountWizard(root, ctx, opts = {}) {
     } else {
       body = `
         <h2>需要哪些工具？（可跳过）</h2>
-        <p class="sub">与模型无关；这里是 MCP。未添加的请先去「工具」页。</p>
+        <p class="sub">MCP 可跨 Agent 挂载（与模型不同）。未添加的请先去「工具」页。</p>
         <div id="wz-mcps">
           ${
             mcps.length
@@ -252,8 +243,14 @@ export function mountWizard(root, ctx, opts = {}) {
       };
       wrap.querySelectorAll(".agent-card[data-id]").forEach((btn) => {
         btn.onclick = () => {
-          draft.agentId = btn.getAttribute("data-id");
-          ctx.state.agentId = draft.agentId;
+          const next = btn.getAttribute("data-id");
+          if (next !== draft.agentId) {
+            draft.agentId = next;
+            ctx.state.agentId = draft.agentId;
+            // 换 Agent 后旧模型多半不兼容，清空以免带到下一步。
+            draft.modelAccountId = "";
+            ctx.state.modelAccount = null;
+          }
           paint();
         };
       });

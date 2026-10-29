@@ -11,6 +11,7 @@ import {
 } from "./permission-modal.js";
 import { showToast } from "../toast.js";
 import { askConfirm } from "../confirm-dialog.js";
+import { filterModelsForAgent } from "../agent-compat.js";
 
 export function mountSession(root, ctx) {
   const healthOk = ctx.state.health?.available !== false;
@@ -276,7 +277,9 @@ export function mountSession(root, ctx) {
     if (!els.model) return;
     if (typeof document === "undefined" || !document.createElement) return;
     const res = await api.listAccounts("model");
-    const accounts = res.accounts || [];
+    const agentId = ctx.state.lastSnapshot?.agentId || ctx.state.agentId || "";
+    const agents = ctx.state.agents || [];
+    const accounts = filterModelsForAgent(res.accounts || [], agentId, agents);
     const want =
       selectedId ||
       ctx.state.lastSnapshot?.modelAccountId ||
@@ -285,7 +288,7 @@ export function mountSession(root, ctx) {
     const options = accounts.map((a) => {
       const o = document.createElement("option");
       o.value = a.id;
-      o.textContent = `${a.name} · ${a.host || ""}`;
+      o.textContent = `${a.name} · ${a.host || a.profileId || ""}`;
       if (a.id === want) o.selected = true;
       return o;
     });

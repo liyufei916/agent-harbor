@@ -380,7 +380,7 @@ type Runtime interface {
 
 ### dsh 契约增量（2026-10-25）
 
-`ListAgents` 返回已注册 Claude、Codex 与 dsh，未安装或隔离/版本检测失败时 `available=false`。`modelProfileId`：Claude→`demo-model`（另允许 `custom` Anthropic），Codex→`codex-model`（Responses，须宿主机 `HARBOR_CODEX_*`），dsh→`dsh-model`。页面切换 Agent 后清空当前模型账号引用和未提交 Key，保留工作区/MCP；Policy 仍在后端拒绝跨 Agent 模型账号，不能依赖页面校验。见 [DSH-INTEGRATION.md](DSH-INTEGRATION.md)、[CODEX-INTEGRATION.md](CODEX-INTEGRATION.md)。
+`ListAgents` 返回已注册 Claude、Codex 与 dsh，未安装或隔离/版本检测失败时 `available=false`。`modelProfileId`：Claude→`demo-model`（另允许 `custom` Anthropic），Codex→`codex-model`（Responses，须宿主机 `HARBOR_CODEX_*`），dsh→`dsh-model`。**模型账号按 Agent 互不兼容**（换 Agent 须换匹配模型）；**MCP 账号可跨 Agent 挂载**。页面切换 Agent 后清空当前模型账号引用和未提交 Key，保留工作区/MCP；Policy 仍在后端拒绝跨 Agent 模型账号，不能依赖页面校验。见 [DSH-INTEGRATION.md](DSH-INTEGRATION.md)、[CODEX-INTEGRATION.md](CODEX-INTEGRATION.md)。
 
 `FixedProfile` / `EndpointRule` 新增宿主受信 `BasePath` 字段，仅用于模型路由前缀（如 `/anthropic`），不来自 DTO、任务或沙箱。Gate 先对执行面 `/v1/messages` 做原白名单和 Sentinel 检查，再拼接前缀访问固定 origin；Connections 探测使用同一前缀。前缀拒绝穿越、编码、查询串和片段，origin 继续仅允许主机级 URL。
 

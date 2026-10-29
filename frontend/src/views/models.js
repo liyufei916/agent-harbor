@@ -4,6 +4,7 @@
  * Codex Agent 须另存 profileId=codex-model（Responses；Origin 来自宿主机 env）。
  */
 import * as api from "../api.js";
+import { modelCompatLabel } from "../agent-compat.js";
 
 const PRESETS = [
   { name: "Anthropic", origin: "https://api.anthropic.com", model: "claude-haiku-4-5-20251001" },
@@ -71,7 +72,7 @@ export function mountModels(root, ctx, opts = {}) {
       <div class="page-head row" style="justify-content:space-between">
         <div>
           <h2>模型</h2>
-          <p class="sub">给 Agent 一把「嘴」。自行添加：名称、API 地址、API Key。无浏览器登录。</p>
+          <p class="sub">给 Agent 一把「嘴」。Claude / Codex / dsh 的模型账号<strong>互不通用</strong>；列表标「仅 xxx」。</p>
         </div>
         <button type="button" class="btn primary" id="btn-add-model">+ 添加</button>
       </div>
@@ -101,7 +102,7 @@ export function mountModels(root, ctx, opts = {}) {
         <div class="row" style="justify-content:space-between">
           <div>
             <strong>${a.name}</strong>
-            <span class="meta">${a.host || a.profileId || ""}</span>
+            <span class="meta">${a.host || a.profileId || ""} · ${modelCompatLabel(a.profileId)}</span>
             ${a.invalid ? `<span class="bad">▲ 无效</span>` : ""}
           </div>
           <div class="row">
