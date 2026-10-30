@@ -27,7 +27,9 @@
 
 | 项 | 类别 | 说明 |
 |---|---|---|
-| I1–I11 live | **blocked（验收）** | 需登记真实 origin/Key/MCP 并填脱敏证据；见 ACCEPTANCE / demos |
+| I1/I2/B6/I8/I10 live | **部分通过（2026-10-30）** | DesktopAPI harness + Keychain 账号；见 ACCEPTANCE 当日节 |
+| I3–I7/I9 | **平台/受控通过 · Agent 负例待补** | 见 ACCEPTANCE；勿升格为完整安全关单 |
+| 扩权 Modal live / I11 打包退出 | **仍 blocked** | GUI 点选；本机缺 `wails3` 包 |
 | Apple 公证 / 分发签名 | **blocked（账号）** | 需 Apple Developer；清单见 [`scripts/notarize-prep.md`](../scripts/notarize-prep.md) |
 | microVM | **backlog P2** | 非本期 eng-open；Seatbelt 继续主路径 |
 | 官方 MCP SDK | **backlog** | 现用 `net/http` 转发；待真实上游后再换 SDK |

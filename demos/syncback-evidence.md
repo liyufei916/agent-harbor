@@ -17,21 +17,22 @@ grep -n harbor-syncback-ok "$SOURCE_WORKSPACE/SYNCBACK_DEMO.md"
 # 期望：命中一行
 ```
 
-## 脱敏记录模板
+## 脱敏记录（2026-10-30 harness）
 
 ```text
-日期：
-commit：
-sessionId：
+日期：2026-10-30
+commit：4e2b2ba + SyncBack 跳过符号链接（工作树）
+sessionId：ff09dab2…
 mountMode：clone
-sourceWorkspace：
-副本路径（可选）：
-UI：toast「已导回…」出现：是 / 否
-源目录文件：出现 / 未出现
-日志一行（可贴终端，勿含 Key）：
-状态：待执行 / 通过 / 失败 / 阻断
+sourceWorkspace：…/docs/agent-harbor/demos/workspace
+副本路径：…/AgentHarbor/retained/ff09dab2…
+UI：toast（本轮为 DesktopAPI SyncBackWorkspace，无 WebView）
+源目录文件：summary.txt 出现 harbor-live-i2 标记
+日志一行：
+  harbor-live-i2: 只读检查完成，hello.txt 存在（内容为 "Hello from Agent Harbor mock"）。
+状态：通过（API harness）；口播画面可选补录
 ```
 
 ## 工程旁证（非 live 画面）
 
-`go test ./internal/runtime -run TestSyncWorkspaceOverwritesAndKeepsExtra`：副本侧新内容覆盖导回目标同名文件，且不删除目标多余文件。正式 I 项仍须上表 live 画面。
+`go test ./internal/runtime -run 'SyncWorkspace'`：覆盖同名、保留多余文件、**跳过** Claude `.claude/debug/latest` 类符号链接（不中断导回）。正式口播仍可用上表 GUI 脚本。

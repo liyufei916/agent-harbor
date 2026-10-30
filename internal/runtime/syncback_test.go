@@ -35,6 +35,36 @@ func TestSyncWorkspaceOverwritesAndKeepsExtra(t *testing.T) {
 	}
 }
 
+func TestSyncWorkspaceSkipsSymlinks(t *testing.T) {
+	src, dst := t.TempDir(), t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "ok.txt"), []byte("harbor-syncback-ok"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	debug := filepath.Join(src, ".claude", "debug")
+	if err := os.MkdirAll(debug, 0700); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(debug, "log.txt")
+	if err := os.WriteFile(target, []byte("dbg"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, filepath.Join(debug, "latest")); err != nil {
+		t.Fatal(err)
+	}
+	if err := SyncWorkspace(context.Background(), src, dst); err != nil {
+		t.Fatalf("导回不应因符号链接失败: %v", err)
+	}
+	if data, err := os.ReadFile(filepath.Join(dst, "ok.txt")); err != nil || string(data) != "harbor-syncback-ok" {
+		t.Fatalf("常规文件未导回: %q %v", data, err)
+	}
+	if _, err := os.Lstat(filepath.Join(dst, ".claude", "debug", "latest")); !os.IsNotExist(err) {
+		t.Fatalf("符号链接不应被复制: %v", err)
+	}
+	if data, err := os.ReadFile(filepath.Join(dst, ".claude", "debug", "log.txt")); err != nil || string(data) != "dbg" {
+		t.Fatalf("链接目标常规文件应导回: %q %v", data, err)
+	}
+}
+
 func TestSyncWorkspaceRejectsSameAndNested(t *testing.T) {
 	dir := t.TempDir()
 	if err := SyncWorkspace(context.Background(), dir, dir); err == nil {

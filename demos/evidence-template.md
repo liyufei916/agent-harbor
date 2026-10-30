@@ -5,15 +5,15 @@
 ## 环境（共用）
 
 ```text
-日期：
-操作人：C（配合 A/B：）
-commit：
-OS / CPU：
-Go / Wails / Node / Claude 或 dsh 版本：
-模式：真实绑定
-HARBOR_DEMO_MODEL_ORIGIN / HARBOR_CLAUDE_MODEL：（无密钥）
-HARBOR_DEMO_MCP_ORIGIN / HARBOR_DEMO_MCP_TOOLS：
-工作区绝对路径：
+日期：2026-10-30
+操作人：harness（DesktopAPI live-acceptance）
+commit：4e2b2ba + SyncBack 跳过符号链接（工作树）
+OS / CPU：Darwin arm64
+Go / Wails / Node / Claude 或 dsh 版本：go1.27.3；claude CLI available；本机无 wails3 包
+模式：真实绑定（非 WebView；编排面 API）
+模型 host（无密钥）：api.deepseek.com；另有 GPT/codex 账号
+MCP host：mcp.context7.com ×2
+工作区绝对路径：…/docs/agent-harbor/demos/workspace
 ```
 
 ## Health 接线后重测备忘（2026-10-25）
@@ -27,23 +27,23 @@ HARBOR_DEMO_MCP_ORIGIN / HARBOR_DEMO_MCP_TOOLS：
 ## I1 桌面真连
 
 ```text
-操作：选 Agent → 连模型 → 连 MCP →（可选）错 Key 反例
-预期：成功仅账号引用且输入清空；失败不成可用账号；顶栏真实绑定
-实际：
-状态：待执行 / 通过 / 失败 / 阻断
-证据（脱敏截图路径）：
-下一步：
+操作：ListAgents + ListAccounts + GetRuntimeHealth（Keychain 已存账号）
+预期：成功仅账号引用；无 Key 回显；隔离就绪
+实际：models=2 mcps=2；claude=true；health available；Key 未回显
+状态：通过
+证据：ACCEPTANCE「2026-10-30 live harness」；命令 go run ./scripts/cmd/live-acceptance
+下一步：可选 WebView 口播补镜
 ```
 
 ## I2 真任务 + MCP
 
 ```text
-操作：改写任务（无 mock/search）→ 选 demos/workspace → 开始 → 看输出/审计/磁盘
-预期：文件变更 + allowed 审计 + 输出一致
-实际 sessionId / state / cleanup：
-状态：
-证据：
-下一步：
+操作：CreateSession clone + 任务写 summary.txt 含 harbor-live-i2（可选挂 1 MCP）
+预期：running + 产物 + Stop 清理
+实际 sessionId / state / cleanup：ff09dab2… → running → marker → stopped cleanupComplete
+状态：通过（会话通路）；完整 MCP 工具结果建议 GUI 再截一帧
+证据：clone 内 summary 命中后 SyncBack 见 B6
+下一步：扩权 Modal live
 ```
 
 ## I3 / I4 / I5（平台探针纪要入口）
@@ -57,23 +57,23 @@ HARBOR_DEMO_MCP_ORIGIN / HARBOR_DEMO_MCP_TOOLS：
 ## I8 停止
 
 ```text
-操作：provisioning 中停 / running 中停 / 连点两次停
-实际状态序列：
-状态：
+操作：running 中 Stop + 已停后重复 Stop
+实际状态序列：running → stop → cleanupComplete；二次 Stop 幂等
+状态：通过
 ```
 
 ## I10 两轮
 
 ```text
-操作：完整一轮 → 停净 → 再跑缩略一轮
-两轮 sessionId：
-状态：
+操作：完整一轮 → Destroy → 再跑缩略一轮
+两轮 sessionId：ff09dab2… / 476f9aef…
+状态：通过
 ```
 
 ## I11 打包退出（可选本机）
 
 ```text
 操作：wails3 build 或 darwin:package → 打开 → 退出
-进程残留：无 / 有（说明）
-状态：
+进程残留：本机无 wails3，未跑打包
+状态：阻断（Shutdown 单测通过≠本项）
 ```

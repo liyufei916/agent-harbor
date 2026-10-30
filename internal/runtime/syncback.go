@@ -65,8 +65,13 @@ func SyncWorkspace(ctx context.Context, source, destination string) error {
 			return nil
 		}
 		count++
-		if count > 100000 || entry.Type()&os.ModeSymlink != 0 {
+		if count > 100000 {
 			return runtimeError("WORKSPACE_DENIED")
+		}
+		// 导回跳过符号链接/特殊文件（如 Claude 写入的 .claude/debug/latest），
+		// 不中断整次 SyncBack；克隆入沙箱仍拒绝链接（见 clone.go）。
+		if entry.Type()&os.ModeSymlink != 0 {
+			return nil
 		}
 		info, err := entry.Info()
 		if err != nil {
@@ -76,7 +81,10 @@ func SyncWorkspace(ctx context.Context, source, destination string) error {
 		if info.IsDir() {
 			return os.MkdirAll(target, 0700)
 		}
-		if !info.Mode().IsRegular() || info.Size() > 64<<20 {
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+		if info.Size() > 64<<20 {
 			return runtimeError("WORKSPACE_DENIED")
 		}
 		in, err := root.Open(path)

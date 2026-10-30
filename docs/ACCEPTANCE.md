@@ -84,33 +84,48 @@ D1 的绑定生成已执行；原生 WebView 冒烟通过生成绑定校验 DTO�
 
 | 编号 | 状态 | 说明 |
 |---|---|---|
-| I1 | **待重测** | 桌面 live：隔离就绪 + 连模型 + 可选 MCP。步骤见 [I1-I2-LIVE](../demos/I1-I2-LIVE.md)；填空 [evidence-template](../demos/evidence-template.md) |
-| I2 | **待重测** | Claude OS PTY + AllowDescendants；工作台对话区。须脱敏证据：running、输出、无 spawn EPERM。步骤同上；话术 [demos/README](../demos/README.md) |
-| 扩权 live | **待重测** | 跨主机重定向 / 未授权出站 → Modal；project 记住并注入下轮会话 |
-| I8 / I10 / I11 | 待执行 | 依赖 I2 通路 |
+| I1 | 见下节 live | 原「待重测」；以 2026-10-30 DesktopAPI harness 为准 |
+| I2 | 见下节 live | 同上 |
+| 扩权 live | **待补（GUI）** | Modal 三问 + project 记住；harness 未覆盖 UI 点选 |
+| I8 / I10 | 见下节 live | |
+| I11 | **阻断** | 本机无 `wails3` 打包二进制；Shutdown 单测通过≠打包退出 |
 | D4 | 通过（mock） | 见 §4.1；不计 I |
 
-**口径**：mock ≠ I 通过。工程已具备：AllowDescendants 杀树、Claude Terminal、xterm、Gate `authorizeOutboundHost` + 记住主机种子。缺的是 **本机 live 脱敏证据**，不是方法占位。
+**口径**：mock ≠ I 通过。工程已具备：AllowDescendants 杀树、Claude Terminal、xterm、Gate `authorizeOutboundHost` + 记住主机种子。
 
-## 2026-10-30 I3 / I4 / I5 工程证据（平台探针 · 非正式 live 关单）
+## 2026-10-30 live harness（DesktopAPI · 本机）
 
-下列记录**不等于**「真实 Agent + 真实上游」关单；状态为「平台探针通过 / live 待补」。正式 live 仍用 [evidence-template](../demos/evidence-template.md) 填空。
+环境：Darwin arm64；工作树相对 `4e2b2ba` + SyncBack 跳过符号链接修复；命令：`go run ./scripts/cmd/live-acceptance`（须本机 Keychain 已存模型）。Agent=`claude`；模型账号 host=`api.deepseek.com`（Key 未回显）。工作区=`demos/workspace`；`mountMode=clone`。
+
+| 编号 | 状态 | 操作与证据（脱敏） |
+|---|---|---|
+| I1 | **通过** | `ListAgents` claude/codex available；`ListAccounts` models=2 mcps=2；无 Key 字段回显；`GetRuntimeHealth` available |
+| I2 | **通过** | session `ff09dab2…` → running；clone 内 `summary.txt` 含 `harbor-live-i2`；Stop + cleanupComplete |
+| B6 | **通过** | 同会话 `SyncBackWorkspace` 后源目录 `summary.txt` 含标记（见下日志）；修复：导回跳过 `.claude/debug/latest` 等符号链接，不再整单 `WORKSPACE_DENIED` |
+| I8 | **通过** | 已停会话上重复 `StopSession` 幂等 |
+| I10 | **通过** | 销毁后第二轮 `476f9aef…` 再次 running 并停净 |
+
+```text
+$ grep -n harbor-live-i2 demos/workspace/summary.txt
+1:harbor-live-i2: 只读检查完成，hello.txt 存在（内容为 "Hello from Agent Harbor mock"）。
+```
+
+说明：本 harness 走 DesktopAPI 编排面，**不是** WebView 口播录像；扩权 Modal / 打包退出仍须 GUI 或 `wails3` 包补证。
+
+## 2026-10-30 I3–I7 / I9 工程证据（平台探针 · 非正式 Agent 负例关单）
+
+下列为**受控单测 / 平台探针**；不等于「真实 Agent 诱导越界」关单。I1/I2/B6/I8/I10 已有上节 live。
 
 | 编号 | 状态 | 时间 | 操作与证据（脱敏） | 下一步 |
 |---|---|---|---|---|
-| I3 | **平台探针通过 / live 待补** | 2026-10-30 | Keychain fail-closed（无静默文件回退）+ `security -i`/`-X`；Gate Sentinel 兑换；`redact` 单测；公开事件不含完整 Key。命令：`go test ./internal/secrets ./internal/gate -count=1` | 用可轮换测试 Key 跑一次真实会话，确认 Agent env 仅 Sentinel |
-| I4 | **平台探针通过 / live 待补** | 2026-10-30 | `TestMacOSFileBoundaryAndNoFork`（`harbor_platform`）：工作区读写允许；区外文件/符号链接逃逸/fork → 退出 13。Darwin 25·arm64 本机：`go test -race -tags harbor_platform ./internal/runtime -run FileBoundary` | 真实 Claude 任务改工作区文件并尝试读区外路径，截脱敏审计 |
-| I5 | **平台探针通过 / live 待补** | 2026-10-30 | `TestMacOSExactGateNetwork`：仅允许的 loopback Gate 端口可达；其它端口 / unix socket 拒。同上 tags | live 会话诱导未授权出站，确认 Seatbelt 拒而非仅 Gate 业务层 |
+| I3 | **平台探针通过 / live 待补** | 2026-10-30 | Keychain fail-closed + Gate Sentinel；`go test ./internal/secrets ./internal/gate -count=1` | 会话内核对 Agent env 仅 Sentinel |
+| I4 | **平台探针通过 / live 待补** | 2026-10-30 | `TestMacOSFileBoundaryAndNoFork`（`harbor_platform`）区外/symlink/fork→13 | 真实 Claude 读区外 + 脱敏审计 |
+| I5 | **平台探针通过 / live 待补** | 2026-10-30 | `TestMacOSExactGateNetwork` 仅 Gate 端口可达 | live 诱导未授权出站 |
+| I6 | **受控回归通过 / live 待补** | 2026-10-30 | `TestReviewConnectDoesNotSendKeyToRedirectOrigin`、`TestRevokeInvalidatesSentinel`、`TestMCPFiltersToolsListAndCall`、扩权编排 `TestPermission*` | GUI 扩权 Modal 负例 |
+| I7 | **受控回归通过 / live 待补** | 2026-10-30 | `TestProvisionFailuresRollback`（health/detect/policy/start/create/exec…） | 组合故障注入 live |
+| I9 | **受控回归通过 / live 待补** | 2026-10-30 | `TestCleanupFailureRetainsLockAndCanRetry`；`WORKSPACE_BUSY` 保锁用例 | 真实 Destroy 超时注入 |
+| I11 | **阻断** | 2026-10-30 | `TestShutdownCancelsEverySessionBeforeWaiting` 单测 OK；无 `wails3` 包 | 安装 Wails 后 `dev-desktop`/`package` 退出无残留 |
 
-### 导回成功态 / B6（画面 + 一行日志）
+### 导回成功态 / B6
 
-60 秒成功态脚本：[demos/B6-SUCCESS-DEMO.md](../demos/B6-SUCCESS-DEMO.md)；填空 [syncback-evidence.md](../demos/syncback-evidence.md)。工程旁证：`TestSyncWorkspaceOverwritesAndKeepsExtra`。**live 画面仍待补**（本项非正式关单）。
-
-示例日志（源目录确认，路径脱敏）：
-
-```text
-$ ls -la "$SOURCE_WORKSPACE/SYNCBACK_DEMO.md"
--rw-------  1 user  staff  18 Oct 30 10:00 SYNCBACK_DEMO.md
-$ grep -n harbor-syncback-ok "$SOURCE_WORKSPACE/SYNCBACK_DEMO.md"
-1:harbor-syncback-ok
-```
+live harness 已关（上节）。口播脚本仍见 [B6-SUCCESS-DEMO](../demos/B6-SUCCESS-DEMO.md)；填空 [syncback-evidence](../demos/syncback-evidence.md)。工程旁证：`TestSyncWorkspaceOverwritesAndKeepsExtra`、`TestSyncWorkspaceSkipsSymlinks`。
