@@ -17,8 +17,10 @@
 | [14-settings-engine-colima.png](14-settings-engine-colima.png) | 容器引擎 Colima / 本机 Docker；一键安装并启用 |
 | [15-settings-docker-pending-restart.png](15-settings-docker-pending-restart.png) | Docker 偏好待生效（模拟模式徽章 · 须重启叙事） |
 | [16-tools-mcp-presets.png](16-tools-mcp-presets.png) | 预置 MCP：本机时间 / filesystem / Context7 勾选 |
+| [17-desktop-docker-health.png](17-desktop-docker-health.png) | **桌面 live**（非 mock）：顶栏 Docker 徽章 + 侧栏「隔离就绪」；见 [p2-docker-gui-2026-10-30.txt](../evidence/p2-docker-gui-2026-10-30.txt) |
 
 ## 边界
+
 
 | 能展示 | 不能用这些图声称 |
 |---|---|

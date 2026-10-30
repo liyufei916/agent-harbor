@@ -82,8 +82,9 @@ dsh：`bash scripts/install-dsh.sh` 默认路径下桌面可自动 Detect，**�
    claude: 通过 session=ea1a6c34… marker=harbor-agent-claude-64773
    codex: 通过 session=d5fe2a1c… marker=harbor-agent-codex-64778
    dsh: 通过 session=3efa2c5d… marker=harbor-agent-dsh-64815
-□ 桌面 GUI 点选 Docker 后端 live（仍待人工）
+☑ 桌面 GUI 点选 Docker 后端 live（2026-10-30 · 顶栏 Docker + 侧栏隔离就绪；见 17-desktop-docker-health.png · p2-docker-gui-2026-10-30.txt；UIPrefs 路径无 HARBOR_RUNTIME）
 ```
+
 
 ### B · 无 Docker Desktop（产品主路径 B→C / M4）
 
