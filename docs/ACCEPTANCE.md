@@ -127,7 +127,19 @@ $ grep -n harbor-live-i2 demos/workspace/summary.txt
 
 | Agent | 状态 | 证据（脱敏） |
 |---|---|---|
-| codex | **通过（2026-10-30）** | `go run ./scripts/cmd/agent-task-evidence -agents=codex -timeout=120s` → `session=9921bdbe… model=model_67… marker=harbor-agent-codex-42901 srcSummary=true SyncBack=ok`（证据写入提交：以首次合入本段的 commit 为准；固定评审提交 `803f4a4` 之后的含本段合入请回填 SHA） |
-| dsh | **Detect 绿；live 任务待补** | 2026-10-30 已 `bash scripts/install-dsh.sh`；默认路径下桌面可无 env 自动 Detect（`ResolvePaths`）。**缺口**：尚无 `agent-task-evidence -agents=dsh` 通过报告行。须 Keychain 中 **勾选 dsh** 的模型（或 `dsh-model` profile）后重跑，将报告行与 commit SHA 写回本表。 |
+| codex | **通过（2026-10-30 Seatbelt + Docker）** | Seatbelt：`session=9921bdbe… marker=harbor-agent-codex-42901`。Docker：`HARBOR_RUNTIME=docker` → `session=d5fe2a1c… marker=harbor-agent-codex-64778 srcSummary=true SyncBack=ok`（见 `demos/evidence/p2-docker-agents-2026-10-30.txt`；合入本段 commit 回填 SHA） |
+| dsh | **通过（2026-10-30 Docker）** | `HARBOR_RUNTIME=docker` → `session=3efa2c5d… marker=harbor-agent-dsh-64815 srcSummary=true SyncBack=ok`（同证据文件）。Seatbelt 路径可另补。 |
+| claude | **通过（2026-10-30 Docker）** | `HARBOR_RUNTIME=docker` → `session=ea1a6c34… marker=harbor-agent-claude-64773 srcSummary=true SyncBack=ok` |
+
+### P2 Docker / Colima（分支 `feat/p2-docker-runtime` · 不合 main）
+
+| 项 | 状态 | 证据 |
+|---|---|---|
+| docker-p2-smoke | **通过** | `demos/evidence/p2-docker-smoke-2026-10-30.txt` |
+| Health isolation=docker | **通过（API）** | agents 证据首行 `health available=true isolation="docker"` |
+| 三 Agent Docker 短任务 | **通过** | `demos/evidence/p2-docker-agents-2026-10-30.txt` EXIT:0 |
+| Harbor Colima Ensure/Health | **通过（§B · Desktop 已安装但未用）** | `demos/evidence/p2-colima-ensure-2026-10-30.txt`：`DOCKER_HOST=…/Caches/AgentHarbor/colima/agent-harbor/docker.sock` · Name=`colima-agent-harbor`（对照 Desktop Name=`docker-desktop`） |
+| 桌面 GUI Docker 切换 | **待** | 设置页点选 live |
+| 陌生机无 Desktop GUI | **待** | 不能用本机 Desktop 冒充 |
 
 陌生用户获取→首配→首任务：预发布 [v0.0.0-ci.8efc0d9](https://github.com/liyufei916/agent-harbor/releases/tag/v0.0.0-ci.8efc0d9)；正式 [v0.1.0](https://github.com/liyufei916/agent-harbor/releases/tag/v0.1.0)（打标后）。人工勾选表：[stranger-first-run-record.md](../demos/stranger-first-run-record.md)。
