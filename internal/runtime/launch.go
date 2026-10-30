@@ -36,6 +36,15 @@ func runtimeError(code string) *contracts.AppError {
 	return &contracts.AppError{Code: code, Message: message}
 }
 
+// isolationUnavailable returns ISOLATION_UNAVAILABLE with a fixed, actionable message.
+func isolationUnavailable(message string) *contracts.AppError {
+	msg := strings.TrimSpace(message)
+	if msg == "" {
+		return runtimeError("ISOLATION_UNAVAILABLE")
+	}
+	return &contracts.AppError{Code: "ISOLATION_UNAVAILABLE", Message: msg}
+}
+
 var permittedEnv = map[string]bool{
 	"DSH_HOME": true, "DSH_TELEMETRY_DISABLED": true, "DEEPSEEK_API_KEY": true,
 	"CODEX_HOME": true, "OPENAI_API_KEY": true,

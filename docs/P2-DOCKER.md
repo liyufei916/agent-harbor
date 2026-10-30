@@ -22,7 +22,8 @@ Gate / Policy / 页面主契约不变，只换 `Runtime` 实现。
 |---|---|---|
 | 0–4 | Runtime / Exec / 镜像 / Kit / internal 网 / 配额 / 冒烟 | **完成** |
 | 5 | AllowedTCP 代理改写；设置页隔离后端（需重启） | **完成** |
-| 6 | Health 校验镜像；`harbor.gate` + 拉黑 `host.docker.internal`；切换后端 toast | **本提交** |
+| 6 | Health 校验镜像；`harbor.gate` + 拉黑 `host.docker.internal`；切换后端 toast | **完成** |
+| 7 | Health 分步文案 + 探测超时；隔离 UI Docker 文案；冒烟校验 Gate 别名 | **本提交** |
 
 ## 残留风险（Docker Desktop）
 

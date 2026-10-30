@@ -498,12 +498,18 @@ async function refreshHealth() {
   return applyHealthToShell(health);
 }
 
+function preferredIsolationLevel() {
+  const v = String(ctx.state.uiPrefs?.isolationBackend || "").toLowerCase();
+  return v === "docker" || v === "p2" || v === "container" ? "docker" : "seatbelt";
+}
+
 function showBlock(reason) {
   const health = ctx.state.health;
   blockRoot.classList.remove("hidden");
   mountBlock(blockRoot, {
     reason: reason || health?.reason || "ISOLATION_UNAVAILABLE",
     health: health || { available: false, reason },
+    preferredLevel: preferredIsolationLevel(),
     getHealth: async () => {
       const h = await api.getRuntimeHealth();
       applyHealthToShell(h);
@@ -535,6 +541,7 @@ function maybeOnboarding(_health) {
   shell.classList.add("hidden");
   onboardRoot.classList.remove("hidden");
   mountOnboarding(onboardRoot, {
+    preferredLevel: preferredIsolationLevel(),
     getHealth: async () => {
       const h = await api.getRuntimeHealth();
       applyHealthToShell(h);

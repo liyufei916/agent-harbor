@@ -7,7 +7,7 @@ import {
   runIsolationProbe,
 } from "../isolation-checks.js";
 
-export function mountOnboarding(root, { onEnter, getHealth, onHealth }) {
+export function mountOnboarding(root, { onEnter, getHealth, onHealth, preferredLevel }) {
   root.innerHTML = `
     <div class="onboarding-card onboarding-card-wide">
       <h1>Agent Harbor</h1>
@@ -39,7 +39,7 @@ export function mountOnboarding(root, { onEnter, getHealth, onHealth }) {
   const retryWrap = root.querySelector("#onboard-retry-wrap");
   const retryBtn = root.querySelector("#btn-onboard-recheck");
 
-  paintCheckList(listEl, freshCheckItems());
+  paintCheckList(listEl, freshCheckItems(preferredLevel));
 
   async function run() {
     enterBtn.disabled = true;
@@ -49,6 +49,7 @@ export function mountOnboarding(root, { onEnter, getHealth, onHealth }) {
     retryBtn.disabled = true;
 
     const health = await runIsolationProbe({
+      preferredLevel,
       getHealth:
         getHealth ||
         (async () => ({ available: false, reason: "ISOLATION_UNAVAILABLE" })),

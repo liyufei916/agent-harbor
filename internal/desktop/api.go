@@ -235,7 +235,8 @@ func (d *DesktopAPI) GetRuntimeHealth() contracts.RuntimeHealthResponse {
 			Error:       contracts.NewAppError(contracts.ErrOrchestratorUnavailable, "编排服务尚未就绪", false),
 		}
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// Docker Health may inspect daemon + network + image (nested timeouts up to ~20s).
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 	defer cancel()
 	if err := rt.Health(ctx); err != nil {
 		ae := mapError(err)

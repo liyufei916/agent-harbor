@@ -12,6 +12,7 @@
 | 2026-10-30h | **P2 切片 2+4**：`agent-harbor-p2` internal 网；内存/CPU/PIDs 配额；`docker-p2-smoke.sh`；Health `isolationLevel=docker`。 |
 | 2026-10-30i | **P2 切片 5**：AllowedTCP 本机代理改写；`UIPrefs.isolationBackend` + 设置页；`HARBOR_RUNTIME` 仍优先。 |
 | 2026-10-30j | **P2 切片 6**：Health 校验镜像；Gate 仅 `harbor.gate`；拉黑 `host.docker.internal`；切换隔离后端 toast 提示重启。 |
+| 2026-10-30k | **P2 切片 7**：Docker Health 分步失败文案与 25s 探测超时；隔离检查 Docker 文案；冒烟校验 `harbor.gate` / 拉黑别名。 |
 
 ## eng-complete（代码已接线）
 
@@ -39,7 +40,7 @@
 | I1–I11 / B6 live | **通过（2026-10-30 全量重跑）** | harness + 平台探针 + `bin/AgentHarbor.app` 启停；见 ACCEPTANCE |
 | 扩权 302 异常项（可选） | **backlog** | 主路径改为 `PromptPermission` ask + 白名单；302 不挡验收 |
 | Apple 公证 / 分发签名 | **blocked（账号）** | 需 Apple Developer；清单见 [`scripts/notarize-prep.md`](../scripts/notarize-prep.md) |
-| Docker Runtime（P2） | **进行中（分支可用）** | `feat/p2-docker-runtime` 切片 0–6；Desktop 残留：其它路径仍可能触及宿主机 loopback |
+| Docker Runtime（P2） | **进行中（分支可用）** | `feat/p2-docker-runtime` 切片 0–7；Desktop 残留：其它路径仍可能触及宿主机 loopback |
 | microVM | **backlog（后于 Docker）** | 不挡 P2 容器；预研另立 |
 | 官方 MCP SDK | **backlog** | 现用 `net/http` 转发；待真实上游后再换 SDK |
 | Linux Seatbelt | **N/A** | Runtime 非 Darwin → `ISOLATION_UNAVAILABLE`；无 Linux Seatbelt 目标 |

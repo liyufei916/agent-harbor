@@ -16,7 +16,7 @@ export function mountSettings(root, ctx) {
 
     <section class="card">
       <h3>Agent 检测</h3>
-      <p class="meta">须本机预装 CLI；隔离仅 <strong>macOS Darwin 25 · arm64 · 非 root</strong>。MCP：远程 HTTP（Token/OAuth）或宿主 stdio（进程在宿主机）。</p>
+      <p class="meta">Seatbelt：须本机预装 CLI（Darwin 25 · arm64 · 非 root）。Docker：检测/运行用镜像内 CLI。MCP：远程 HTTP（Token/OAuth）或宿主 stdio（进程在宿主机）。</p>
       <div class="meta" id="settings-agent">—</div>
       <button type="button" class="btn" id="btn-refresh-agents">重新检测</button>
     </section>
@@ -370,11 +370,15 @@ export function mountSettings(root, ctx) {
     if (toggleChecksBtn) toggleChecksBtn.disabled = true;
     const el = root.querySelector("#about-health");
     el.textContent = "正在逐项检测…";
-    lastAboutCheckItems = freshCheckItems();
+    const preferredLevel = normalizeIsolationBackend(
+      ctx.state.uiPrefs?.isolationBackend,
+    );
+    lastAboutCheckItems = freshCheckItems(preferredLevel);
     paintCheckList(aboutChecks, lastAboutCheckItems);
     setAboutChecksExpanded(true);
     try {
       const h = await runIsolationProbe({
+        preferredLevel,
         getHealth: async () => {
           if (typeof ctx.refreshHealth === "function") {
             return ctx.refreshHealth();

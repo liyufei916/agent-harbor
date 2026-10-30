@@ -108,22 +108,27 @@ func (r *Docker) Health(ctx context.Context) error {
 		return runtimeError("CANCELLED")
 	}
 	if _, err := r.runner.LookPath(); err != nil {
-		return runtimeError("ISOLATION_UNAVAILABLE")
+		return isolationUnavailable("未找到 docker CLI，已拒绝启动。")
 	}
 	probeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if _, err := r.runner.Run(probeCtx, "info", "--format", "{{.ServerVersion}}"); err != nil {
-		return runtimeError("ISOLATION_UNAVAILABLE")
+		return isolationUnavailable("Docker daemon 不可用，已拒绝启动。")
 	}
 	if err := r.ensureHarborNetwork(ctx); err != nil {
-		return runtimeError("ISOLATION_UNAVAILABLE")
+		return isolationUnavailable("Harbor Docker 网络不可用，已拒绝启动。")
 	}
 	imgCtx, imgCancel := context.WithTimeout(ctx, 15*time.Second)
 	defer imgCancel()
 	if _, err := r.runner.Run(imgCtx, "image", "inspect", "--format", "{{.Id}}", r.image); err != nil {
-		return runtimeError("ISOLATION_UNAVAILABLE")
+		return isolationUnavailable("Harbor 运行时镜像不存在，已拒绝启动。请先构建 agent-harbor/runtime:dev。")
 	}
 	return nil
+}
+
+// HealthFor satisfies HealthChecker; Docker isolation does not vary by child-process capability.
+func (r *Docker) HealthFor(ctx context.Context, _ bool) error {
+	return r.Health(ctx)
 }
 
 func (r *Docker) Create(ctx context.Context, spec RuntimeSpec) (Handle, error) {

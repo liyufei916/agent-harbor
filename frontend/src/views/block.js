@@ -10,10 +10,11 @@ import {
 
 export function mountBlock(
   root,
-  { reason, health, getHealth, onAvailable, onSettings },
+  { reason, health, getHealth, onAvailable, onSettings, preferredLevel },
 ) {
   const initial = checksFromHealth(
     health || { available: false, reason: reason || "ISOLATION_UNAVAILABLE" },
+    preferredLevel,
   );
 
   root.innerHTML = `
@@ -41,6 +42,7 @@ export function mountBlock(
     recheck.textContent = "检测中…";
     try {
       const h = await runIsolationProbe({
+        preferredLevel,
         getHealth:
           getHealth ||
           (async () => ({

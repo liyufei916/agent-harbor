@@ -60,4 +60,16 @@ docker exec "$cid" test -e /usr/local/bin/node
 docker exec "$cid" test -e /usr/local/bin/claude || docker exec "$cid" test -e /usr/local/bin/codex || true
 echo "OK: guest node 存在"
 
+# 5) Gate 别名：harbor.gate 有条目；host.docker.internal 拉黑到 loopback
+hosts="$(docker exec "$cid" cat /etc/hosts)"
+echo "$hosts" | grep -Eq '(^|[[:space:]])harbor\.gate([[:space:]]|$)' || {
+  echo "FAIL: /etc/hosts 缺少 harbor.gate" >&2
+  exit 1
+}
+echo "$hosts" | grep -E 'host\.docker\.internal' | grep -Eq '127\.0\.0\.1' || {
+  echo "FAIL: host.docker.internal 未拉黑到 127.0.0.1" >&2
+  exit 1
+}
+echo "OK: harbor.gate + host.docker.internal 拉黑"
+
 echo "PASS: docker-p2-smoke ($IMAGE / $NET)"

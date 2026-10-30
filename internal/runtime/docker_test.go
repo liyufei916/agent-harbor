@@ -56,28 +56,48 @@ func (f *fakeDockerRunner) Run(_ context.Context, args ...string) (string, error
 func TestDockerHealthFailClosedWithoutBinary(t *testing.T) {
 	r := NewDocker()
 	r.runner = &fakeDockerRunner{binOK: false}
-	if err := r.Health(context.Background()); err == nil {
+	err := r.Health(context.Background())
+	if err == nil {
 		t.Fatal("expected ISOLATION_UNAVAILABLE")
-	} else if app, ok := err.(*contracts.AppError); !ok || app.Code != "ISOLATION_UNAVAILABLE" {
+	}
+	app, ok := err.(*contracts.AppError)
+	if !ok || app.Code != "ISOLATION_UNAVAILABLE" {
 		t.Fatalf("got %#v", err)
+	}
+	if !strings.Contains(app.Message, "docker CLI") {
+		t.Fatalf("want CLI hint: %q", app.Message)
 	}
 }
 
 func TestDockerHealthFailClosedWhenDaemonDown(t *testing.T) {
 	r := NewDocker()
 	r.runner = &fakeDockerRunner{binOK: true, infoErr: errors.New("Cannot connect to the Docker daemon")}
-	if err := r.Health(context.Background()); err == nil {
+	err := r.Health(context.Background())
+	if err == nil {
 		t.Fatal("expected ISOLATION_UNAVAILABLE")
+	}
+	app, ok := err.(*contracts.AppError)
+	if !ok || app.Code != "ISOLATION_UNAVAILABLE" || !strings.Contains(app.Message, "daemon") {
+		t.Fatalf("got %#v", err)
 	}
 }
 
 func TestDockerHealthFailClosedWhenImageMissing(t *testing.T) {
 	r := NewDocker()
 	r.runner = &fakeDockerRunner{binOK: true, imageErr: errors.New("No such image")}
-	if err := r.Health(context.Background()); err == nil {
+	err := r.Health(context.Background())
+	if err == nil {
 		t.Fatal("expected ISOLATION_UNAVAILABLE")
-	} else if app, ok := err.(*contracts.AppError); !ok || app.Code != "ISOLATION_UNAVAILABLE" {
+	}
+	app, ok := err.(*contracts.AppError)
+	if !ok || app.Code != "ISOLATION_UNAVAILABLE" {
 		t.Fatalf("got %#v", err)
+	}
+	if !strings.Contains(app.Message, "镜像") {
+		t.Fatalf("want image hint: %q", app.Message)
+	}
+	if err := r.HealthFor(context.Background(), true); err == nil {
+		t.Fatal("HealthFor should also fail closed")
 	}
 }
 
