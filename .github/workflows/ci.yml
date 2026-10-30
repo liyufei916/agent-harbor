@@ -120,12 +120,15 @@ jobs:
           test -x bin/AgentHarbor.app/Contents/MacOS/AgentHarbor
           codesign --verify --deep --strict bin/AgentHarbor.app
           ditto -c -k --keepParent bin/AgentHarbor.app AgentHarbor-macos.zip
+          shasum -a 256 AgentHarbor-macos.zip | tee AgentHarbor-macos.zip.sha256
 
       - name: Upload AgentHarbor.app artifact
         uses: actions/upload-artifact@v4
         with:
           name: AgentHarbor-macos-${{ github.sha }}
-          path: AgentHarbor-macos.zip
+          path: |
+            AgentHarbor-macos.zip
+            AgentHarbor-macos.zip.sha256
           retention-days: 14
           if-no-files-found: error
 

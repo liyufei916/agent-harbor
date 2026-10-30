@@ -11,15 +11,20 @@
 | 可选 CLI | Claude Code 与/或 Codex（侧栏 Detect 绿灯）；无 CLI 则无法开会话 |
 | 网络 | 能访问你登记的模型 / MCP Origin |
 
-## 路径 A：已有 `.app`（本机构建 / CI 产物）
+## 路径 A：已有 `.app`（Release / CI 产物）
 
-1. 打开 `bin/AgentHarbor.app`（或解压 CI 的 `AgentHarbor-macos.zip`）  
+0. **获取**：优先 [Releases](https://github.com/liyufei916/agent-harbor/releases) 的 `AgentHarbor-macos.zip` + `.sha256`；或 CI Artifact（同名，保留 14 天）。校验：`shasum -a 256 -c AgentHarbor-macos.zip.sha256`  
+1. 解压后打开 `AgentHarbor.app`  
 2. 若 Gatekeeper 拦截：系统设置 → 隐私与安全 → 仍要打开（**未公证**时常见）  
 3. 侧栏应显示「隔离就绪」；否则看阻断页文案，**不要**找「仍要继续」  
 4. 「模型」→ 添加：显示名 + Origin + Key → 连接（成功后 Key 清空，列表仅有引用）  
 5. （可选）「工具」→ Token 轨连接只读 MCP；stdio 为高级项（宿主进程，更高信任）  
-6. HOME → 新会话：选工作区（可用仓库 `demos/workspace`）→ Agent → 模型 → 开始  
+6. HOME → 新会话：选工作区（可用仓库 `demos/workspace`）→ Agent → 模型 → 开始 → 发一条短任务（如「列出当前目录」）  
 7. 失败恢复：设置「重新检测隔离」；`WORKSPACE_BUSY` 先停旧会话；错 Key 会 `UPSTREAM_AUTH_FAILED` 且不成账号
+
+### 陌生用户记录模板（固定提交）
+
+复验时在本机记下：提交 SHA、获取来源（Release tag / CI run URL）、校验和是否匹配、Agent（claude/codex/dsh）、是否跑通首任务、扩权点选后是否出现结果提示。勿粘贴 Key。
 
 ## 路径 B：源码开发桌面
 

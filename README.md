@@ -6,10 +6,11 @@
 [![Frontend](https://img.shields.io/badge/frontend-HTML%2FCSS%2FJavaScript-E34F26?logo=html5&logoColor=white)](frontend/README.md)
 [![Security checks](https://img.shields.io/badge/security%20checks-Python-3776AB?logo=python&logoColor=white)](security/README.md)
 [![Unit coverage](https://raw.githubusercontent.com/liyufei916/agent-harbor/coverage-badge/coverage.svg)](https://github.com/liyufei916/agent-harbor/actions/workflows/ci.yml?query=branch%3Amain)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 桌面 Agent **安全沙箱**：密钥留在本机、Agent 隔离运行、出站经 Harbor Gate。产品真源 [PAGE-DESIGN](docs/PAGE-DESIGN.md) 全量；契约 [CONTRACT](docs/CONTRACT.md) v1.2。
 
-仓库：https://github.com/liyufei916/agent-harbor · 默认分支 `main`（全量 PAGE 已合入）
+仓库：https://github.com/liyufei916/agent-harbor · 默认分支 `main`（全量 PAGE 已合入） · 许可证 [MIT](LICENSE)
 
 ---
 

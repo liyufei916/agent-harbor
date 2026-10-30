@@ -21,6 +21,8 @@
 /frontend/wailsjs/
 .task/
 .gocache/
+/actionlint
+/actionlint.exe
 
 # Python 验收脚本缓存
 __pycache__/

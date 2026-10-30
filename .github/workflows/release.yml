@@ -52,6 +52,16 @@ jobs:
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          # 备注放在 env 字面量里，避免 run 脚本 HEREDOC 顶格破坏 YAML
+          RELEASE_BODY: |
+            可下载的 macOS 应用包（未公证；首次打开可能需在「隐私与安全性」中允许）。
+
+            ### 使用前提
+            - macOS **Darwin 25 · arm64 · 非 root**（隔离基线）
+            - 本机预装要用的 Agent CLI（claude / codex+node / dsh 预览版）
+            - MCP：远程 HTTP（Token / OAuth）或宿主 stdio（本机信任命令）
+
+            源码与开发构建见 README。日常 CI 也可在 workflow Artifacts 下载同名 zip。
         shell: bash
         run: |
           set -euo pipefail
@@ -62,19 +72,7 @@ jobs:
             TAG="v0.0.0-ci.${GITHUB_SHA:0:7}"
             EXTRA_FLAGS=(--prerelease --target "$GITHUB_SHA")
           fi
-          NOTES=$(cat <<EOF
-## Agent Harbor ${TAG}
-
-可下载的 macOS 应用包（未公证；首次打开可能需在「隐私与安全性」中允许）。
-
-### 使用前提
-- macOS **Darwin 25 · arm64 · 非 root**（隔离基线）
-- 本机预装要用的 Agent CLI（claude / codex+node / dsh 预览版）
-- MCP：远程 HTTP（Token / OAuth）或宿主 stdio（本机信任命令）
-
-源码与开发构建见 README。日常 CI 也可在 workflow Artifacts 下载同名 zip。
-EOF
-)
+          NOTES="$(printf '## Agent Harbor %s\n\n%s' "$TAG" "$RELEASE_BODY")"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" AgentHarbor-macos.zip AgentHarbor-macos.zip.sha256 --clobber
           else
