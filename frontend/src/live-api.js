@@ -43,6 +43,7 @@ export function createLiveTransport() {
     listRememberedHosts: bind("ListRememberedHosts"),
     revokeRememberedHost: bind("RevokeRememberedHost"),
     resolvePermission: bind("ResolvePermission"),
+    promptPermission: bind("PromptPermission"),
     getUIPrefs: bind("GetUIPrefs"),
     setUIPrefs: bind("SetUIPrefs"),
     switchModel: bind("SwitchModel"),

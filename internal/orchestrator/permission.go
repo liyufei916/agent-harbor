@@ -19,7 +19,7 @@ func (o *Service) RequestPermission(ctx context.Context, id string, request cont
 	if ctx.Err() != nil {
 		return "", publicError("CANCELLED")
 	}
-	if !validPermissionTarget(request.Target) || request.Action != "connect" {
+	if !ValidPermissionTarget(request.Target) || request.Action != "connect" {
 		return "", publicError("INVALID_ARGUMENT")
 	}
 	o.mu.Lock()
@@ -74,7 +74,7 @@ func (o *Service) ResolvePermission(ctx context.Context, input contracts.Resolve
 	if ctx.Err() != nil {
 		return publicError("CANCELLED")
 	}
-	if !validPermissionTarget(input.Target) || (input.Decision != "deny" && input.Decision != "once" && input.Decision != "project") {
+	if !ValidPermissionTarget(input.Target) || (input.Decision != "deny" && input.Decision != "once" && input.Decision != "project") {
 		return publicError("INVALID_ARGUMENT")
 	}
 	o.mu.Lock()
@@ -96,8 +96,8 @@ func (o *Service) ResolvePermission(ctx context.Context, input contracts.Resolve
 	return nil
 }
 
-// 只接收规范化的精确主机名，拒绝 URL、通配符、端口及本机地址。
-func validPermissionTarget(host string) bool {
+// ValidPermissionTarget 只接收规范化的精确主机名，拒绝 URL、通配符、端口及本机地址。
+func ValidPermissionTarget(host string) bool {
 	if host == "" || len(host) > 253 || host != strings.ToLower(host) || strings.ContainsAny(host, "/:*?@#\\\r\n\t ") || strings.HasSuffix(host, ".") {
 		return false
 	}

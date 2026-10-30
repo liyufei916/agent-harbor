@@ -189,6 +189,12 @@ type ResolvePermissionInput struct {
 	Decision  string `json:"decision"` // deny | once | project
 }
 
+// PromptPermissionInput 主动挂起一次出站扩权（对齐竞品 ask；不依赖上游 302）。
+type PromptPermissionInput struct {
+	SessionID string `json:"sessionId"`
+	Target    string `json:"target"` // 精确公网主机名，小写
+}
+
 // UIPrefs 是本机 UI 偏好；不得含密钥。
 type UIPrefs struct {
 	SidebarCollapsed      bool   `json:"sidebarCollapsed"`
@@ -231,6 +237,8 @@ type DesktopAPI interface {
 	ListRememberedHosts(workspace string) RememberedHostsResponse
 	RevokeRememberedHost(RevokeHostInput) EmptyResponse
 	ResolvePermission(ResolvePermissionInput) EmptyResponse
+	// PromptPermission 对 running 会话发起 permission_needed（异步等待 ResolvePermission）。
+	PromptPermission(PromptPermissionInput) EmptyResponse
 	GetUIPrefs() UIPrefsResponse
 	SetUIPrefs(UIPrefs) UIPrefsResponse
 	SwitchModel(SwitchModelInput) SessionResponse

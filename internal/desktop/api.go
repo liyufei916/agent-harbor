@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/liyufei916/agent-harbor/internal/contracts"
+	"github.com/liyufei916/agent-harbor/internal/orchestrator"
 	"github.com/liyufei916/agent-harbor/internal/secrets"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -301,6 +302,36 @@ func (d *DesktopAPI) RevokeRememberedHost(in contracts.RevokeHostInput) contract
 	if !d.app.revokeHost(in.Workspace, in.Host) {
 		return contracts.EmptyResponse{Error: contracts.NewAppError(contracts.ErrInvalidArgument, "无此记住项", false)}
 	}
+	return contracts.EmptyResponse{}
+}
+
+// PromptPermission 主动挂起一次出站扩权（竞品式 ask）；不依赖上游 302。事件经 harbor:event 送达。
+func (d *DesktopAPI) PromptPermission(in contracts.PromptPermissionInput) contracts.EmptyResponse {
+	target := strings.ToLower(strings.TrimSpace(in.Target))
+	if in.SessionID == "" || !orchestrator.ValidPermissionTarget(target) {
+		return contracts.EmptyResponse{Error: contracts.NewAppError(contracts.ErrInvalidArgument, "会话或目标主机不合法", false)}
+	}
+	prompter, ok := d.app.sessionRef().(interface {
+		RequestPermission(context.Context, string, contracts.PermissionNeeded) (string, error)
+	})
+	if !ok {
+		return contracts.EmptyResponse{Error: unimplemented()}
+	}
+	snap := d.GetSession(in.SessionID)
+	if snap.Error != nil {
+		return contracts.EmptyResponse{Error: snap.Error}
+	}
+	if snap.Session == nil || snap.Session.State != contracts.StateRunning {
+		return contracts.EmptyResponse{Error: contracts.NewAppError(contracts.ErrInvalidArgument, "仅 running 会话可请求扩权", false)}
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		defer cancel()
+		_, _ = prompter.RequestPermission(ctx, in.SessionID, contracts.PermissionNeeded{
+			Target: target,
+			Action: "connect",
+		})
+	}()
 	return contracts.EmptyResponse{}
 }
 

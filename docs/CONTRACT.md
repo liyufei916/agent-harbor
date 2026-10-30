@@ -21,7 +21,7 @@ A/B 将声明落成 Go 类型与绑定，C 按本文 + [PAGE-DESIGN](PAGE-DESIGN
 | clone | `mountMode=clone` 时 Runtime 在应用数据目录建副本并挂载；快照 `workspace` 为副本路径，`sourceWorkspace` 为原目录；停止后保留副本直至 `DestroySession`；**`SyncBackWorkspace`** 将副本合并写回原目录（覆盖同名文件，不删原目录多余文件） |
 | PTY | `WritePty`/`ResizePty` + 事件 `pty`；不支持时 `UNIMPLEMENTED` 或 `INVALID_ARGUMENT`，**不得缺方法名** |
 | 默认挂载 | 向导默认推荐 **clone**；用户可选 direct（须强警告） |
-| 扩权 | 快照 state **不**增加 `awaiting_permission`；仅 `permission_needed` + `ResolvePermission` |
+| 扩权 | 快照 state **不**增加 `awaiting_permission`；`permission_needed` + `ResolvePermission`；可用 `PromptPermission` 主动 ask（不依赖上游 302） |
 | stdio MCP | **宿主侧支持**：`ConnectInput.transport=stdio` + 绝对路径 `command`/`args`/`env`；桌面在宿主机拉起进程并暴露 `http://127.0.0.1:port/mcp` 回环桥，沙箱仍只连 Gateway。远程 HTTP（Token/OAuth）继续可用 |
 
 ## 1. 前端方法、返回与校验
@@ -198,6 +198,10 @@ type ResolvePermissionInput struct {
     Target string `json:"target"`
     Decision string `json:"decision"` // deny | once | project
 }
+type PromptPermissionInput struct {
+    SessionID string `json:"sessionId"`
+    Target string `json:"target"` // 精确公网主机名
+}
 type UIPrefs struct {
     SidebarCollapsed bool `json:"sidebarCollapsed"`
     AutoCollapseWorkbench bool `json:"autoCollapseWorkbench"`
@@ -232,6 +236,7 @@ type DesktopAPI interface {
     ListRememberedHosts(workspace string) RememberedHostsResponse
     RevokeRememberedHost(RevokeHostInput) EmptyResponse
     ResolvePermission(ResolvePermissionInput) EmptyResponse
+    PromptPermission(PromptPermissionInput) EmptyResponse // 主动挂起出站扩权（ask）
     GetUIPrefs() UIPrefsResponse
     SetUIPrefs(UIPrefs) UIPrefsResponse
     SwitchModel(SwitchModelInput) SessionResponse
@@ -428,6 +433,7 @@ type Runtime interface {
 | ListRememberedHosts | 已记住主机 | workspace 空=全部；与设置「管理网站」同源 |
 | RevokeRememberedHost | 撤销 project/session 记住项 | 未知 host 成功幂等（error=null） |
 | ResolvePermission | 处理扩权挂起 | decision∈deny\|once\|project；无挂起 → `INVALID_ARGUMENT`；**禁止**全网允许 |
+| PromptPermission | 主动挂起出站扩权（ask） | 仅 running；目标为主机名；异步发 `permission_needed`，等 Resolve；**不依赖**上游 302 |
 | GetUIPrefs / SetUIPrefs | 读写本机 UI 偏好 | **不得**存 Key；缺文件返回默认值 |
 
 AgentID 仅允许已验证项；Task 限 1–32768 UTF-8 字节。ConnectInput 的 Name/APIKey 必填；Name≤100 Unicode；APIKey≤16384 字节。固定 profile 路径下 ProfileID 必填。重连创建新账号 ID。活动会话仍引用某账号时 `RemoveAccount` → `SESSION_BUSY`。`ConnectModel`/`ConnectMcp` 经 `WithConnection`：与并发 Connect、以及 `provisioning` 中的 Create 互斥；**已有 running 会话不拦截新增账号**（新账号仅进本机列表，不自动挂到当前会话）。

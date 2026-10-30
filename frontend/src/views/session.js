@@ -750,21 +750,35 @@ export function mountSession(root, ctx) {
     demo.type = "button";
     demo.className = "btn";
     demo.style.marginTop = "8px";
-    // live 也可点：仅演练 Modal 收尾，不调后端挂起决策。
-    demo.textContent = api.isMock() ? "演示扩权（mock）" : "演示扩权（仅界面）";
+    // 真实挂起（PromptPermission）；与竞品 ask 对齐，不依赖上游 302。
+    demo.textContent = api.isMock() ? "请求扩权（mock）" : "请求扩权";
     side.appendChild(demo);
-    demo.onclick = () => {
+    demo.onclick = async () => {
       if (!ctx.state.sessionId) {
-        els.error.textContent = "请先打开会话再演示扩权";
+        els.error.textContent = "请先打开会话再请求扩权";
         return;
       }
+      const target = "registry.npmjs.org";
+      if (typeof api.promptPermission === "function") {
+        const res = await api.promptPermission({
+          sessionId: ctx.state.sessionId,
+          target,
+        });
+        if (res?.error) {
+          els.error.textContent = formatErrorWithHint(res.error);
+          return;
+        }
+        els.error.textContent = "";
+        return;
+      }
+      // 旧绑定回退：仅界面演练
       onEvent({
         sessionId: ctx.state.sessionId,
         seq: Date.now(),
         type: "permission_needed",
         permission: {
-          target: "api.npmjs.org",
-          action: "请求访问新地址",
+          target,
+          action: "connect",
           uiDemo: true,
         },
       });

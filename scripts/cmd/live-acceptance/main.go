@@ -189,7 +189,7 @@ func main() {
 			}
 		}
 
-		// 扩权 / 权限一览（API 面；非 Modal 302）
+		// 扩权主路径：一览 + PromptPermission ask + Resolve deny（不依赖 302）
 		ov := api.GetPermissionOverview(sid)
 		if ov.Error != nil {
 			report["扩权"] = "失败: GetPermissionOverview " + ov.Error.Code
@@ -201,19 +201,21 @@ func main() {
 				report["扩权"] = "失败: overview 疑似含密钥"
 			} else {
 				hosts := api.ListRememberedHosts(ws)
-				rp := api.ResolvePermission(contracts.ResolvePermissionInput{
-					SessionID: sid, Target: "cdn.example.test", Decision: "deny",
-				})
-				rpCode := ""
-				if rp.Error != nil {
-					rpCode = rp.Error.Code
-				}
-				// 无挂起时应 INVALID_ARGUMENT / SESSION 类，证明绑定可用且不静默成功
-				if rp.Error == nil {
-					report["扩权"] = "失败: 无挂起时 ResolvePermission 竟成功"
+				target := "registry.npmjs.org"
+				pp := api.PromptPermission(contracts.PromptPermissionInput{SessionID: sid, Target: target})
+				if pp.Error != nil {
+					report["扩权"] = "失败: PromptPermission " + pp.Error.Code
 				} else {
-					report["扩权"] = fmt.Sprintf("通过(API): overview hosts=%d mcp=%d remembered=%d Resolve无挂起→%s（Modal/302 另需可控 Origin）",
-						len(ov.Overview.AllowedHosts), len(ov.Overview.MCPSummary), len(hosts.Hosts), rpCode)
+					time.Sleep(300 * time.Millisecond) // 等待挂起登记
+					rp := api.ResolvePermission(contracts.ResolvePermissionInput{
+						SessionID: sid, Target: target, Decision: "deny",
+					})
+					if rp.Error != nil {
+						report["扩权"] = "失败: Prompt 后 Resolve deny → " + rp.Error.Code
+					} else {
+						report["扩权"] = fmt.Sprintf("通过(主路径): overview hosts=%d mcp=%d remembered=%d Prompt+deny OK（302 异常项未跑）",
+							len(ov.Overview.AllowedHosts), len(ov.Overview.MCPSummary), len(hosts.Hosts))
+					}
 				}
 			}
 		}

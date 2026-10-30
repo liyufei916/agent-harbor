@@ -335,6 +335,29 @@ export async function revokeRememberedHost(input) {
   return { error: null };
 }
 
+export async function promptPermission(input) {
+  const sessionId = input?.sessionId;
+  const target = String(input?.target || "")
+    .trim()
+    .toLowerCase();
+  if (!sessionId || !target || !target.includes(".")) {
+    return { error: err("INVALID_ARGUMENT", "会话或目标主机不合法（模拟）") };
+  }
+  const session = sessions.get(sessionId);
+  if (!session) {
+    return { error: err("SESSION_NOT_FOUND", "会话不存在（模拟）") };
+  }
+  if (session.state !== "running") {
+    return { error: err("INVALID_ARGUMENT", "仅 running 会话可请求扩权（模拟）") };
+  }
+  emit({
+    type: "permission_needed",
+    sessionId,
+    permission: { target, action: "connect" },
+  });
+  return { error: null };
+}
+
 export async function resolvePermission(input) {
   if (!input?.sessionId || !input?.target || !input?.decision) {
     return { error: err("INVALID_ARGUMENT", "扩权参数不完整（模拟）") };

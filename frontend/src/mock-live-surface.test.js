@@ -24,6 +24,7 @@ const LIVE_SURFACE = [
   "listRememberedHosts",
   "revokeRememberedHost",
   "resolvePermission",
+  "promptPermission",
   "getUIPrefs",
   "setUIPrefs",
   "switchModel",

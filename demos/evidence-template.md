@@ -78,10 +78,9 @@ MCP host：mcp.context7.com ×2
 状态：通过（未做 Apple 公证）
 ```
 
-## 扩权 Modal A/B/C
+## 扩权主路径
 
 ```text
-状态：待补（需可控跨主机 302 Origin）
-API 面：GetPermissionOverview + Resolve 无挂起→INVALID_ARGUMENT 已通过
-步骤：demos/workspace/permission-live-test.md
+状态：主路径 = 白名单 + PromptPermission ask（见 permission-live-test.md）
+302：可选异常项，不挡验收
 ```

@@ -85,7 +85,7 @@ D1 的绑定生成已执行；原生 WebView 冒烟通过生成绑定校验 DTO�
 | 编号 | 状态 | 说明 |
 |---|---|---|
 | I1–I11 / B6 | 见下节 **2026-10-30 全量重跑** | |
-| 扩权 Modal A/B/C | **仍待补（需可控 302 Origin）** | API 面已过；GUI 见 [permission-live-test](../demos/workspace/permission-live-test.md) |
+| 扩权主路径 | 见下节 / [permission-live-test](../demos/workspace/permission-live-test.md) | 白名单 + `PromptPermission` ask；**302 仅为异常项** |
 | Apple 公证 | **阻断（账号）** | 见 `scripts/notarize-prep.md` |
 | D4 | 通过（mock） | 见 §4.1；不计 I |
 
@@ -105,7 +105,8 @@ D1 的绑定生成已执行；原生 WebView 冒烟通过生成绑定校验 DTO�
 | I5 | **通过** | `harbor_platform` ExactGate |
 | I6 | **通过（受控+API）** | Gate Redirect/Revoke/MCPFilters；`GetPermissionOverview`+无挂起 `ResolvePermission→INVALID_ARGUMENT` |
 | I7 | **通过** | Create `/System` → 异步 `WORKSPACE_DENIED` 已清理；另 ProvisionFailuresRollback 单测 |
-| 扩权 API | **通过** | 同上 I6 API；**Modal 302 未跑**（缺跨主机重定向 Origin） |
+| 扩权主路径 | **通过（API）** | overview + 无挂起 Resolve→INVALID_ARGUMENT；`PromptPermission` 已接线（GUI 点「请求扩权」补镜可选） |
+| 扩权 302 异常项 | **可选未跑** | 跨主机重定向跟随；不阻断主验收 |
 | B6 | **通过** | SyncBack 后源目录 `summary.txt` 含 `harbor-live-i2` |
 | I8 | **通过** | 重复 Stop 幂等 |
 | I9 | **通过** | 运行中同工作区 `WORKSPACE_BUSY`；另 CleanupFailureRetainsLock 单测 |
@@ -117,4 +118,4 @@ $ grep -n harbor-live-i2 demos/workspace/summary.txt
 1:harbor-live-i2: …
 ```
 
-仍开放：扩权 Modal A/B/C（需可控跨主机 302 Origin）；Apple 公证。导回口播仍见 [B6-SUCCESS-DEMO](../demos/B6-SUCCESS-DEMO.md)。
+仍开放：Apple 公证；扩权 GUI 点选补镜（API 已过）；302 异常项按需。导回口播见 [B6-SUCCESS-DEMO](../demos/B6-SUCCESS-DEMO.md)。

@@ -28,7 +28,7 @@
 | 项 | 类别 | 说明 |
 |---|---|---|
 | I1–I11 / B6 live | **通过（2026-10-30 全量重跑）** | harness + 平台探针 + `bin/AgentHarbor.app` 启停；见 ACCEPTANCE |
-| 扩权 Modal A/B/C（302 GUI） | **仍 blocked** | 缺可控跨主机重定向 Origin；API 面已过 |
+| 扩权 302 异常项（可选） | **backlog** | 主路径改为 `PromptPermission` ask + 白名单；302 不挡验收 |
 | Apple 公证 / 分发签名 | **blocked（账号）** | 需 Apple Developer；清单见 [`scripts/notarize-prep.md`](../scripts/notarize-prep.md) |
 | microVM | **backlog P2** | 非本期 eng-open；Seatbelt 继续主路径 |
 | 官方 MCP SDK | **backlog** | 现用 `net/http` 转发；待真实上游后再换 SDK |

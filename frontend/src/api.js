@@ -108,6 +108,7 @@ async function call(method, ...args) {
       method === "removeAccount" ||
       method === "revokeRememberedHost" ||
       method === "resolvePermission" ||
+      method === "promptPermission" ||
       method === "getUIPrefs" ||
       method === "setUIPrefs"
     ) {
@@ -186,6 +187,9 @@ export function revokeRememberedHost(input) {
 }
 export function resolvePermission(input) {
   return call("resolvePermission", input);
+}
+export function promptPermission(input) {
+  return call("promptPermission", input);
 }
 export function getUIPrefs() {
   return call("getUIPrefs");
