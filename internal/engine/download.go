@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -48,6 +49,7 @@ func autoDownloadEnabled() bool {
 }
 
 // ensurePinnedBins downloads missing required binaries into binDir when auto-download is on.
+// Download phase maps to overall progress 3–75%.
 func (c *Colima) ensurePinnedBins(ctx context.Context) error {
 	arts := pinnedArtifacts()
 	if len(arts) == 0 {
@@ -57,22 +59,71 @@ func (c *Colima) ensurePinnedBins(ctx context.Context) error {
 	if fetch == nil {
 		fetch = defaultFetch
 	}
+	var pending []pinnedArtifact
+	var totalBytes int64
 	for _, a := range arts {
 		dest := filepath.Join(c.binDir(), a.Name)
 		if st, err := os.Stat(dest); err == nil && !st.IsDir() && st.Size() > 0 {
 			continue
 		}
-		if !autoDownloadEnabled() {
-			return errEngine("缺少 " + a.Name + "。可开启自动下载或手动放入引擎 bin 目录。")
+		pending = append(pending, a)
+		n := a.ExpectedBytes
+		if n <= 0 {
+			n = 10_000_000
 		}
-		if err := c.installArtifact(ctx, fetch, a, dest); err != nil {
+		totalBytes += n
+	}
+	if len(pending) == 0 {
+		return nil
+	}
+	if !autoDownloadEnabled() {
+		return errEngine("缺少 " + pending[0].Name + "。可开启自动下载或手动放入引擎 bin 目录。")
+	}
+	const dlLo, dlHi = 3, 75
+	var doneBytes int64
+	for _, a := range pending {
+		dest := filepath.Join(c.binDir(), a.Name)
+		exp := a.ExpectedBytes
+		if exp <= 0 {
+			exp = 10_000_000
+		}
+		baseDone := doneBytes
+		onByte := func(n int64) {
+			cur := baseDone + n
+			if cur > totalBytes {
+				cur = totalBytes
+			}
+			frac := float64(cur) / float64(totalBytes)
+			pct := dlLo + int(frac*float64(dlHi-dlLo))
+			c.report(pct, "下载 "+a.Name+"… "+strconv.Itoa(clampPercent(pct))+"%")
+		}
+		c.report(dlLo+int(float64(baseDone)/float64(totalBytes)*float64(dlHi-dlLo)), "下载 "+a.Name+"…")
+		if err := c.installArtifact(ctx, fetch, a, dest, onByte); err != nil {
 			return err
 		}
+		doneBytes += exp
 	}
 	return nil
 }
 
-func (c *Colima) installArtifact(ctx context.Context, fetch fetchFunc, a pinnedArtifact, dest string) error {
+type progressWriter struct {
+	w    io.Writer
+	n    int64
+	last int64
+	on   func(int64)
+}
+
+func (p *progressWriter) Write(b []byte) (int, error) {
+	n, err := p.w.Write(b)
+	p.n += int64(n)
+	if p.on != nil && (p.n-p.last >= 256*1024 || err != nil) {
+		p.last = p.n
+		p.on(p.n)
+	}
+	return n, err
+}
+
+func (c *Colima) installArtifact(ctx context.Context, fetch fetchFunc, a pinnedArtifact, dest string, onByte func(int64)) error {
 	tmpDir, err := os.MkdirTemp(c.root(), "dl-*")
 	if err != nil {
 		return errEngine("无法创建下载临时目录。")
@@ -85,7 +136,10 @@ func (c *Colima) installArtifact(ctx context.Context, fetch fetchFunc, a pinnedA
 		return errEngine("无法写入下载文件。")
 	}
 	hash := sha256.New()
-	w := io.MultiWriter(f, hash)
+	w := io.Writer(io.MultiWriter(f, hash))
+	if onByte != nil {
+		w = &progressWriter{w: w, on: onByte}
+	}
 	if err := fetch(ctx, a.URL, w); err != nil {
 		_ = f.Close()
 		detail := strings.TrimSpace(err.Error())
@@ -96,6 +150,9 @@ func (c *Colima) installArtifact(ctx context.Context, fetch fetchFunc, a pinnedA
 			detail = "超时（GitHub 较慢时可重试，或手动放入引擎 bin）"
 		}
 		return errEngine("下载引擎组件失败：" + a.Name + "（" + detail + "）。")
+	}
+	if onByte != nil {
+		onByte(a.ExpectedBytes)
 	}
 	if err := f.Close(); err != nil {
 		return errEngine("无法关闭下载文件。")

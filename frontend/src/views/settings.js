@@ -94,12 +94,19 @@ export function mountSettings(root, ctx) {
           <option value="system-docker">本机已有 Docker（高级）</option>
         </select>
       </label>
+      <p class="meta" id="engine-desktop-status" role="status">Docker Desktop：检测中…</p>
       <p class="meta" id="engine-health-status" role="status">引擎状态：—</p>
+      <div class="engine-progress" id="engine-progress" aria-live="polite">
+        <div class="engine-progress-track">
+          <div class="engine-progress-bar" id="engine-progress-bar"></div>
+        </div>
+        <p class="meta engine-progress-label" id="engine-progress-label">0%</p>
+      </div>
       <div class="actions">
         <button type="button" class="btn" id="btn-engine-health">检测引擎</button>
-        <button type="button" class="btn primary" id="btn-engine-ensure">启用容器引擎</button>
+        <button type="button" class="btn primary" id="btn-engine-ensure">一键安装并启用</button>
       </div>
-      <p class="meta" id="engine-action-status">首次启用需从 GitHub 下载约数十 MB，网络慢时请耐心等待（勿反复点「检测」）。</p>
+      <p class="meta" id="engine-action-status">未装 Docker Desktop 时可一键安装 Harbor 托管引擎（约数十 MB，显示进度）。</p>
     </section>
 
     <section class="card" style="margin-top:12px">
@@ -288,16 +295,47 @@ export function mountSettings(root, ctx) {
     return "harbor-colima";
   }
 
+  function paintEngineProgress(percent, label, on) {
+    const wrap = root.querySelector("#engine-progress");
+    const bar = root.querySelector("#engine-progress-bar");
+    const lab = root.querySelector("#engine-progress-label");
+    if (!wrap || !bar || !lab) return;
+    const pct = Math.max(0, Math.min(100, Number(percent) || 0));
+    wrap.classList.toggle("on", !!on || pct > 0);
+    bar.style.width = `${pct}%`;
+    lab.textContent = label ? `${pct}% · ${label}` : `${pct}%`;
+  }
+
   function paintEngineHealth(h) {
     const el = root.querySelector("#engine-health-status");
+    const desk = root.querySelector("#engine-desktop-status");
+    const btn = root.querySelector("#btn-engine-ensure");
+    if (desk) {
+      if (!h) {
+        desk.textContent = "Docker Desktop：—";
+      } else if (h.dockerDesktopInstalled) {
+        desk.innerHTML = `<span class="ok">已检测到 Docker Desktop（仍可用 Harbor Colima，不强制）</span>`;
+      } else {
+        desk.innerHTML = `<span class="warn">未检测到 Docker Desktop · 可一键安装 Harbor 托管引擎</span>`;
+      }
+    }
+    if (btn) {
+      if (h?.ready) btn.textContent = "重新启用引擎";
+      else if (h?.componentsInstalled) btn.textContent = "启用容器引擎";
+      else btn.textContent = "一键安装并启用";
+    }
     if (!el) return;
     if (!h) {
       el.textContent = "引擎状态：—";
       return;
     }
     const src = h.source || "";
+    if (h.installing || (h.progressPercent > 0 && h.progressPercent < 100 && !h.ready)) {
+      paintEngineProgress(h.progressPercent, h.progressLabel || "安装中…", true);
+    }
     if (h.ready) {
       el.innerHTML = `<span class="ok">引擎就绪 · ${src}${h.message ? " · " + h.message : ""}</span>`;
+      paintEngineProgress(100, h.progressLabel || "完成", false);
     } else {
       el.innerHTML = `<span class="bad">引擎未就绪 · ${src}${h.message ? " · " + h.message : ""}</span>`;
     }
@@ -365,29 +403,31 @@ export function mountSettings(root, ctx) {
     syncClearDefaultEnabled();
     paintRunMode(nextBackend);
 
-    // M4：切到容器隔离时自动 Ensure（无感路径；失败仍 fail-closed，不静默放行）。
+    // M4：切到容器隔离时自动一键安装（无感路径；失败仍 fail-closed）。
     if (nextBackend === "docker" && prevBackend !== "docker") {
       const engSt = root.querySelector("#engine-action-status");
-      if (engSt) engSt.textContent = "正在自动启用容器引擎…";
-      st.innerHTML = `<span class="warn">已保存 · 正在启用引擎…</span>`;
-      showToast("已切到容器隔离，正在启用引擎…", "ok");
+      if (engSt) engSt.textContent = "正在自动一键安装容器引擎…";
+      paintEngineProgress(1, "开始安装…", true);
+      st.innerHTML = `<span class="warn">已保存 · 正在安装引擎…</span>`;
+      showToast("已切到容器隔离，正在一键安装引擎…", "ok");
       try {
         const h = await api.ensureContainerEngine();
         paintEngineHealth(h);
         if (h?.ready) {
+          paintEngineProgress(100, "安装完成", false);
           if (engSt) engSt.innerHTML = `<span class="ok">引擎已就绪 · 请重启应用</span>`;
           st.innerHTML = `<span class="warn">已保存 · 引擎就绪 · 请重启应用后生效</span>`;
           showToast("容器引擎已就绪，请重启应用", "ok");
         } else {
           const msg = h?.message || h?.error?.message || "引擎未就绪";
           if (engSt) engSt.innerHTML = `<span class="bad">${msg}</span>`;
-          st.innerHTML = `<span class="warn">已保存 · 引擎未就绪 · 可点「启用容器引擎」重试后重启</span>`;
+          st.innerHTML = `<span class="warn">已保存 · 引擎未就绪 · 可点「一键安装并启用」重试后重启</span>`;
           showToast(msg, "bad");
         }
       } catch {
-        if (engSt) engSt.innerHTML = `<span class="bad">自动启用失败</span>`;
-        st.innerHTML = `<span class="warn">已保存 · 自动启用失败 · 请手动启用后重启</span>`;
-        showToast("自动启用容器引擎失败", "bad");
+        if (engSt) engSt.innerHTML = `<span class="bad">自动安装失败</span>`;
+        st.innerHTML = `<span class="warn">已保存 · 自动安装失败 · 请手动一键安装后重启</span>`;
+        showToast("自动安装容器引擎失败", "bad");
       }
       return;
     }
@@ -423,6 +463,21 @@ export function mountSettings(root, ctx) {
   root.querySelectorAll('input[name="clear-default"]').forEach((el) => {
     el.onchange = savePrefs;
   });
+  let offEngineProgress = null;
+  if (typeof api.onEngineProgress === "function") {
+    offEngineProgress = api.onEngineProgress((p) => {
+      if (!p) return;
+      paintEngineProgress(p.percent, p.label || "", !p.done);
+      const st = root.querySelector("#engine-action-status");
+      if (st && !p.done) {
+        st.textContent = p.label || `安装中 ${p.percent || 0}%`;
+      }
+      if (p.done && p.error && st) {
+        st.innerHTML = `<span class="bad">${p.error}</span>`;
+      }
+    });
+  }
+
   root.querySelector("#btn-engine-health")?.addEventListener("click", async () => {
     const btn = root.querySelector("#btn-engine-health");
     const st = root.querySelector("#engine-action-status");
@@ -440,29 +495,44 @@ export function mountSettings(root, ctx) {
   root.querySelector("#btn-engine-ensure")?.addEventListener("click", async () => {
     const btn = root.querySelector("#btn-engine-ensure");
     const st = root.querySelector("#engine-action-status");
+    const healthBtn = root.querySelector("#btn-engine-health");
     btn.disabled = true;
-    if (st) st.textContent = "启用中（可能下载组件 / 启动 Colima）…";
-    showToast("正在启用容器引擎…", "ok");
+    if (healthBtn) healthBtn.disabled = true;
+    paintEngineProgress(1, "开始安装…", true);
+    if (st) st.textContent = "一键安装中（下载 / 启动 Colima）…";
+    showToast("正在一键安装容器引擎…", "ok");
     try {
       const h = await api.ensureContainerEngine();
       paintEngineHealth(h);
       if (h?.ready) {
-        if (st) st.innerHTML = `<span class="ok">引擎已就绪</span>`;
+        paintEngineProgress(100, "安装完成", false);
+        if (st) st.innerHTML = `<span class="ok">引擎已就绪 · 若已切容器隔离请重启应用</span>`;
         showToast("容器引擎已就绪", "ok");
       } else {
         if (st)
-          st.innerHTML = `<span class="bad">${h?.message || h?.error?.message || "启用失败"}</span>`;
+          st.innerHTML = `<span class="bad">${h?.message || h?.error?.message || "安装失败"}</span>`;
         showToast(h?.message || "容器引擎未就绪", "bad");
       }
     } catch (e) {
-      if (st) st.innerHTML = `<span class="bad">启用失败</span>`;
-      showToast("启用容器引擎失败", "bad");
+      if (st) st.innerHTML = `<span class="bad">安装失败</span>`;
+      showToast("一键安装失败", "bad");
     } finally {
       btn.disabled = false;
+      if (healthBtn) healthBtn.disabled = false;
     }
   });
   loadPrefs();
   paintRunMode(ctx.state.uiPrefs?.isolationBackend);
+  // cleanup when leaving settings: views typically remount; best-effort
+  root.addEventListener(
+    "harbor:settings-dispose",
+    () => {
+      try {
+        offEngineProgress?.();
+      } catch {}
+    },
+    { once: true },
+  );
   const sel = root.querySelector("#scenario");
   if (sel) {
     sel.value = api.getMockScenario();

@@ -37,6 +37,7 @@ const LIVE_SURFACE = [
   "resizePty",
   "saveTextFile",
   "onEvent",
+  "onEngineProgress",
 ];
 
 test("mock-api 导出覆盖 live transport 全部方法", () => {

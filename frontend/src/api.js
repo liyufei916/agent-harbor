@@ -205,6 +205,12 @@ export function getContainerEngineHealth() {
 export function ensureContainerEngine() {
   return call("ensureContainerEngine");
 }
+export function onEngineProgress(callback) {
+  if (typeof transport.onEngineProgress === "function") {
+    return transport.onEngineProgress(callback);
+  }
+  return () => {};
+}
 export function listSessions() {
   return call("listSessions");
 }

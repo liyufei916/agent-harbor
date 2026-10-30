@@ -28,6 +28,7 @@
 | 2026-10-30x | **P2 引擎 M2c**：钉扎下载 colima/lima/docker（校验 SHA256）；默认自动下载，可用 `HARBOR_ENGINE_AUTO_DOWNLOAD=0` 关闭。 |
 | 2026-10-30y | **P2 引擎 M3**：`Get/EnsureContainerEngine` + 设置页来源/检测/启用；`DOCKER_HOST` 在 Attach/Health 接入 Runtime。 |
 | 2026-10-30z | **P2 引擎 M4**：切容器隔离自动 Ensure；Attach 自动拉起；陌生机无 Desktop 勾选表。 |
+| 2026-10-30aa | **P2 引擎安装 UX**：探测无 Docker Desktop；一键安装；`harbor:engine-progress` 百分比。 |
 
 ## eng-complete（代码已接线）
 

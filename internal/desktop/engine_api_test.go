@@ -43,6 +43,11 @@ func TestGetContainerEngineHealthFailClosedWithoutBins(t *testing.T) {
 	if got.Message == "" {
 		t.Fatal("want message")
 	}
+	// dockerDesktopInstalled is environment-dependent; just ensure field is populated path runs.
+	_ = got.DockerDesktopInstalled
+	if got.ComponentsInstalled {
+		t.Fatal("expected components missing without bins")
+	}
 }
 
 func TestEnsureEngineForDockerRuntimeSeatbeltNoop(t *testing.T) {

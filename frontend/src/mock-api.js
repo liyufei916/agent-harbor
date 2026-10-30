@@ -218,32 +218,74 @@ export async function getRuntimeHealth() {
 }
 
 let mockEngineReady = false;
+let mockEngineInstalling = false;
+let mockEngineProgress = 0;
+let mockEngineProgressLabel = "";
+const engineProgressListeners = new Set();
+
+function emitEngineProgress(payload) {
+  for (const cb of engineProgressListeners) {
+    try {
+      cb(payload);
+    } catch {}
+  }
+}
+
+export function onEngineProgress(callback) {
+  engineProgressListeners.add(callback);
+  return () => engineProgressListeners.delete(callback);
+}
 
 export async function getContainerEngineHealth() {
   const source =
     String(uiPrefs?.engineSource || "").toLowerCase() === "system-docker"
       ? "system-docker"
       : "harbor-colima";
+  const base = {
+    source,
+    dockerDesktopInstalled: false,
+    componentsInstalled: mockEngineReady,
+    installing: mockEngineInstalling,
+    progressPercent: mockEngineProgress,
+    progressLabel: mockEngineProgressLabel,
+    dockerHost: mockEngineReady ? "unix:///tmp/mock-harbor.sock" : "",
+    error: null,
+  };
   if (mockEngineReady) {
     return {
+      ...base,
       ready: true,
-      source,
       message: source === "system-docker" ? "本机 Docker 可用（mock）" : "Harbor Colima 可用（mock）",
-      dockerHost: "unix:///tmp/mock-harbor.sock",
-      error: null,
     };
   }
   return {
+    ...base,
     ready: false,
-    source,
-    message: "容器引擎未启用（mock）。点「启用容器引擎」模拟启动。",
-    dockerHost: "",
-    error: null,
+    message: "未检测到 Docker Desktop（mock）。可一键安装 Harbor 托管引擎。",
   };
 }
 
 export async function ensureContainerEngine() {
+  mockEngineInstalling = true;
+  const steps = [
+    [8, "下载 colima…"],
+    [35, "下载 limactl…"],
+    [60, "下载 docker…"],
+    [78, "启动 Colima…"],
+    [92, "等待 Docker daemon…"],
+    [100, "安装完成"],
+  ];
+  for (const [pct, label] of steps) {
+    mockEngineProgress = pct;
+    mockEngineProgressLabel = label;
+    emitEngineProgress({ percent: pct, label, done: false });
+    await new Promise((r) => setTimeout(r, 120));
+  }
   mockEngineReady = true;
+  mockEngineInstalling = false;
+  mockEngineProgress = 100;
+  mockEngineProgressLabel = "安装完成";
+  emitEngineProgress({ percent: 100, label: "安装完成", done: true });
   return getContainerEngineHealth();
 }
 
@@ -1107,6 +1149,10 @@ export function resetMock() {
   seedRememberedHosts();
   scenario = "normal";
   mockEngineReady = false;
+  mockEngineInstalling = false;
+  mockEngineProgress = 0;
+  mockEngineProgressLabel = "";
+  engineProgressListeners.clear();
   uiPrefs = {
     sidebarCollapsed: false,
     autoCollapseWorkbench: true,

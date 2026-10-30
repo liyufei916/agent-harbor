@@ -212,11 +212,30 @@ type UIPrefs struct {
 
 // ContainerEngineHealthResponse 是 P2 容器引擎（Colima/本机 Docker）探测结果。
 type ContainerEngineHealthResponse struct {
-	Ready      bool      `json:"ready"`
-	Source     string    `json:"source,omitempty"`     // harbor-colima | system-docker
-	Message    string    `json:"message,omitempty"`    // 固定模板，禁密钥
-	DockerHost string    `json:"dockerHost,omitempty"` // unix://…；可空
-	Error      *AppError `json:"error"`
+	Ready      bool   `json:"ready"`
+	Source     string `json:"source,omitempty"`     // harbor-colima | system-docker
+	Message    string `json:"message,omitempty"`    // 固定模板，禁密钥
+	DockerHost string `json:"dockerHost,omitempty"` // unix://…；可空
+	// DockerDesktopInstalled：本机是否装有 Docker Desktop.app（仅探测，不启停）。
+	DockerDesktopInstalled bool `json:"dockerDesktopInstalled"`
+	// ComponentsInstalled：Harbor 钉扎 CLI（colima/docker/limactl）是否已落盘。
+	ComponentsInstalled bool `json:"componentsInstalled"`
+	// Installing / Progress*：一键安装进行中快照（亦可经 harbor:engine-progress 推送）。
+	Installing      bool      `json:"installing"`
+	ProgressPercent int       `json:"progressPercent"`
+	ProgressLabel   string    `json:"progressLabel,omitempty"`
+	Error           *AppError `json:"error"`
+}
+
+// EngineProgressEventName 是一键安装进度推送通道（与会话 harbor:event 分离）。
+const EngineProgressEventName = "harbor:engine-progress"
+
+// EngineProgressPayload 是安装进度事件载荷。
+type EngineProgressPayload struct {
+	Percent int    `json:"percent"`
+	Label   string `json:"label"`
+	Done    bool   `json:"done"`
+	Error   string `json:"error,omitempty"`
 }
 
 // UIPrefsResponse 包装偏好。

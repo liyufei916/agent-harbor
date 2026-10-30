@@ -16,9 +16,19 @@ import (
 type Colima struct {
 	Root string // Application Support/.../engine; empty → default
 
+	// OnProgress optional UI callback during Ensure/Start/EnsureImage (0–100).
+	OnProgress ProgressFunc
+
 	lookPath func(string) (string, error)
 	run      func(ctx context.Context, name string, args []string, env []string) (string, error)
 	fetch    fetchFunc
+}
+
+func (c *Colima) report(percent int, label string) {
+	if c == nil || c.OnProgress == nil {
+		return
+	}
+	c.OnProgress(Progress{Percent: clampPercent(percent), Label: label})
 }
 
 func NewColima() *Colima {
@@ -81,6 +91,7 @@ func (c *Colima) Ensure(ctx context.Context) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
+	c.report(1, "准备引擎目录…")
 	if err := os.MkdirAll(c.binDir(), 0700); err != nil {
 		return errEngine("无法创建引擎目录。")
 	}
@@ -95,6 +106,7 @@ func (c *Colima) Ensure(ctx context.Context) error {
 		}
 	}
 	if needDownload {
+		c.report(3, "开始下载引擎组件…")
 		if err := c.ensurePinnedBins(ctx); err != nil {
 			return err
 		}
@@ -108,6 +120,7 @@ func (c *Colima) Ensure(ctx context.Context) error {
 	if _, err := c.resolveBin("limactl"); err != nil {
 		return errEngine("未找到 limactl（Colima 依赖）。可开启自动下载，或将二进制放入引擎 bin 目录。")
 	}
+	c.report(75, "引擎组件已就绪")
 	return nil
 }
 
@@ -117,8 +130,10 @@ func (c *Colima) Start(ctx context.Context) error {
 	}
 	st, _ := c.Health(ctx)
 	if st.Ready {
+		c.report(100, "Harbor Colima 已就绪")
 		return c.ApplyDockerHost()
 	}
+	c.report(78, "正在启动 Colima…")
 	colima, err := c.resolveBin("colima")
 	if err != nil {
 		return err
@@ -140,6 +155,7 @@ func (c *Colima) Start(ctx context.Context) error {
 	if _, err := c.run(startCtx, colima, args, c.baseEnv()); err != nil {
 		return errEngine("无法启动 Harbor Colima 引擎。")
 	}
+	c.report(88, "等待 Docker daemon…")
 	return c.waitDocker(ctx)
 }
 
@@ -157,6 +173,7 @@ func (c *Colima) waitDocker(ctx context.Context) error {
 		_, err := c.run(probeCtx, docker, []string{"info", "--format", "{{.ServerVersion}}"}, c.dockerEnv())
 		cancel()
 		if err == nil {
+			c.report(92, "Docker daemon 已就绪")
 			return c.ApplyDockerHost()
 		}
 		select {

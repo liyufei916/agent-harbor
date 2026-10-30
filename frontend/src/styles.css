@@ -516,6 +516,29 @@ body { padding: 0; }
   font-weight: 600;
 }
 .btn.primary { background: var(--brand); color: #062a28; border: 0; }
+
+.engine-progress {
+  margin-top: 10px;
+  display: none;
+}
+.engine-progress.on { display: block; }
+.engine-progress-track {
+  height: 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--muted, #888) 25%, transparent);
+  overflow: hidden;
+}
+.engine-progress-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 4px;
+  background: var(--brand, #2a9d8f);
+  transition: width 0.25s ease;
+}
+.engine-progress-label {
+  margin-top: 6px;
+  font-size: 0.85rem;
+}
 .btn.danger { color: var(--danger); border-color: rgba(229, 115, 115, 0.4); }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 

@@ -222,8 +222,14 @@ type ContainerEngineHealthResponse struct {
     Source string `json:"source,omitempty"`
     Message string `json:"message,omitempty"`
     DockerHost string `json:"dockerHost,omitempty"`
+    DockerDesktopInstalled bool `json:"dockerDesktopInstalled"`
+    ComponentsInstalled bool `json:"componentsInstalled"`
+    Installing bool `json:"installing"`
+    ProgressPercent int `json:"progressPercent"`
+    ProgressLabel string `json:"progressLabel,omitempty"`
     Error *AppError `json:"error"`
 }
+// 一键安装进度另推 harbor:engine-progress（EngineProgressPayload: percent/label/done/error）。
 type EmptyResponse struct {
     Error *AppError `json:"error"`
 }

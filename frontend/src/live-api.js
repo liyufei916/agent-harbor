@@ -58,5 +58,13 @@ export function createLiveTransport() {
     onEvent(callback) {
       return Events.On("harbor:event", (ev) => callback(unwrapEvent(ev)));
     },
+    onEngineProgress(callback) {
+      if (typeof Events.On !== "function") {
+        return () => {};
+      }
+      return Events.On("harbor:engine-progress", (ev) =>
+        callback(unwrapEvent(ev)),
+      );
+    },
   };
 }

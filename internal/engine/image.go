@@ -28,10 +28,12 @@ func (c *Colima) EnsureImage(ctx context.Context, dockerfileDir string) error {
 	if image == "" {
 		image = "agent-harbor/runtime:dev"
 	}
+	c.report(93, "检查运行时镜像…")
 	inspectCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	_, err = c.run(inspectCtx, docker, []string{"image", "inspect", "--format", "{{.Id}}", image}, c.dockerEnv())
 	cancel()
 	if err == nil {
+		c.report(100, "运行时镜像已就绪")
 		return nil
 	}
 	dir := strings.TrimSpace(dockerfileDir)
@@ -42,11 +44,13 @@ func (c *Colima) EnsureImage(ctx context.Context, dockerfileDir string) error {
 	if _, err := os.Stat(df); err != nil {
 		return errEngine("未找到 Dockerfile，无法构建运行时镜像。")
 	}
+	c.report(95, "构建运行时镜像（较久）…")
 	buildCtx, buildCancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer buildCancel()
 	args := []string{"build", "-t", image, "-f", df, dir}
 	if _, err := c.run(buildCtx, docker, args, c.dockerEnv()); err != nil {
 		return errEngine("构建 Harbor 运行时镜像失败。")
 	}
+	c.report(100, "运行时镜像构建完成")
 	return nil
 }

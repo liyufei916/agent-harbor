@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/wailsapp/wails/v3/pkg/application"
+
 	"github.com/liyufei916/agent-harbor/internal/contracts"
 	"github.com/liyufei916/agent-harbor/internal/engine"
 )
@@ -44,6 +46,28 @@ func dockerIsolationBackend(v string) bool {
 	default:
 		return false
 	}
+}
+
+func (a *App) setEngineProgress(percent int, label string, installing bool) {
+	a.mu.Lock()
+	a.engProgress = percent
+	a.engProgressLabel = label
+	a.engInstalling = installing
+	a.mu.Unlock()
+	payload := contracts.EngineProgressPayload{
+		Percent: percent,
+		Label:   label,
+		Done:    !installing && percent >= 100,
+	}
+	if app := application.Get(); app != nil {
+		app.Event.Emit(contracts.EngineProgressEventName, payload)
+	}
+}
+
+func (a *App) engineProgressSnapshot() (installing bool, percent int, label string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.engInstalling, a.engProgress, a.engProgressLabel
 }
 
 // applyEngineDockerHost 在隔离后端为 docker 且 Harbor Colima 已就绪时，把 DOCKER_HOST 接到本进程（供 Runtime 使用）。
@@ -98,6 +122,20 @@ func mapEngineStatus(st engine.Status) contracts.ContainerEngineHealthResponse {
 	}
 }
 
+func enrichEngineHealth(app *App, resp contracts.ContainerEngineHealthResponse) contracts.ContainerEngineHealthResponse {
+	resp.DockerDesktopInstalled = engine.DockerDesktopInstalled()
+	if c, ok := app.engineRef().(*engine.Colima); ok {
+		resp.ComponentsInstalled = c.ComponentsPresent()
+	} else if resp.Source == engine.SourceSystemDocker {
+		resp.ComponentsInstalled = resp.Ready
+	}
+	installing, pct, label := app.engineProgressSnapshot()
+	resp.Installing = installing
+	resp.ProgressPercent = pct
+	resp.ProgressLabel = label
+	return resp
+}
+
 // GetContainerEngineHealth 探测 P2 容器引擎（不启停）。
 func (d *DesktopAPI) GetContainerEngineHealth() contracts.ContainerEngineHealthResponse {
 	eng := d.app.engineRef()
@@ -106,55 +144,69 @@ func (d *DesktopAPI) GetContainerEngineHealth() contracts.ContainerEngineHealthR
 	st, err := eng.Health(ctx)
 	if err != nil {
 		ae := mapError(err)
-		return contracts.ContainerEngineHealthResponse{
+		return enrichEngineHealth(d.app, contracts.ContainerEngineHealthResponse{
 			Ready:   false,
 			Source:  normalizeEngineSource(d.app.getPrefs().EngineSource),
 			Message: ae.Message,
 			Error:   ae,
-		}
+		})
 	}
-	return mapEngineStatus(st)
+	return enrichEngineHealth(d.app, mapEngineStatus(st))
 }
 
-// EnsureContainerEngine 确保引擎可用：下载/启动，并尽量构建 runtime 镜像。
+// EnsureContainerEngine 确保引擎可用：下载/启动，并尽量构建 runtime 镜像；推送安装进度百分比。
 func (d *DesktopAPI) EnsureContainerEngine() contracts.ContainerEngineHealthResponse {
 	eng := d.app.engineRef()
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Minute)
 	defer cancel()
-	if err := eng.Ensure(ctx); err != nil {
-		ae := mapError(err)
-		return contracts.ContainerEngineHealthResponse{
-			Ready:   false,
-			Source:  normalizeEngineSource(d.app.getPrefs().EngineSource),
-			Message: ae.Message,
-			Error:   ae,
+
+	d.app.setEngineProgress(0, "开始安装 Harbor 容器引擎…", true)
+	defer func() {
+		installing, pct, _ := d.app.engineProgressSnapshot()
+		if installing {
+			d.app.setEngineProgress(pct, "安装结束", false)
+		}
+	}()
+
+	if c, ok := eng.(*engine.Colima); ok {
+		c.OnProgress = func(p engine.Progress) {
+			d.app.setEngineProgress(p.Percent, p.Label, true)
 		}
 	}
-	if err := eng.Start(ctx); err != nil {
+
+	fail := func(err error) contracts.ContainerEngineHealthResponse {
 		ae := mapError(err)
-		return contracts.ContainerEngineHealthResponse{
+		d.app.setEngineProgress(0, ae.Message, false)
+		if app := application.Get(); app != nil {
+			app.Event.Emit(contracts.EngineProgressEventName, contracts.EngineProgressPayload{
+				Percent: 0, Label: ae.Message, Done: true, Error: ae.Message,
+			})
+		}
+		return enrichEngineHealth(d.app, contracts.ContainerEngineHealthResponse{
 			Ready:   false,
 			Source:  normalizeEngineSource(d.app.getPrefs().EngineSource),
 			Message: ae.Message,
 			Error:   ae,
-		}
+		})
+	}
+
+	if err := eng.Ensure(ctx); err != nil {
+		return fail(err)
+	}
+	if err := eng.Start(ctx); err != nil {
+		return fail(err)
 	}
 	if c, ok := eng.(*engine.Colima); ok {
 		if dir := resolveDockerfileDir(); dir != "" {
-			_ = c.EnsureImage(ctx, dir) // best-effort; Health below reports daemon readiness
+			_ = c.EnsureImage(ctx, dir) // best-effort
 		}
 	}
 	st, err := eng.Health(ctx)
 	if err != nil {
-		ae := mapError(err)
-		return contracts.ContainerEngineHealthResponse{
-			Ready:   false,
-			Source:  normalizeEngineSource(d.app.getPrefs().EngineSource),
-			Message: ae.Message,
-			Error:   ae,
-		}
+		return fail(err)
 	}
-	return mapEngineStatus(st)
+	d.app.setEngineProgress(100, "安装完成", false)
+	return enrichEngineHealth(d.app, mapEngineStatus(st))
 }
 
 func resolveDockerfileDir() string {

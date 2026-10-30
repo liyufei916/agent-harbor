@@ -33,7 +33,7 @@ func TestInstallArtifactRawWithChecksum(t *testing.T) {
 		return err
 	}
 	dest := filepath.Join(c.binDir(), "colima")
-	if err := c.installArtifact(context.Background(), c.fetch, a, dest); err != nil {
+	if err := c.installArtifact(context.Background(), c.fetch, a, dest, nil); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(dest)
@@ -52,7 +52,7 @@ func TestInstallArtifactRejectsBadChecksum(t *testing.T) {
 		_, err := w.Write([]byte("nope"))
 		return err
 	}
-	err := c.installArtifact(context.Background(), c.fetch, a, filepath.Join(c.binDir(), "colima"))
+	err := c.installArtifact(context.Background(), c.fetch, a, filepath.Join(c.binDir(), "colima"), nil)
 	if err == nil || !strings.Contains(err.Error(), "校验") {
 		t.Fatalf("got %v", err)
 	}
@@ -106,7 +106,7 @@ func TestEnsurePinnedBinsDownloadsMissing(t *testing.T) {
 	// Use installArtifact directly for each synthetic art to avoid GOOS matrix.
 	for _, name := range []string{"colima"} {
 		a := pinnedArtifact{Name: name, Kind: artifactRaw, URL: "https://example/" + name, SHA256: hexSum}
-		if err := c.installArtifact(context.Background(), c.fetch, a, filepath.Join(c.binDir(), name)); err != nil {
+		if err := c.installArtifact(context.Background(), c.fetch, a, filepath.Join(c.binDir(), name), nil); err != nil {
 			t.Fatal(err)
 		}
 	}
