@@ -84,48 +84,37 @@ D1 的绑定生成已执行；原生 WebView 冒烟通过生成绑定校验 DTO�
 
 | 编号 | 状态 | 说明 |
 |---|---|---|
-| I1 | 见下节 live | 原「待重测」；以 2026-10-30 DesktopAPI harness 为准 |
-| I2 | 见下节 live | 同上 |
-| 扩权 live | **待补（GUI）** | Modal 三问 + project 记住；harness 未覆盖 UI 点选 |
-| I8 / I10 | 见下节 live | |
-| I11 | **阻断** | 本机无 `wails3` 打包二进制；Shutdown 单测通过≠打包退出 |
+| I1–I11 / B6 | 见下节 **2026-10-30 全量重跑** | |
+| 扩权 Modal A/B/C | **仍待补（需可控 302 Origin）** | API 面已过；GUI 见 [permission-live-test](../demos/workspace/permission-live-test.md) |
+| Apple 公证 | **阻断（账号）** | 见 `scripts/notarize-prep.md` |
 | D4 | 通过（mock） | 见 §4.1；不计 I |
 
-**口径**：mock ≠ I 通过。工程已具备：AllowDescendants 杀树、Claude Terminal、xterm、Gate `authorizeOutboundHost` + 记住主机种子。
+**口径**：mock ≠ I 通过。
 
-## 2026-10-30 live harness（DesktopAPI · 本机）
+## 2026-10-30 全量重跑（DesktopAPI harness + 平台探针 + 打包 .app）
 
-环境：Darwin arm64；工作树相对 `4e2b2ba` + SyncBack 跳过符号链接修复；命令：`go run ./scripts/cmd/live-acceptance`（须本机 Keychain 已存模型）。Agent=`claude`；模型账号 host=`api.deepseek.com`（Key 未回显）。工作区=`demos/workspace`；`mountMode=clone`。
+命令：`export PATH="$HOME/go/bin:$PATH" && go run ./scripts/cmd/live-acceptance`  
+环境：Darwin arm64；`wails3`=`v3.0.0-beta.34`（`$HOME/go/bin`）；已有 `bin/AgentHarbor.app`；Keychain 模型 host=`api.deepseek.com`（Key 未回显）；Agent=`claude`；`demos/workspace` + `clone`。
 
 | 编号 | 状态 | 操作与证据（脱敏） |
 |---|---|---|
-| I1 | **通过** | `ListAgents` claude/codex available；`ListAccounts` models=2 mcps=2；无 Key 字段回显；`GetRuntimeHealth` available |
-| I2 | **通过** | session `ff09dab2…` → running；clone 内 `summary.txt` 含 `harbor-live-i2`；Stop + cleanupComplete |
-| B6 | **通过** | 同会话 `SyncBackWorkspace` 后源目录 `summary.txt` 含标记（见下日志）；修复：导回跳过 `.claude/debug/latest` 等符号链接，不再整单 `WORKSPACE_DENIED` |
-| I8 | **通过** | 已停会话上重复 `StopSession` 幂等 |
-| I10 | **通过** | 销毁后第二轮 `476f9aef…` 再次 running 并停净 |
+| I1 | **通过** | models=2 mcps=2；keyHint 仅末四；Health seatbelt |
+| I2 | **通过** | `57ab44ca…` → running → marker → 停净 |
+| I3 | **通过** | 会话私有 HOME 无上游 Origin+Key；Gate `127.0.0.1`+Sentinel；overview 无密钥 |
+| I4 | **通过** | `harbor_platform` FileBoundary；另 I4live：区外文件内容未进 summary |
+| I5 | **通过** | `harbor_platform` ExactGate |
+| I6 | **通过（受控+API）** | Gate Redirect/Revoke/MCPFilters；`GetPermissionOverview`+无挂起 `ResolvePermission→INVALID_ARGUMENT` |
+| I7 | **通过** | Create `/System` → 异步 `WORKSPACE_DENIED` 已清理；另 ProvisionFailuresRollback 单测 |
+| 扩权 API | **通过** | 同上 I6 API；**Modal 302 未跑**（缺跨主机重定向 Origin） |
+| B6 | **通过** | SyncBack 后源目录 `summary.txt` 含 `harbor-live-i2` |
+| I8 | **通过** | 重复 Stop 幂等 |
+| I9 | **通过** | 运行中同工作区 `WORKSPACE_BUSY`；另 CleanupFailureRetainsLock 单测 |
+| I10 | **通过** | 第二轮 `b31e6965…` |
+| I11 | **通过（未公证）** | `open bin/AgentHarbor.app` 后退出，无 AgentHarbor 主进程残留 |
 
 ```text
 $ grep -n harbor-live-i2 demos/workspace/summary.txt
-1:harbor-live-i2: 只读检查完成，hello.txt 存在（内容为 "Hello from Agent Harbor mock"）。
+1:harbor-live-i2: …
 ```
 
-说明：本 harness 走 DesktopAPI 编排面，**不是** WebView 口播录像；扩权 Modal / 打包退出仍须 GUI 或 `wails3` 包补证。
-
-## 2026-10-30 I3–I7 / I9 工程证据（平台探针 · 非正式 Agent 负例关单）
-
-下列为**受控单测 / 平台探针**；不等于「真实 Agent 诱导越界」关单。I1/I2/B6/I8/I10 已有上节 live。
-
-| 编号 | 状态 | 时间 | 操作与证据（脱敏） | 下一步 |
-|---|---|---|---|---|
-| I3 | **平台探针通过 / live 待补** | 2026-10-30 | Keychain fail-closed + Gate Sentinel；`go test ./internal/secrets ./internal/gate -count=1` | 会话内核对 Agent env 仅 Sentinel |
-| I4 | **平台探针通过 / live 待补** | 2026-10-30 | `TestMacOSFileBoundaryAndNoFork`（`harbor_platform`）区外/symlink/fork→13 | 真实 Claude 读区外 + 脱敏审计 |
-| I5 | **平台探针通过 / live 待补** | 2026-10-30 | `TestMacOSExactGateNetwork` 仅 Gate 端口可达 | live 诱导未授权出站 |
-| I6 | **受控回归通过 / live 待补** | 2026-10-30 | `TestReviewConnectDoesNotSendKeyToRedirectOrigin`、`TestRevokeInvalidatesSentinel`、`TestMCPFiltersToolsListAndCall`、扩权编排 `TestPermission*` | GUI 扩权 Modal 负例 |
-| I7 | **受控回归通过 / live 待补** | 2026-10-30 | `TestProvisionFailuresRollback`（health/detect/policy/start/create/exec…） | 组合故障注入 live |
-| I9 | **受控回归通过 / live 待补** | 2026-10-30 | `TestCleanupFailureRetainsLockAndCanRetry`；`WORKSPACE_BUSY` 保锁用例 | 真实 Destroy 超时注入 |
-| I11 | **阻断** | 2026-10-30 | `TestShutdownCancelsEverySessionBeforeWaiting` 单测 OK；无 `wails3` 包 | 安装 Wails 后 `dev-desktop`/`package` 退出无残留 |
-
-### 导回成功态 / B6
-
-live harness 已关（上节）。口播脚本仍见 [B6-SUCCESS-DEMO](../demos/B6-SUCCESS-DEMO.md)；填空 [syncback-evidence](../demos/syncback-evidence.md)。工程旁证：`TestSyncWorkspaceOverwritesAndKeepsExtra`、`TestSyncWorkspaceSkipsSymlinks`。
+仍开放：扩权 Modal A/B/C（需可控跨主机 302 Origin）；Apple 公证。导回口播仍见 [B6-SUCCESS-DEMO](../demos/B6-SUCCESS-DEMO.md)。
