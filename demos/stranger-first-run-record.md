@@ -73,15 +73,17 @@ dsh：`bash scripts/install-dsh.sh` 默认路径下桌面可自动 Detect，**�
 ### A · 有本机 Docker（开发冒烟）
 
 ```text
-1. bash scripts/docker-p2-up.sh → PASS（构建 + 冒烟）
+1. bash scripts/docker-p2-smoke.sh → PASS（见 demos/evidence/p2-docker-smoke-2026-10-30.txt）
 2. 设置 → 隔离后端 → **Docker（P2）** → 重启（或 HARBOR_RUNTIME=docker）
 3. 设置「重新检测隔离」应显示 isolationLevel=docker（Docker 七项文案）
-□ 冒烟 PASS  □ Health docker  □ 首任务（脱敏）
+☑ 冒烟 PASS（2026-10-30 · commit 15df2f5+ · agent-harbor/runtime:dev · harbor.gate 可达）
+□ Health docker（桌面 live 待勾）  □ 首任务（脱敏 · 待勾）
 ```
 
 ### B · 无 Docker Desktop（产品主路径 B→C / M4）
 
-**前置**：本机未装 Docker Desktop；`which docker` 可无或不可用。勿要求用户先装 Desktop。
+**前置**：本机未装 Docker Desktop；`which docker` 可无或不可用。勿要求用户先装 Desktop。  
+**状态（2026-10-30）**：UI mock 已拍引擎/一键安装（`demos/screenshots/14-…`）；**陌生机无 Desktop live 仍待勾**（本机开发环境有 Docker，不能冒充 B）。
 
 ```text
 1. 设置 → 容器引擎来源 = Harbor 托管 Colima（默认）

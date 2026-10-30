@@ -34,6 +34,7 @@
 | 2026-10-30ad | **P2 Gate ConfigFiles**：Docker Exec 写 Kit 配置前改写 `127.0.0.1`→`harbor.gate`（修 Codex MCP `Transport channel closed`）。 |
 | 2026-10-30ae | **P2 网关可达**：去掉 `--internal`（Desktop 阻断 harbor.gate）；Claude CLI 用 wireModel，Gate 改写账号模型。 |
 | 2026-10-30af | **文档/文案对齐**：使用说明、README 亮点、PAGE-DESIGN、FIRST-RUN/stranger、阻断与引导「Docker」用语；演示路径 B 标明仅 mock。 |
+| 2026-10-30ag | **P2 资产落地（不合 main）**：mock 截图 13–16；`docker-p2-smoke` 证据入 `demos/evidence/`；stranger §P2 A 冒烟勾选。 |
 
 ## eng-complete（代码已接线）
 
@@ -61,7 +62,7 @@
 | I1–I11 / B6 live | **通过（2026-10-30 全量重跑）** | harness + 平台探针 + `bin/AgentHarbor.app` 启停；见 ACCEPTANCE |
 | 扩权 302 异常项（可选） | **backlog** | 主路径改为 `PromptPermission` ask + 白名单；302 不挡验收 |
 | Apple 公证 / 分发签名 | **blocked（账号）** | 需 Apple Developer；清单见 [`scripts/notarize-prep.md`](../scripts/notarize-prep.md) |
-| Docker Runtime（P2） | **Runtime + 引擎 B→C 代码面齐** | Runtime 0–16；引擎 **M2–M4**；正式关单仍靠陌生机 live 证据 |
+| Docker Runtime（P2） | **代码面齐；冒烟证据已落** | Runtime 0–16；引擎 M2–M4；`demos/evidence/p2-docker-smoke-*.txt`；**桌面 Health/首任务 + 无 Desktop §B 仍待 live**；不合 main 前不关正式单 |
 | microVM | **backlog（后于 Docker）** | 不挡 P2 容器；预研另立 |
 | 官方 MCP SDK | **backlog** | 现用 `net/http` 转发；待真实上游后再换 SDK |
 | Linux Seatbelt | **N/A** | Runtime 非 Darwin → `ISOLATION_UNAVAILABLE`；无 Linux Seatbelt 目标 |
