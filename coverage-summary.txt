@@ -13,7 +13,7 @@ github.com/liyufei916/agent-harbor/internal/contracts/events.go:84:			Validate		
 github.com/liyufei916/agent-harbor/internal/contracts/mcp_summary.go:6:			FormatMCPSummary		100.0%
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:25:				NewDesktopAPI			100.0%
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:30:				ListAgents			90.9%
-github.com/liyufei916/agent-harbor/internal/desktop/api.go:48:				SelectWorkspace			0.0%
+github.com/liyufei916/agent-harbor/internal/desktop/api.go:48:				SelectWorkspace			60.0%
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:61:				workspaceResult			100.0%
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:72:				ConnectModel			60.0%
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:88:				ConnectMcp			60.0%
@@ -30,7 +30,7 @@ github.com/liyufei916/agent-harbor/internal/desktop/api.go:206:				GetRuntimeHea
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:242:				GetPermissionOverview		60.0%
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:293:				ListRememberedHosts		75.0%
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:302:				RevokeRememberedHost		100.0%
-github.com/liyufei916/agent-harbor/internal/desktop/api.go:313:				PromptPermission		0.0%
+github.com/liyufei916/agent-harbor/internal/desktop/api.go:313:				PromptPermission		93.8%
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:343:				ResolvePermission		92.9%
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:374:				GetUIPrefs			100.0%
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:380:				SetUIPrefs			100.0%
@@ -39,7 +39,7 @@ github.com/liyufei916/agent-harbor/internal/desktop/api.go:403:				StartMcpOAuth
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:412:				CancelMcpOAuth			100.0%
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:420:				WritePty			87.5%
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:436:				ResizePty			87.5%
-github.com/liyufei916/agent-harbor/internal/desktop/api.go:452:				SaveTextFile			0.0%
+github.com/liyufei916/agent-harbor/internal/desktop/api.go:452:				SaveTextFile			33.3%
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:492:				revealInFileManager		0.0%
 github.com/liyufei916/agent-harbor/internal/desktop/app.go:60:				NewApp				100.0%
 github.com/liyufei916/agent-harbor/internal/desktop/app.go:65:				NewDesktopApp			0.0%
@@ -438,4 +438,4 @@ github.com/liyufei916/agent-harbor/scripts/cmd/syncback-checksum/main.go:14:		ha
 github.com/liyufei916/agent-harbor/scripts/cmd/syncback-checksum/main.go:23:		main				0.0%
 github.com/liyufei916/agent-harbor/shutdown.go:17:					newExitGate			100.0%
 github.com/liyufei916/agent-harbor/shutdown.go:20:					request				90.5%
-total:											(statements)			64.7%
+total:											(statements)			65.1%
