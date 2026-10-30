@@ -590,7 +590,7 @@ policy 的固定 profile 来自 B 管理的后端配置，不从前端或 Agent 
 - **v1.1**：健康/列表/扩权/多账号/Prefs 等。
 - **v1.2**：恢复并定义 OAuth、`clone`、`SwitchModel`、PTY（`WritePty`/`ResizePty` + 事件 `pty`）。形状未实现时可 `UNIMPLEMENTED`，**不得缺方法名**。
 
-当前实现注记：Claude/dsh 仍为严格单进程；Codex 会话为受控子进程（`AllowDescendants`）。已支持 clone 安全副本（拒绝符号链接及特殊文件），原目录仍作为并发互斥键；副本可 `SyncBackWorkspace` 导回，随 `DestroySession` 清理。WritePty 多轮：Claude 使用 `--input-format stream-json`；桌面 dsh 经 `dsh.NewConversation` 固定受信会话驱动保留同一 Agent；Codex 经 `app-server` + turn bridge 同 thread 多轮。macOS Terminal 模式 `Resize` 在 `terminal!=nil` 时走 `pty.Setsize`。**P2 Docker**：`isolationLevel=docker`；Gate 经 `harbor.gate`；Terminal 为宿主 PTY + `docker exec -it`（与 Interactive/EncodeInput 互斥）；Agent 主路径仍为 Interactive JSONL。见 [P2-DOCKER](P2-DOCKER.md)。完整真实验收见 [DEV-A](DEV-A.md) / [ENG-STATUS](ENG-STATUS.md) / [CODEX-INTEGRATION](CODEX-INTEGRATION.md)。
+当前实现注记：Claude/dsh 仍为严格单进程；Codex 会话为受控子进程（`AllowDescendants`）。已支持 clone 安全副本（拒绝符号链接及特殊文件），原目录仍作为并发互斥键；副本可 `SyncBackWorkspace` 导回，随 `DestroySession` 清理。WritePty 多轮：Claude 使用 `--input-format stream-json`；桌面 dsh 经 `dsh.NewConversation` 固定受信会话驱动保留同一 Agent；Codex 经 `app-server` + turn bridge 同 thread 多轮。macOS Terminal 模式 `Resize` 在 `terminal!=nil` 时走 `pty.Setsize`。**P2 Docker**：`isolationLevel=docker`；会话网不用 `--internal`；Gate 经 `harbor.gate`（Env+ConfigFiles 改写）；Claude CLI 用 wireModel、Gate 改写账号模型；Terminal 为宿主 PTY + `docker exec -it`（与 Interactive/EncodeInput 互斥）；Agent 主路径仍为 Interactive JSONL。UIPrefs `isolationBackend` + `RestartApp` / 引擎 Ensure。见 [P2-DOCKER](P2-DOCKER.md)。完整真实验收见 [DEV-A](DEV-A.md) / [ENG-STATUS](ENG-STATUS.md) / [CODEX-INTEGRATION](CODEX-INTEGRATION.md)。
 
 公开 Event 须满足 `contracts.Event.Validate`。本文是并行实现的唯一方法/字段来源；变更先改本文与 `internal/contracts`，再 sync mock/bindings。
 

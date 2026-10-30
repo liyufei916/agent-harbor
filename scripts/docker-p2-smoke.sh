@@ -19,8 +19,15 @@ if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
   exit 1
 fi
 
+# 重建遗留 --internal 网（会阻断 harbor.gate / host-gateway）
+if docker network inspect "$NET" >/dev/null 2>&1; then
+  internal="$(docker network inspect -f '{{.Internal}}' "$NET" 2>/dev/null || true)"
+  if [ "$internal" = "true" ]; then
+    docker network rm "$NET" >/dev/null
+  fi
+fi
 docker network inspect "$NET" >/dev/null 2>&1 || \
-  docker network create --internal --label agent-harbor=1 "$NET" >/dev/null
+  docker network create --label agent-harbor=1 "$NET" >/dev/null
 
 # 1) 无 docker.sock
 cid="$(docker create --rm \
@@ -44,12 +51,35 @@ if docker exec "$cid" ls /var/run/docker.sock >/dev/null 2>&1; then
 fi
 echo "OK: 无 docker.sock"
 
-# 2) 公网应不可达（internal 网）；允许失败/超时
-if docker exec "$cid" wget -q -T 2 -O /dev/null https://example.com 2>/dev/null; then
-  echo "FAIL: internal 网仍能访问公网" >&2
+# 2) harbor.gate 须可达宿主（遗留 --internal 会 Network unreachable）
+if ! python3 - "$cid" <<'PY'
+import socket, sys, subprocess, threading, time
+s = socket.socket()
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+s.bind(("0.0.0.0", 0))
+s.listen(1)
+port = s.getsockname()[1]
+cid = sys.argv[1]
+
+def accept_once():
+    c, _ = s.accept()
+    c.sendall(b"HTTP/1.0 200 OK\r\nContent-Length: 2\r\n\r\nok")
+    c.close()
+
+threading.Thread(target=accept_once, daemon=True).start()
+time.sleep(0.15)
+r = subprocess.run(
+    ["docker", "exec", cid, "wget", "-q", "-T", "3", "-O", "-", f"http://harbor.gate:{port}/"],
+    capture_output=True,
+    text=True,
+)
+sys.exit(0 if r.returncode == 0 and "ok" in r.stdout else 1)
+PY
+then
+  echo "FAIL: harbor.gate 从容器不可达（检查网络是否仍为 --internal）" >&2
   exit 1
 fi
-echo "OK: 公网不可达（或 wget 不可用且连接失败）"
+echo "OK: harbor.gate 可达宿主"
 
 # 3) 能力：无 NET_RAW / 非 root
 id_out="$(docker exec "$cid" id)"

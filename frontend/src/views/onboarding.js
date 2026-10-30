@@ -1,5 +1,6 @@
 /**
  * PAGE-DESIGN §5.1 首次引导 + 隔离逐条检测
+ * 失败时不可跳过进入 HOME；提供「改隔离/引擎设置」恢复路径（与阻断页一致）。
  */
 import {
   freshCheckItems,
@@ -7,7 +8,15 @@ import {
   runIsolationProbe,
 } from "../isolation-checks.js";
 
-export function mountOnboarding(root, { onEnter, getHealth, onHealth, preferredLevel }) {
+export function mountOnboarding(
+  root,
+  { onEnter, onSettings, getHealth, onHealth, preferredLevel },
+) {
+  const dockerPreferred = preferredLevel === "docker";
+  const recoveryHint = dockerPreferred
+    ? "Docker 隔离未就绪：可改「本机 Docker」或退回 Seatbelt，修好后点重新检测。检测失败不能跳过。"
+    : "检测失败不能跳过。请修复环境后重新检测，或到设置检查隔离后端（Seatbelt / Docker）。";
+
   root.innerHTML = `
     <div class="onboarding-card onboarding-card-wide">
       <h1>Agent Harbor</h1>
@@ -20,13 +29,15 @@ export function mountOnboarding(root, { onEnter, getHealth, onHealth, preferredL
       <p class="meta" style="margin-bottom:8px">隔离能力检测</p>
       <ul class="block-checks" id="onboard-checks"></ul>
       <p class="meta" id="onboard-health" role="status">正在检测…</p>
+      <p class="meta hidden" id="onboard-recovery">${escapeHtml(recoveryHint)}</p>
       <div class="actions">
         <button type="button" class="btn primary" id="btn-enter-home" disabled>
           进入 HOME
         </button>
       </div>
-      <p class="meta bad hidden" id="onboard-fail-note">检测失败时不能跳过。请修复环境后点「重新检测」，或重开应用。</p>
+      <p class="meta bad hidden" id="onboard-fail-note">检测失败时不能跳过进入 HOME。</p>
       <div class="actions hidden" id="onboard-retry-wrap">
+        <button type="button" class="btn primary" id="btn-onboard-settings">改隔离 / 引擎设置</button>
         <button type="button" class="btn" id="btn-onboard-recheck">重新检测</button>
       </div>
     </div>
@@ -36,17 +47,21 @@ export function mountOnboarding(root, { onEnter, getHealth, onHealth, preferredL
   const statusEl = root.querySelector("#onboard-health");
   const enterBtn = root.querySelector("#btn-enter-home");
   const failNote = root.querySelector("#onboard-fail-note");
+  const recoveryEl = root.querySelector("#onboard-recovery");
   const retryWrap = root.querySelector("#onboard-retry-wrap");
   const retryBtn = root.querySelector("#btn-onboard-recheck");
+  const settingsBtn = root.querySelector("#btn-onboard-settings");
 
   paintCheckList(listEl, freshCheckItems(preferredLevel));
 
   async function run() {
     enterBtn.disabled = true;
     failNote.classList.add("hidden");
+    recoveryEl.classList.add("hidden");
     retryWrap.classList.add("hidden");
     statusEl.innerHTML = `<span class="meta">正在逐项检测…</span>`;
     retryBtn.disabled = true;
+    settingsBtn.disabled = true;
 
     const health = await runIsolationProbe({
       preferredLevel,
@@ -67,9 +82,11 @@ export function mountOnboarding(root, { onEnter, getHealth, onHealth, preferredL
         health?.reason || "隔离不可用"
       }</span>`;
       failNote.classList.remove("hidden");
+      recoveryEl.classList.remove("hidden");
       retryWrap.classList.remove("hidden");
     }
     retryBtn.disabled = false;
+    settingsBtn.disabled = false;
     return health;
   }
 
@@ -78,5 +95,14 @@ export function mountOnboarding(root, { onEnter, getHealth, onHealth, preferredL
     onEnter?.();
   };
   retryBtn.onclick = () => run();
+  settingsBtn.onclick = () => onSettings?.({ focusIsolation: true });
   run();
+}
+
+function escapeHtml(s) {
+  return String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }

@@ -65,8 +65,8 @@ export const DOCKER_CHECK_DEFS = [
   {
     id: "profile",
     name: "Harbor 网络",
-    okDetail: "agent-harbor-p2（internal）就绪",
-    checkingDetail: "确保 internal 网络…",
+    okDetail: "agent-harbor-p2 就绪（harbor.gate 可达）",
+    checkingDetail: "确保 Harbor 网络…",
   },
   {
     id: "sandbox",

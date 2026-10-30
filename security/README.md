@@ -46,7 +46,7 @@
 bash scripts/docker-p2-smoke.sh
 ```
 
-断言：无 `docker.sock`、`--internal` 下公网不可达、uid=65534、镜像内 node 存在。说明见 [P2-DOCKER.md](../docs/P2-DOCKER.md)。
+断言：无 `docker.sock`、`harbor.gate` 可达宿主、uid=65534、镜像内 node 存在。说明见 [P2-DOCKER.md](../docs/P2-DOCKER.md)。
 
 
 Health 还会验证 profile 未意外放开文件访问：授权 fixture 必须可读，工作区外 fixture 必须以普通权限拒绝退出；规则编译失败、崩溃和超时都记为隔离不可用。

@@ -51,7 +51,12 @@ func buildProfile(input kits.KitInput, model string, conversation bool) ([]runti
 	}
 
 	if conversation {
-		rows = append(rows, map[string]any{"id": "harbor-conversation", "name": filepath.Join(input.PrivateHome, "harbor-conversation.mjs")})
+		// ConfigFiles 落盘在宿主机 PrivateHome；Docker 下 guest 只能见 /home/harbor/…
+		conversationName := filepath.Join(input.PrivateHome, "harbor-conversation.mjs")
+		if kits.DockerGuest() {
+			conversationName = filepath.Join(kits.GuestHome, "harbor-conversation.mjs")
+		}
+		rows = append(rows, map[string]any{"id": "harbor-conversation", "name": conversationName})
 	} else {
 		add("headless-startup", "dsh-headless/startup", nil)
 		add("headless-runner", "dsh-headless", map[string]any{"json": true})

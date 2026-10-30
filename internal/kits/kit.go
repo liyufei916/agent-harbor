@@ -25,7 +25,7 @@ type KitInput struct {
 	MCPURL       string
 	MCPURLs      []string
 	Sentinel     string
-	// Model：账号探测落盘的模型名；非空时覆盖 Kit 构造时的默认（如 HARBOR_CLAUDE_MODEL）。
+	// Model：账号探测落盘的上游模型名（Gate 改写出站 JSON）。Claude CLI 的 --model 另用 wireModel，勿直接传非 Anthropic ID。
 	Model string
 	// Workspace：Runtime 实际工作区（direct 为源路径，clone 为会话副本）；Agent 须在此目录作业。
 	Workspace string

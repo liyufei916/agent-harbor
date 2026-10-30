@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/liyufei916/agent-harbor/internal/contracts"
 )
 
 // DefaultDockerImage is the Harbor P2 guest. Build with:
@@ -118,6 +120,9 @@ func (r *Docker) Health(ctx context.Context) error {
 		return isolationUnavailable("Docker daemon 不可用，已拒绝启动。")
 	}
 	if err := r.ensureHarborNetwork(ctx); err != nil {
+		if app, ok := err.(*contracts.AppError); ok && app.Code == "ISOLATION_UNAVAILABLE" {
+			return err
+		}
 		return isolationUnavailable("Harbor Docker 网络不可用，已拒绝启动。")
 	}
 	imgCtx, imgCancel := context.WithTimeout(ctx, 15*time.Second)
@@ -272,7 +277,7 @@ func (r *Docker) createArgs(sessionID, home, workspace string, readOnly []string
 		"--security-opt", "no-new-privileges",
 		"--read-only",
 		"--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
-		// Internal net; Gate only via harbor.gate (host-gateway). Blackhole common SSRF alias.
+		// Gate only via harbor.gate (host-gateway). Blackhole common SSRF alias.
 		"--network", HarborDockerNetwork,
 		"--add-host", dockerGateHost + ":host-gateway",
 		"--add-host", "host.docker.internal:127.0.0.1",

@@ -61,7 +61,7 @@
 | 项 | 约定 |
 |---|---|
 | 选型 | **Docker 容器**为 P2 主路径；**microVM 延后预研**，不挡二期 |
-| 默认 | 桌面仍 P1 Seatbelt；显式切 Docker / 容器隔离后才用 P2 |
+| 默认 | 桌面仍 P1 Seatbelt；设置隔离后端选 **Docker** 后才用 P2 |
 | 分支 | `feat/p2-docker-runtime`；计划见 [P2-DOCKER.md](P2-DOCKER.md) |
 | 硬约束 | 不挂 `docker.sock` 进 Agent 容器；无 daemon → fail-closed；Gate/UI 契约不变 |
 
@@ -78,7 +78,7 @@
 | Runtime | 现有 P2 `internal/runtime` Docker 实现不变语义；经 `DOCKER_HOST`（或等价）指向托管 daemon |
 | 镜像 | 仍构建/使用 `agent-harbor/runtime:dev`（三 CLI 预装，一会话一容器） |
 | Desktop | **非主路径**；探测到本机可用 Docker 时可「使用已有 Docker」，文案降为高级选项 |
-| 默认隔离 | 仍为 **Seatbelt**；启用容器隔离失败 → fail-closed，禁止无隔离直跑 |
+| 默认隔离 | 仍为 **Seatbelt**；启用 Docker 失败 → fail-closed，禁止无隔离直跑 |
 | 不做 | 安装包内嵌 Docker Desktop；把 `docker.sock` 挂进 Guest；跳过引擎假装已隔离 |
 | 包体 | 优先「首启按需下载钉扎产物 + SHA256」；`HARBOR_ENGINE_AUTO_DOWNLOAD=0` 可关；随包附带为可选优化 |
 | 钉扎版本（初值） | colima `v0.8.1` · lima `v1.0.6` · docker CLI `27.5.1`（见 `internal/engine/versions.go`） |

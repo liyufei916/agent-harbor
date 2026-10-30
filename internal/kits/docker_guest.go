@@ -16,6 +16,7 @@ func ProbeDockerGuest(ctx context.Context, command string, args []string) (strin
 
 // Fixed guest paths baked into deploy/docker/Dockerfile.
 const (
+	GuestHome       = "/home/harbor" // 与 runtime dockerGuestHome 对齐
 	GuestNode       = "/usr/local/bin/node"
 	GuestClaude     = "/usr/local/bin/claude"
 	GuestCodex      = "/usr/local/bin/codex"

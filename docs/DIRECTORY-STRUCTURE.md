@@ -135,7 +135,7 @@ runtime / gate → 注入的事件回调 → internal/desktop → Wails 事件 �
 
 ## 4. 保持两天范围
 
-- 不提前创建 Codex/dsh、Linux/Windows 或容器后端空实现，后续开始适配时再扩展。
+- P2 Docker Runtime 与托管引擎已在 `internal/runtime` / `internal/engine`；Linux Seatbelt / microVM 仍属后续。
 - 不新增 pkg、通用 utils、独立 API 服务、数据库、插件框架或 Python 业务进程。
 - 单元测试与源码同包就近维护；真实 Agent/模型/MCP 和操作系统隔离验收放 security，不仅依赖单元测试结论。
 - 会话临时 HOME、真实凭据、工作区数据和敏感运行日志放在源码树外；profile 模板可嵌入二进制，生成的会话规则及配置不能当作静态资源提交。

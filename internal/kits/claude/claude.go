@@ -22,6 +22,10 @@ import (
 // HARBOR_CLAUDE_REQUIRE_VERSION 时才要求精确匹配。
 const SupportedVersion = "2.1.292"
 
+// wireModel 是 Claude Code CLI 校验用的 Anthropic 形模型 ID。
+// 账号真实模型名（如 deepseek-chat）由 Gate rewriteJSONModelField 改写出站 JSON。
+const wireModel = "claude-sonnet-4-5"
+
 type Kit struct {
 	executable, model string
 	inspect           func(context.Context, string, []string, []string) (string, error)
@@ -387,9 +391,10 @@ func (k *Kit) Build(ctx context.Context, input kits.KitInput) (runtime.LaunchSpe
 	if err != nil {
 		return runtime.LaunchSpec{}, kitError("INVALID_ARGUMENT")
 	}
-	model := strings.TrimSpace(input.Model)
-	if model == "" {
-		model = k.model
+	// 勿把账号模型（deepseek-chat 等）直接传给 --model：CLI 会 unrecognized_model。
+	model := wireModel
+	if m := strings.TrimSpace(k.model); m != "" && strings.HasPrefix(strings.ToLower(m), "claude") {
+		model = m
 	}
 	workspace := strings.TrimSpace(input.Workspace)
 	if workspace == "" || !filepath.IsAbs(workspace) || filepath.Clean(workspace) != workspace || strings.ContainsRune(workspace, 0) {

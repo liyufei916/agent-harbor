@@ -104,19 +104,11 @@ func rewriteDockerEnv(e *dockerEntry, env []string) ([]string, error) {
 		if !ok {
 			return nil, runtimeError("INVALID_ARGUMENT")
 		}
-		if len(e.gateToProxy) > 0 {
-			value = rewriteGateHostMapped(value, e.gateToProxy)
-		} else {
-			allowedPorts := map[string]bool{}
-			for _, addr := range e.allowedTCP {
-				_, port, err := net.SplitHostPort(addr)
-				if err != nil {
-					return nil, runtimeError("INVALID_ARGUMENT")
-				}
-				allowedPorts[port] = true
-			}
-			value = rewriteGateHost(value, allowedPorts)
+		rewritten, err := rewriteDockerGateValue(e, value)
+		if err != nil {
+			return nil, err
 		}
+		value = rewritten
 		if filepath.IsAbs(value) {
 			if guest, ok := e.guestPath(filepath.Clean(value)); ok {
 				value = guest
@@ -135,6 +127,55 @@ func rewriteDockerEnv(e *dockerEntry, env []string) ([]string, error) {
 		out = append(out, key+"="+value)
 	}
 	return out, nil
+}
+
+// rewriteDockerConfigFiles maps Gate loopback URLs and host PrivateHome/workspace
+// prefixes in Kit config payloads (Codex config.toml, Claude harbor-mcp.json, dsh cordis.patch).
+// Env/Args rewrite alone left guests still hitting 127.0.0.1 or macOS Application Support paths.
+func rewriteDockerConfigFiles(e *dockerEntry, files []ConfigFile) ([]ConfigFile, error) {
+	if len(files) == 0 {
+		return files, nil
+	}
+	out := make([]ConfigFile, len(files))
+	for i, file := range files {
+		content, err := rewriteDockerGateValue(e, string(file.Content))
+		if err != nil {
+			return nil, err
+		}
+		content = rewriteDockerHostPrefixes(e, content)
+		out[i] = ConfigFile{RelativePath: file.RelativePath, Content: []byte(content)}
+	}
+	return out, nil
+}
+
+func rewriteDockerHostPrefixes(e *dockerEntry, content string) string {
+	if e == nil {
+		return content
+	}
+	home := filepath.Clean(e.handle.PrivateHome)
+	ws := filepath.Clean(e.workspace)
+	if home != "" && home != "." {
+		content = strings.ReplaceAll(content, home, dockerGuestHome)
+	}
+	if ws != "" && ws != "." && ws != home {
+		content = strings.ReplaceAll(content, ws, dockerGuestWorkspace)
+	}
+	return content
+}
+
+func rewriteDockerGateValue(e *dockerEntry, value string) (string, error) {
+	if len(e.gateToProxy) > 0 {
+		return rewriteGateHostMapped(value, e.gateToProxy), nil
+	}
+	allowedPorts := map[string]bool{}
+	for _, addr := range e.allowedTCP {
+		_, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			return "", runtimeError("INVALID_ARGUMENT")
+		}
+		allowedPorts[port] = true
+	}
+	return rewriteGateHost(value, allowedPorts), nil
 }
 
 func rewriteGateHost(value string, allowedPorts map[string]bool) string {

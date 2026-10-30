@@ -74,8 +74,8 @@ dsh：`bash scripts/install-dsh.sh` 默认路径下桌面可自动 Detect，**�
 
 ```text
 1. bash scripts/docker-p2-up.sh → PASS（构建 + 冒烟）
-2. 设置 → 隔离后端 → 容器隔离 → 重启（或 HARBOR_RUNTIME=docker）
-3. 设置「重新检测隔离」应显示 isolationLevel=docker
+2. 设置 → 隔离后端 → **Docker（P2）** → 重启（或 HARBOR_RUNTIME=docker）
+3. 设置「重新检测隔离」应显示 isolationLevel=docker（Docker 七项文案）
 □ 冒烟 PASS  □ Health docker  □ 首任务（脱敏）
 ```
 
@@ -85,9 +85,9 @@ dsh：`bash scripts/install-dsh.sh` 默认路径下桌面可自动 Detect，**�
 
 ```text
 1. 设置 → 容器引擎来源 = Harbor 托管 Colima（默认）
-2. 隔离后端切「容器隔离」→ 应自动启用引擎（或点「启用容器引擎」）
+2. 隔离后端切 **Docker（P2）** → 应自动启用引擎（或点「启用容器引擎」）
    （首次可能下载钉扎 colima/lima/docker CLI；校验 SHA256）
-3. 引擎状态 ready 后重启应用
+3. 引擎状态 ready 后重启应用（设置/标题栏「重启应用使生效」）
 4. 侧栏/设置「重新检测隔离」→ isolationLevel=docker；失败须 fail-closed（无「仍要继续」）
 5. （可选）新会话用镜像内 Agent CLI
 本机 Docker Desktop：□ 未安装  □ 已安装但未用

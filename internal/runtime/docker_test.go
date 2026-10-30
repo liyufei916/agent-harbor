@@ -11,15 +11,16 @@ import (
 )
 
 type fakeDockerRunner struct {
-	binOK      bool
-	infoErr    error
-	imageErr   error
-	networkErr error
-	psOut      string
-	psErr      error
-	create     func(args []string) (string, error)
-	rmErr      error
-	calls      [][]string
+	binOK       bool
+	infoErr     error
+	imageErr    error
+	networkErr  error
+	internalNet bool // inspect {{.Internal}} → true（遗留阻断网）
+	psOut       string
+	psErr       error
+	create      func(args []string) (string, error)
+	rmErr       error
+	calls       [][]string
 }
 
 func (f *fakeDockerRunner) LookPath() (string, error) {
@@ -41,7 +42,13 @@ func (f *fakeDockerRunner) Run(_ context.Context, args ...string) (string, error
 		if f.networkErr != nil {
 			return "", f.networkErr
 		}
-		// inspect miss → create; tests treat both as ok
+		if len(args) >= 2 && args[1] == "inspect" {
+			if f.internalNet {
+				return "true", nil
+			}
+			return "false", nil
+		}
+		// create / other
 		return "ok", nil
 	case "image":
 		return "sha256:fixture", f.imageErr
@@ -119,6 +126,28 @@ func TestDockerHealthFailClosedWhenNetworkUnavailable(t *testing.T) {
 	app, ok := err.(*contracts.AppError)
 	if !ok || app.Code != "ISOLATION_UNAVAILABLE" || !strings.Contains(app.Message, "网络") {
 		t.Fatalf("got %#v", err)
+	}
+}
+
+func TestDockerEnsureHarborNetworkMigratesInternal(t *testing.T) {
+	fake := &fakeDockerRunner{binOK: true, internalNet: true}
+	r := NewDocker()
+	r.runner = fake
+	if err := r.ensureHarborNetwork(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	var sawRm, sawCreateNoInternal bool
+	for _, c := range fake.calls {
+		joined := strings.Join(c, " ")
+		if len(c) >= 2 && c[0] == "network" && c[1] == "rm" {
+			sawRm = true
+		}
+		if len(c) >= 2 && c[0] == "network" && c[1] == "create" {
+			sawCreateNoInternal = !strings.Contains(joined, "--internal")
+		}
+	}
+	if !sawRm || !sawCreateNoInternal {
+		t.Fatalf("want rm+create without --internal; calls=%v", fake.calls)
 	}
 }
 

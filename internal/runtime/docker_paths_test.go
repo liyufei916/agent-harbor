@@ -49,6 +49,52 @@ func TestDockerGuestPathAndGateRewrite(t *testing.T) {
 	}
 }
 
+func TestRewriteDockerConfigFilesMapsGateURLs(t *testing.T) {
+	e := &dockerEntry{
+		allowedTCP:  []string{"127.0.0.1:56780", "127.0.0.1:56781"},
+		gateToProxy: map[string]string{"56780": "41001", "56781": "41002"},
+	}
+	raw := "base_url = \"http://127.0.0.1:56780/v1\"\nurl = \"http://127.0.0.1:56781/mcp/0\"\n"
+	files, err := rewriteDockerConfigFiles(e, []ConfigFile{{RelativePath: "codex/config.toml", Content: []byte(raw)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(files[0].Content)
+	if !strings.Contains(got, "http://"+dockerGateHost+":41001/v1") {
+		t.Fatalf("model: %s", got)
+	}
+	if !strings.Contains(got, "http://"+dockerGateHost+":41002/mcp/0") {
+		t.Fatalf("mcp: %s", got)
+	}
+	if strings.Contains(got, "127.0.0.1") {
+		t.Fatalf("loopback left in guest config: %s", got)
+	}
+	if files[0].RelativePath != "codex/config.toml" {
+		t.Fatalf("path: %s", files[0].RelativePath)
+	}
+}
+
+func TestRewriteDockerConfigFilesMapsPrivateHome(t *testing.T) {
+	home := "/Users/he.s/Library/Application Support/AgentHarbor/sessions/x/home"
+	ws := "/Users/he.s/proj"
+	e := &dockerEntry{
+		handle:    Handle{PrivateHome: home, Workspace: ws},
+		workspace: ws,
+	}
+	raw := `[{"insert":[{"id":"harbor-conversation","name":"` + home + `/harbor-conversation.mjs"}]}]`
+	files, err := rewriteDockerConfigFiles(e, []ConfigFile{{RelativePath: "dsh/profiles/harbor/cordis.patch.yml", Content: []byte(raw)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(files[0].Content)
+	if !strings.Contains(got, dockerGuestHome+"/harbor-conversation.mjs") {
+		t.Fatalf("guest path missing: %s", got)
+	}
+	if strings.Contains(got, "Application Support") {
+		t.Fatalf("host path left: %s", got)
+	}
+}
+
 func TestDockerCreateArgsHostGateway(t *testing.T) {
 	r := NewDocker()
 	mounts := map[string]string{}

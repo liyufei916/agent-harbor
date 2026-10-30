@@ -303,9 +303,9 @@ function syncIsolationBadge() {
 
   const bits = [];
   if (fromHealth) {
-    bits.push(`当前生效：${label(fromHealth) === "Docker" ? "容器隔离（Docker）" : "Seatbelt"}`);
+    bits.push(`当前生效：${label(fromHealth) === "Docker" ? "Docker" : "Seatbelt"}`);
   } else {
-    bits.push(`设置偏好：${label(preferred) === "Docker" ? "容器隔离（Docker）" : "Seatbelt"}（尚未由健康检查确认）`);
+    bits.push(`设置偏好：${label(preferred) === "Docker" ? "Docker" : "Seatbelt"}（尚未由健康检查确认）`);
   }
   if (pendingRestart) {
     bits.push(`偏好已改为 ${label(preferred)}，须重启应用后生效`);

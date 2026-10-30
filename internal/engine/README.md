@@ -5,7 +5,7 @@
 ## 职责
 
 - 为 P2 Runtime 提供 **可用的 Docker API 兼容 daemon**（主路径：Colima + docker CLI）。
-- 生命周期：`Ensure`（落盘/校验）→ `Start` → `Health` →（可选）构建 runtime 镜像；`Stop` 在应用退出或用户关闭容器隔离时调用。
+- 生命周期：`Ensure`（落盘/校验）→ `Start` → `Health` →（可选）构建 runtime 镜像；`Stop` 在应用退出或用户关闭 Docker 隔离后端时调用。
 - **不**实现会话隔离语义（那是 `internal/runtime`）；**不**把管理面或 sock 暴露给 Agent。
 
 ## 非目标（本包）
@@ -23,7 +23,7 @@
 | `Colima` | PATH/`bin`；profile `agent-harbor`；`EnsureImage` |
 | 钉扎下载 | **M2c**：colima + lima + docker CLI；SHA256；默认自动下载 |
 | 设置 / API | **M3**：`Get/EnsureContainerEngine` + UI 来源 |
-| 无感路径 | **M4**：切容器隔离自动 Ensure；Attach 时 Ensure/Start |
+| 无感路径 | **M4**：切 Docker 后端自动 Ensure；Attach 时 Ensure/Start |
 
 ## 文件
 

@@ -183,3 +183,28 @@ func TestBuildUsesMCPURLs(t *testing.T) {
 		t.Fatalf("多 MCP 配置错误: %s", config)
 	}
 }
+
+func TestDockerLaunchUsesTurnBridgeNotSingleShotExec(t *testing.T) {
+	t.Setenv("HARBOR_RUNTIME", "docker")
+	k, err := New(kits.GuestCodex, "gpt-5-codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	launch, err := k.Build(context.Background(), validInput())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if launch.Command != kits.GuestNode {
+		t.Fatalf("Docker Codex 须用 guest node: %+v", launch)
+	}
+	if !launch.Interactive || launch.EncodeInput == nil {
+		t.Fatalf("Docker 应走 turn_bridge 多轮，不能单轮 exec: %+v", launch)
+	}
+	joined := strings.Join(launch.Args, " ")
+	if strings.Contains(joined, " exec ") || !strings.Contains(joined, "harbor-turn.mjs") {
+		t.Fatalf("桥参数错误: %v", launch.Args)
+	}
+	if !strings.Contains(joined, "--codex "+kits.GuestCodex) {
+		t.Fatalf("缺 guest codex 路径: %v", launch.Args)
+	}
+}

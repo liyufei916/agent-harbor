@@ -41,3 +41,45 @@ func TestConversationBuildUsesFixedDriverAndFramedInput(t *testing.T) {
 		}
 	}
 }
+
+func TestConversationProfileUsesGuestPathUnderDocker(t *testing.T) {
+	t.Setenv("HARBOR_RUNTIME", "docker")
+	k := fixtureKit(t)
+	k.conversation = true
+	input := validInput()
+	input.PrivateHome = "/Users/he.s/Library/Application Support/AgentHarbor/sessions/x/home"
+	launch, err := k.Build(context.Background(), input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var patches []struct {
+		Insert []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"insert"`
+	}
+	found := false
+	for _, file := range launch.ConfigFiles {
+		if file.RelativePath != "dsh/profiles/harbor/cordis.patch.yml" {
+			continue
+		}
+		if err := json.Unmarshal(file.Content, &patches); err != nil {
+			t.Fatal(err)
+		}
+		for _, row := range patches[0].Insert {
+			if row.ID != "harbor-conversation" {
+				continue
+			}
+			found = true
+			if row.Name != "/home/harbor/harbor-conversation.mjs" {
+				t.Fatalf("Docker guest 插件路径错误: %q", row.Name)
+			}
+			if strings.Contains(row.Name, "Application Support") || strings.Contains(row.Name, input.PrivateHome) {
+				t.Fatalf("仍含宿主机路径: %q", row.Name)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("缺少 harbor-conversation 插件")
+	}
+}

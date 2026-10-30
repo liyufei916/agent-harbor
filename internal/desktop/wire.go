@@ -73,7 +73,7 @@ func (a *App) AttachOrchestrator(appCtx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// P2/M4：容器隔离偏好下自动 Ensure/Start 并挂 DOCKER_HOST，再选 Docker Runtime。
+	// P2/M4：隔离后端=docker 时自动 Ensure/Start 并挂 DOCKER_HOST，再选 Docker Runtime。
 	a.ensureEngineForDockerRuntime(appCtx)
 	rt := runtime.NewSelectedWithBackend(a.getPrefs().IsolationBackend)
 	svc, err := orchestrator.New(appCtx, orchestrator.Dependencies{

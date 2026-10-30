@@ -27,10 +27,13 @@
 | 2026-10-30w | **P2 引擎 M2b**：Colima profile `agent-harbor` 启停/Health/`DOCKER_HOST`；`EnsureImage`；`--activate=false`。 |
 | 2026-10-30x | **P2 引擎 M2c**：钉扎下载 colima/lima/docker（校验 SHA256）；默认自动下载，可用 `HARBOR_ENGINE_AUTO_DOWNLOAD=0` 关闭。 |
 | 2026-10-30y | **P2 引擎 M3**：`Get/EnsureContainerEngine` + 设置页来源/检测/启用；`DOCKER_HOST` 在 Attach/Health 接入 Runtime。 |
-| 2026-10-30z | **P2 引擎 M4**：切容器隔离自动 Ensure；Attach 自动拉起；陌生机无 Desktop 勾选表。 |
+| 2026-10-30z | **P2 引擎 M4**：切 Docker 后端自动 Ensure；Attach 自动拉起；陌生机无 Desktop 勾选表。 |
 | 2026-10-30aa | **P2 引擎安装 UX**：探测无 Docker Desktop；一键安装；`harbor:engine-progress` 百分比。 |
 | 2026-10-30ab | **预置 MCP 首批**：本机时间 / 演示 filesystem / Context7；`ListMcpPresets`+`AddMcpPreset`；工具页一键、向导勾选已连账号。 |
 | 2026-10-30ac | **一键重启**：`RestartApp`；设置/标题栏在隔离偏好待生效时显示「重启应用」。 |
+| 2026-10-30ad | **P2 Gate ConfigFiles**：Docker Exec 写 Kit 配置前改写 `127.0.0.1`→`harbor.gate`（修 Codex MCP `Transport channel closed`）。 |
+| 2026-10-30ae | **P2 网关可达**：去掉 `--internal`（Desktop 阻断 harbor.gate）；Claude CLI 用 wireModel，Gate 改写账号模型。 |
+| 2026-10-30af | **文档/文案对齐**：使用说明、README 亮点、PAGE-DESIGN、FIRST-RUN/stranger、阻断与引导「Docker」用语；演示路径 B 标明仅 mock。 |
 
 ## eng-complete（代码已接线）
 

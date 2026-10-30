@@ -93,11 +93,11 @@ export function mountSettings(root, ctx, opts = {}) {
 
     <section class="card ${focusIsolation ? "settings-focus-isolation" : ""}" style="margin-top:12px" id="settings-isolation">
       <h3>隔离后端（P2）</h3>
-      <p class="meta">二选一：<strong>Seatbelt</strong>（P1 默认，macOS 沙箱）或 <strong>容器隔离</strong>（P2，一会话一容器）。Colima / 本机 Docker 只是容器隔离的<strong>引擎</strong>，选 Seatbelt 时不必选引擎。<strong>改后端后需重启</strong>；<code>HARBOR_RUNTIME</code> 优先。</p>
+      <p class="meta">二选一：<strong>Seatbelt</strong>（P1 默认，macOS 沙箱）或 <strong>Docker</strong>（P2，一会话一容器）。Colima / 本机 Docker 只是 Docker 后端的<strong>引擎</strong>，选 Seatbelt 时不必选引擎。<strong>改后端后需重启</strong>；<code>HARBOR_RUNTIME</code> 优先。</p>
       <label class="field">后端
         <select id="set-isolation-backend">
           <option value="seatbelt">Seatbelt（P1 · 默认）</option>
-          <option value="docker">容器隔离（P2）</option>
+          <option value="docker">Docker（P2）</option>
         </select>
       </label>
       <div class="actions" id="isolation-restart-row" hidden>
@@ -532,7 +532,7 @@ export function mountSettings(root, ctx, opts = {}) {
     if (prevBackend !== nextBackend) {
       if (nextBackend === "docker") {
         st.innerHTML = `<span class="warn">已保存 · 请选择引擎并启用，再点「重启应用使生效」</span>`;
-        showToast("已切到容器隔离：启用引擎后请重启", "ok");
+        showToast("已切到 Docker：启用引擎后请重启", "ok");
         refreshEngineHealth().catch(() => paintEngineHealth(null));
       } else {
         st.innerHTML = `<span class="warn">已保存 · 请点「重启应用使生效」</span>`;

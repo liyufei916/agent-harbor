@@ -38,7 +38,7 @@ export function mountHome(root, ctx) {
       atLimit
         ? `<div class="banner warn-banner">
             <strong>已达上限（2/2）</strong>
-            <p class="meta">请先停止一个会话再开新的。同工作区不能双开——若提示 WORKSPACE_BUSY，请打开已有会话或换「演示路径 B」。</p>
+            <p class="meta">请先停止一个会话再开新的。同工作区不能双开——若提示 WORKSPACE_BUSY，请打开已有会话或另选文件夹。</p>
           </div>`
         : ""
     }

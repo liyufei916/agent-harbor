@@ -256,7 +256,7 @@ func (d *DesktopAPI) GetRuntimeHealth() contracts.RuntimeHealthResponse {
 	reason := ""
 	if runtime.DockerEnabled() {
 		level = "docker"
-		reason = "P2 Docker（internal 网 · harbor.gate 代理 · 镜像内 Agent）"
+		reason = "P2 Docker（harbor.gate 代理 · 镜像内 Agent）"
 	}
 	return contracts.RuntimeHealthResponse{
 		Available:      true,

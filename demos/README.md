@@ -49,7 +49,7 @@ go run ./scripts/cmd/agent-task-evidence -agents=codex,dsh
 | 0:00 | 指侧栏四入口与顶栏徽章 | 工作台不强占侧栏；凭据只在本机 |
 | 0:20 | 「模型」→ 添加（名+地址+Key，可点 DeepSeek 填地址） | 列表出现一行；Key 提交后清空 |
 | 0:40 | 「工具」→ Token 或 OAuth 轨加一条 | 列表 ● 已连接；无 Key 回显 |
-| 1:00 | HOME → 新会话：工作区（可点演示路径 B）→ Agent → 模型 → 工具可跳过 → 开始 | 默认 clone；进工作台 |
+| 1:00 | HOME → 新会话：工作区（mock 可点「演示路径 B」开第二路；**live 无此按钮**）→ Agent → 模型 → 工具可跳过 → 开始 | 默认 clone；进工作台 |
 | 1:20 | 扩权 Modal 弹出（mock 自动）→ 三选一 | 边界琥珀；标会话；无「全网」；状态仍 running |
 | 1:40 | 指 PTY：再输入一行 Enter | 同会话多轮入口（mock 回显） |
 | 2:00 | 再开一条不同路径；同路径应 WORKSPACE_BUSY；第三条 SESSION_LIMIT | HOME 显示 运行中 x/2 |

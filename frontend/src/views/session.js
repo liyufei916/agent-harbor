@@ -55,9 +55,8 @@ export function mountSession(root, ctx) {
             <span class="meta" id="sess-meta"></span>
           </div>
           <div class="row">
-            <label class="field inline">当前模型
-              <select id="sess-model"></select>
-              <span class="meta" id="sess-model-meta" style="display:block;max-width:22rem"></span>
+            <label class="field inline" id="sess-model-label" title="">当前模型
+              <select id="sess-model" title=""></select>
             </label>
             <button type="button" class="btn" id="btn-perm">权限一览</button>
             <button type="button" class="btn hidden" id="btn-syncback" disabled>导回原文件夹</button>
@@ -104,7 +103,7 @@ export function mountSession(root, ctx) {
     meta: root.querySelector("#sess-meta"),
     hintLine: root.querySelector("#sess-hint-line"),
     model: root.querySelector("#sess-model"),
-    modelMeta: root.querySelector("#sess-model-meta"),
+    modelLabel: root.querySelector("#sess-model-label"),
     syncBack: root.querySelector("#btn-syncback"),
     stop: root.querySelector("#btn-stop"),
     pty: root.querySelector("#sess-pty"),
@@ -355,13 +354,14 @@ export function mountSession(root, ctx) {
     }
     const alternates = accounts.filter((a) => a.id !== want);
     const canSwitch = running && alternates.length > 0;
-    if (els.modelMeta) {
-      els.modelMeta.textContent = running
-        ? canSwitch
-          ? SWITCH_MODEL_META
-          : `${SWITCH_MODEL_META} 当前无其他同 profile / 同主机账号可切换。`
-        : "";
-    }
+    // 规则说明改悬停显示，避免工作台顶栏长文占位
+    const switchTip = running
+      ? canSwitch
+        ? SWITCH_MODEL_META
+        : `${SWITCH_MODEL_META} 当前无其他同 profile / 同主机账号可切换。`
+      : "";
+    if (els.model) els.model.title = switchTip;
+    if (els.modelLabel) els.modelLabel.title = switchTip;
     els.model.disabled = running && !canSwitch;
     if (running && !canSwitch) {
       // 无备选：只保留当前项，避免误选不可切换账号
@@ -402,7 +402,17 @@ export function mountSession(root, ctx) {
     const isClone = s.mountMode === "clone";
     const source = s.sourceWorkspace || "";
     els.meta.textContent = `${s.agentId || ""} · ${isClone && source ? `原:${source} · 副本:${s.workspace || ""}` : s.workspace || ""} · 文件:${isClone ? "安全副本" : "直接编辑"} · 工具:${toolN}`;
-    els.hintLine.textContent = `● 隔离运行中 · ${s.sessionId || ""}`;
+    if (s.state === "running" || s.state === "provisioning") {
+      els.hintLine.textContent = `● 隔离运行中 · ${s.sessionId || ""}`;
+    } else if (s.state === "stopping") {
+      els.hintLine.textContent = `● 正在停止 · ${s.sessionId || ""}`;
+    } else if (s.state === "stopped") {
+      els.hintLine.textContent = `○ 已停止 · ${s.sessionId || ""}`;
+    } else if (s.state === "failed") {
+      els.hintLine.textContent = `○ 失败 · ${s.sessionId || ""}`;
+    } else {
+      els.hintLine.textContent = `· ${s.sessionId || ""}`;
+    }
     const active =
       ["provisioning", "running", "stopping"].includes(s.state) ||
       (s.state === "failed" && !s.cleanupComplete);

@@ -54,8 +54,12 @@ func (r *Docker) Exec(ctx context.Context, handle Handle, launch LaunchSpec, out
 	if err := validateConfigFiles(launch.ConfigFiles); err != nil {
 		return nil, err
 	}
+	configFiles, err := rewriteDockerConfigFiles(e, launch.ConfigFiles)
+	if err != nil {
+		return nil, err
+	}
 	e.attempted = true
-	if err := writeConfigFiles(handle.PrivateHome, launch.ConfigFiles); err != nil {
+	if err := writeConfigFiles(handle.PrivateHome, configFiles); err != nil {
 		return nil, err
 	}
 	if ctx.Err() != nil {

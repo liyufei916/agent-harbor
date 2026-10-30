@@ -134,16 +134,17 @@ Agent Harbor
 │  3. 工具在本机配置一次，沙箱里不用填密 │
 │                                      │
 │  隔离能力检测（逐条至完成）           │
-│  · 系统环境 / 探测区 / Seatbelt …    │
-│  · 越权拒绝 / 安全闸口               │
+│  · Seatbelt：系统环境 / 探测区 / …   │
+│  · Docker：CLI / daemon / 网络 / …   │
 │  ● 隔离能力可用 → [ 进入 HOME ]      │
+│  ○ 失败 → [ 改隔离 / 引擎设置 ]      │
 └──────────────────────────────────────┘
 ```
 
 | 元素 | 规则 |
 |---|---|
-| 检测过程 | 与设置「重新检测隔离」、阻断页「重新检测」**同一套七项**；一次 `GetRuntimeHealth`，界面分阶段上屏 |
-| 检测失败 | 主按钮不可用；可「重新检测」；禁止「仍要继续」/跳过 |
+| 检测过程 | 与设置「重新检测隔离」、阻断页「重新检测」**同一套七项**；文案随当前隔离后端（Seatbelt / Docker）切换；一次 `GetRuntimeHealth`，界面分阶段上屏 |
+| 检测失败 | 主按钮不可用；可「重新检测」与「改隔离 / 引擎设置」；禁止「仍要继续」/跳过 |
 | 再次引导 | 设置「下次启动重新显示引导」清标记后，冷启动再跑本屏（含逐条检测） |
 | 跳过 | 不提供跳过检测 |
 
@@ -370,6 +371,8 @@ Agent Harbor
 ```
 │  工具                                      [ + 添加 ] │
 │  MCP：远程 HTTP（浏览器 / Token）或宿主 stdio。         │
+│  预置：☑ 本机时间  ☑ filesystem  ☑ Context7            │
+│                        [ 添加所选 ]                     │
 │  与「模型」不同：这里不负责 Claude/GPT。               │
 │                                                        │
 │  GitHub     浏览器登录 · ● 已连接      [ 编辑 ][ 删除 ]│
@@ -379,6 +382,7 @@ Agent Harbor
 
 | 操作 | 含义 |
 |---|---|
+| **预置勾选 → 添加所选** | `ListMcpPresets` / `AddMcpPreset`：本机时间、演示 filesystem、Context7（后者须 Token） |
 | **编辑** | 打开与「添加」同构表单；可改名称/地址/认证方式；浏览器路径可再点「打开浏览器登录」，API Key 路径可贴新 Token（即原「重新登录 / 轮换密钥」） |
 | **删除** | 二次确认后从列表与钥匙串移除 |
 
@@ -518,7 +522,7 @@ Agent Harbor
 
 | Tab | 内容 |
 |---|---|
-| **用量** | 会话摘要 + Gate 采集的 input/output token（有则按人工单价粗算）+ 单价快照（模型下拉选自已添加账号；可改可删；CNY/USD 勿混加）+ 近期终态 |
+| **用量** | 会话摘要 + Gate 采集的 input/output token（有则按人工单价粗算）+ 单价快照（模型下拉选自已添加账号；可改可删；CNY/USD 勿混加）+ 近期终态（**每页 10 行**分页） |
 | **阻拦** | Gate/策略直接拒绝的 audit（`denied` / `failed`），未进扩权弹窗 |
 | **扩权** | 用户对 `permission_needed` 的 deny/once/project（含界面演示标注） |
 | **诊断** | 隔离/凭据库/安全档位/记住主机/阻拦条数只读聚合 |
@@ -536,6 +540,8 @@ Agent Harbor
 ┌─ 设置 ─────────────────────────────────────────────┐
 │  默认偏向安全。改完即保存，无需点「应用」。              │
 │                                                      │
+│  ▸ 隔离后端（P2：Seatbelt / Docker；改后须重启）       │
+│  ▸ 容器引擎（仅 Docker：Colima / 本机 Docker）         │
 │  ▸ Agent（检测与安装；未安装可「复制安装命令」）         │
 │  ▸ 会话默认                                          │
 │  ▸ 网络安全                                          │
@@ -547,6 +553,30 @@ Agent Harbor
 
 保存策略：**改即存**（本地偏好）。成功无打断；失败 toast「未能保存，请重试」。
 有 `running` 会话时：多数项仍可改，但旁注「对下次新会话生效」；仅「结束与清理」里与停止流程相关的项对**下一次停止**生效。
+
+#### 5.8.1b 隔离后端与容器引擎（P2）
+
+```
+│  隔离后端（P2）                                       │
+│  二选一：Seatbelt（P1 默认）或 Docker（P2）。          │
+│  Colima / 本机 Docker 只是 Docker 后端的引擎。          │
+│  后端 [ Seatbelt（P1 · 默认） ▾ ]                     │
+│       · Seatbelt（P1 · 默认）                         │
+│       · Docker（P2）                                  │
+│  （偏好 ≠ 生效）[ 重启应用使生效 ]                     │
+│                                                      │
+│  容器引擎来源（后端=Docker 时显示）                    │
+│  ( ) Harbor 托管 Colima（无 Desktop 时推荐）          │
+│  ( ) 本机 Docker（高级）                              │
+│  [ 一键安装并启用 ]  进度条 · 可停止/取消               │
+```
+
+| 配置项 | 规则 |
+|---|---|
+| 隔离后端 | `UIPrefs.isolationBackend`=`seatbelt`\|`docker`；**改后须重启**；`HARBOR_RUNTIME` 优先于偏好 |
+| 一键重启 | `RestartApp`；有进行中会话先确认；标题栏在待重启时也可点「重启应用」 |
+| 引擎 | 仅 Docker 后端展示；托管 Colima 可钉扎下载；本机 Docker 只检测连接、不下载托管组件 |
+| 失败 | fail-closed；阻断页主按钮「改隔离 / 引擎设置」聚焦本区 |
 
 #### 5.8.2 Agent（检测与安装）
 
@@ -771,7 +801,7 @@ V1 禁止：自定义 binary 路径、Base URL + API Key 当作「添加 Agent�
 
 文案示例：「这台电脑当前无法建立隔离环境。Agent Harbor 不会在无隔离时启动 Agent。」+ **七项逐条检测列表**。
 
-**恢复路径（必有）**：主按钮 **「改隔离 / 引擎设置」** → 设置页聚焦「隔离后端」；提示可改「本机 Docker」或退回 Seatbelt。次按钮「重新检测」（动画与引导/设置相同）。已装 Docker Desktop 且仍选托管 Colima 时，设置页可一键切到本机 Docker。
+**恢复路径（必有）**：主按钮 **「改隔离 / 引擎设置」** → 设置页聚焦「隔离后端」；Docker 未就绪时提示可改「本机 Docker」或退回 **Seatbelt**，并重启。次按钮「重新检测」（动画与引导/设置相同；Docker 七项文案）。已装 Docker Desktop 且仍选托管 Colima 时，设置页可一键切到本机 Docker。
 
 ---
 
@@ -822,7 +852,7 @@ V1 禁止：自定义 binary 路径、Base URL + API Key 当作「添加 Agent�
 | 模型 | `ConnectModel`（可带 origin）`ListAccounts` `RemoveAccount` | — |
 | 工具 | `ListMcpPresets`/`AddMcpPreset`（一键预置）+ `ConnectMcp`（HTTP Token **或** `transport=stdio`）**或** `StartMcpOAuth`/`CancelMcpOAuth`；`ListAccounts` `RemoveAccount` | — |
 | 记录 | 无新 API；前端 `usage-analytics`（audit / permission / session_outcome） | 订阅工作台同源事件写入 |
-| 设置 | `ListAgents` `GetRuntimeHealth` 记住主机与 Overview 同源 API；Prefs | — |
+| 设置 | `ListAgents` `GetRuntimeHealth` `Get/EnsureContainerEngine` `RestartApp`；记住主机与 Overview 同源 API；Prefs（含 `isolationBackend`） | — |
 | 扩权 | `ResolvePermission` + 事件 `permission_needed` | `permission_needed` |
 
 状态展示必须以 Orchestrator 事件为准，页面不本地猜「是否已隔离」。UI 只经 `frontend/src/api.js`，不直连 Gate / Secrets / Runtime。

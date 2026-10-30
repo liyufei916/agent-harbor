@@ -135,7 +135,7 @@ export function mountWizard(root, ctx, opts = {}) {
         </div>
         <div class="card drop-zone">
           <button type="button" class="btn primary" id="wz-pick">${api.isMock() ? "选择文件夹（mock）" : "选择文件夹"}</button>
-          <button type="button" class="btn" id="wz-pick-b" title="第二条演示路径，用于双会话">演示路径 B</button>
+          ${api.isMock() ? `<button type="button" class="btn" id="wz-pick-b" title="第二条演示路径，用于双会话">演示路径 B</button>` : ""}
           <p class="meta" id="wz-path">${draft.workspace || "未选择"}</p>
         </div>
         <div class="card" style="margin-top:12px">
@@ -259,7 +259,7 @@ export function mountWizard(root, ctx, opts = {}) {
         const res = await api.selectWorkspace();
         if (!res.cancelled && !res.error) applyPath(res.path);
       };
-      wrap.querySelector("#wz-pick-b").onclick = () => applyPath("/demo/project-b");
+      wrap.querySelector("#wz-pick-b")?.addEventListener("click", () => applyPath("/demo/project-b"));
       wrap.querySelectorAll('input[name="mount"]').forEach((el) => {
         el.onchange = () => {
           draft.mountMode = el.value;
@@ -382,8 +382,9 @@ export function mountWizard(root, ctx, opts = {}) {
             hint = "运行中已满 2 个。回 HOME 停止其中一个后再试。";
             cta = `<button type="button" class="btn" id="wz-to-home">回 HOME</button>`;
           } else if (res.error.code === "WORKSPACE_BUSY") {
-            hint =
-              "该文件夹已有会话在跑。打开已有工作台，或上一步改选「演示路径 B」。";
+            hint = api.isMock()
+              ? "该文件夹已有会话在跑。打开已有工作台，或上一步改选「演示路径 B」。"
+              : "该文件夹已有会话在跑。请打开已有工作台，或另选一个文件夹。";
             cta = `<button type="button" class="btn" id="wz-to-home">回 HOME 打开会话</button>`;
           } else if (res.error.code === "WORKSPACE_DENIED") {
             hint =

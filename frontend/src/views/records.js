@@ -32,6 +32,9 @@ export function mountRecords(root, ctx, opts = {}) {
   let tab = allowed.includes(opts.tab) ? opts.tab : "usage";
   /** @type {string} 正在编辑的模型名；空=新建 */
   let editingModel = "";
+  /** 近期会话终态分页（每页 10 行） */
+  const SESSION_PAGE_SIZE = 10;
+  let sessionPage = 0;
 
   async function paint() {
     const s = summarizeUsage();
@@ -171,13 +174,30 @@ export function mountRecords(root, ctx, opts = {}) {
           }
         </ul>
         <h4 class="meta" style="margin-top:12px">近期会话终态</h4>
-        <ul class="audit-list">
-          ${
-            sessions.length === 0
-              ? "<li class='meta'>暂无终态记录。</li>"
-              : sessions.map((e) => `<li>${formatEventRow(e)}</li>`).join("")
+        ${(() => {
+          if (sessions.length === 0) {
+            return `<ul class="audit-list"><li class='meta'>暂无终态记录。</li></ul>`;
           }
+          const pageCount = Math.max(1, Math.ceil(sessions.length / SESSION_PAGE_SIZE));
+          if (sessionPage >= pageCount) sessionPage = pageCount - 1;
+          if (sessionPage < 0) sessionPage = 0;
+          const start = sessionPage * SESSION_PAGE_SIZE;
+          const slice = sessions.slice(start, start + SESSION_PAGE_SIZE);
+          const from = start + 1;
+          const to = start + slice.length;
+          return `
+        <ul class="audit-list" id="rec-session-list">
+          ${slice.map((e) => `<li>${formatEventRow(e)}</li>`).join("")}
         </ul>
+        <div class="row" style="justify-content:space-between;align-items:center;margin-top:8px;gap:8px;flex-wrap:wrap">
+          <span class="meta">第 ${from}–${to} 条 · 共 ${sessions.length} 条 · 每页 ${SESSION_PAGE_SIZE}</span>
+          <div class="actions" style="margin:0">
+            <button type="button" class="btn" id="rec-session-prev" ${sessionPage <= 0 ? "disabled" : ""}>上一页</button>
+            <span class="meta">${sessionPage + 1}/${pageCount}</span>
+            <button type="button" class="btn" id="rec-session-next" ${sessionPage >= pageCount - 1 ? "disabled" : ""}>下一页</button>
+          </div>
+        </div>`;
+        })()}
       </section>
 
       <section class="card ${tab === "blocks" ? "" : "hidden"}">
@@ -230,15 +250,27 @@ export function mountRecords(root, ctx, opts = {}) {
     root.querySelectorAll("[data-tab]").forEach((btn) => {
       btn.addEventListener("click", () => {
         tab = btn.getAttribute("data-tab") || "usage";
+        sessionPage = 0;
         paint();
       });
     });
+    root.querySelector("#rec-session-prev")?.addEventListener("click", () => {
+      if (sessionPage <= 0) return;
+      sessionPage -= 1;
+      paint();
+    });
+    root.querySelector("#rec-session-next")?.addEventListener("click", () => {
+      sessionPage += 1;
+      paint();
+    });
     root.querySelector("#rec-refresh")?.addEventListener("click", () => {
+      sessionPage = 0;
       paint();
       showToast("已刷新", "ok");
     });
     root.querySelector("#rec-clear")?.addEventListener("click", () => {
       clearUsageAnalytics();
+      sessionPage = 0;
       paint();
       showToast("已清除本机记录", "ok");
     });

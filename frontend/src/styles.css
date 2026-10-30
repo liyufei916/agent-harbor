@@ -513,6 +513,24 @@ body { padding: 0; }
   color: var(--warn);
   border-color: rgba(224, 177, 90, 0.45);
 }
+.mcp-presets-summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  user-select: none;
+}
+.mcp-presets-summary::-webkit-details-marker { display: none; }
+.mcp-presets-summary::before {
+  content: "▸";
+  color: var(--muted);
+  font-size: 12px;
+}
+#mcp-presets-details[open] > .mcp-presets-summary::before { content: "▾"; }
+#mcp-presets-details[open] > .mcp-presets-summary .meta { display: none; }
+#mcp-presets-details > :not(summary) { margin-top: 10px; }
 
 .tabs { display: flex; gap: 6px; }
 .tab, .btn {

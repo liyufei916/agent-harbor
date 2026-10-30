@@ -36,11 +36,14 @@ func (k *Kit) detectDockerGuest(ctx context.Context, info kits.KitInfo) (kits.Ki
 	return info, nil
 }
 
+// dockerLaunch：镜像内 Codex 为 npm 全局脚本，须 node + 脚本路径才能走 turn_bridge 多轮。
+// 若 Command=GuestCodex 且 Args 空，Build 会落入单轮 `codex exec`，进程退出即 stopped，无法交互。
 func dockerLaunch() launchSpec {
 	return launchSpec{
-		Command:  kits.GuestCodex,
+		Command:  kits.GuestNode,
+		Args:     []string{kits.GuestCodex},
 		ReadOnly: []string{kits.GuestCodex, kits.GuestNode},
-		Label:    kits.GuestCodex + " (docker guest)",
+		Label:    kits.GuestCodex,
 		Node:     kits.GuestNode,
 	}
 }

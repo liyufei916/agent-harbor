@@ -101,7 +101,7 @@ Agent Harbor 是安全优先的桌面 Agent 沙箱：在隔离环境中运行 Cl
 ### Runtime 分期与安全不变量
 
 - **P1**：工作区隔离 + 进程降权。Agent 不得以 root / Administrators 运行，不得借 sudo、docker 组等提权；Linux 使用 capability/seccomp 等约束，macOS 使用对应 sandbox profile。仅限制目录或拦截命令字符串不能作为隔离保证。
-- **P2**：替换为容器 Runtime，强化 PID / mount / network 隔离；Gate、Policy、编排与页面主契约保持一致。microVM 属后续预研，不是当前一期必选后端。
+- **P2**：Docker Runtime（设置项名 **Docker**），强化 PID / mount / network 隔离；Gate 经 `harbor.gate`；Gate、Policy、编排与页面主契约保持一致。microVM 属后续预研。
 - **可替换接口**：`Create(spec)`、`Exec(handle, cmd, env)`、`MountWorkspace(...)`、`Destroy(handle)`、`Health() → ok | fail_closed`；spec 包含 workspace、mount_mode、network_to_gate_only、privilege_profile。
 - **失败关闭**：隔离或降权不可用必须拒绝启动，不得静默回落到宿主机直接执行。Agent 无法接入安全代理时，不得默认启用其安全模式。
 - **密钥不入执行面**：禁止真实密钥进入沙箱文件、环境变量、Agent/MCP 配置、仓库及演示默认值。Sentinel 是可撤销的会话能力，使用至少 32 字节安全随机值，不能仅由 session_id 推导；只在本会话 Gate 有效，停止时撤销，不得通过日志或 UI 事件泄露。

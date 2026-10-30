@@ -6,12 +6,15 @@ LABEL org.opencontainers.image.title="agent-harbor-runtime" \
       org.opencontainers.image.description="P2 Docker guest for Agent Harbor"
 
 USER root
+# dsh→koffi 在 alpine/arm64 常无预编译，需 cmake 源码构建；装完可卸构建依赖缩体积。
 RUN apk add --no-cache libc6-compat git ca-certificates \
+    build-base cmake python3 \
  && npm install -g @anthropic-ai/claude-code @openai/codex \
  && mkdir -p /opt/harbor/dsh-0.2.1-rc.2 /home/harbor/tmp /workspace /harbor/ro \
  && cd /opt/harbor/dsh-0.2.1-rc.2 \
  && npm init -y \
  && npm install @deepseek-ai/dsh@0.2.1-rc.2 --omit=dev \
+ && apk del build-base cmake python3 \
  && chown -R 65534:65534 /opt/harbor /home/harbor /workspace \
  && test -x /usr/local/bin/node \
  && test -e /usr/local/bin/claude \
