@@ -247,11 +247,11 @@ github.com/liyufei916/agent-harbor/internal/mcpstdio/bridge.go:47:			Start				64
 github.com/liyufei916/agent-harbor/internal/mcpstdio/bridge.go:124:			handleHTTP			56.7%
 github.com/liyufei916/agent-harbor/internal/mcpstdio/bridge.go:173:			call				63.2%
 github.com/liyufei916/agent-harbor/internal/mcpstdio/bridge.go:205:			notify				85.7%
-github.com/liyufei916/agent-harbor/internal/mcpstdio/bridge.go:220:			readLoop			76.2%
+github.com/liyufei916/agent-harbor/internal/mcpstdio/bridge.go:220:			readLoop			66.7%
 github.com/liyufei916/agent-harbor/internal/mcpstdio/bridge.go:254:			failAll				60.0%
 github.com/liyufei916/agent-harbor/internal/mcpstdio/bridge.go:264:			Close				89.5%
 github.com/liyufei916/agent-harbor/internal/mcpstdio/bridge.go:291:			writeFramed			100.0%
-github.com/liyufei916/agent-harbor/internal/mcpstdio/bridge.go:296:			readFramed			84.2%
+github.com/liyufei916/agent-harbor/internal/mcpstdio/bridge.go:296:			readFramed			78.9%
 github.com/liyufei916/agent-harbor/internal/mcpstdio/bridge.go:325:			parseToolNames			88.9%
 github.com/liyufei916/agent-harbor/internal/mcpstdio/bridge.go:351:			EncodeSecret			100.0%
 github.com/liyufei916/agent-harbor/internal/mcpstdio/bridge.go:355:			DecodeSecret			75.0%
@@ -295,7 +295,7 @@ github.com/liyufei916/agent-harbor/internal/orchestrator/session.go:520:		timeou
 github.com/liyufei916/agent-harbor/internal/orchestrator/session.go:529:		sessionTimeout			100.0%
 github.com/liyufei916/agent-harbor/internal/orchestrator/session.go:535:		timeoutLocked			100.0%
 github.com/liyufei916/agent-harbor/internal/orchestrator/session.go:542:		run				100.0%
-github.com/liyufei916/agent-harbor/internal/orchestrator/session.go:583:		provision			82.5%
+github.com/liyufei916/agent-harbor/internal/orchestrator/session.go:583:		provision			83.5%
 github.com/liyufei916/agent-harbor/internal/orchestrator/session.go:724:		validBinding			82.4%
 github.com/liyufei916/agent-harbor/internal/orchestrator/session.go:750:		audit				84.6%
 github.com/liyufei916/agent-harbor/internal/orchestrator/session.go:772:		output				90.0%
