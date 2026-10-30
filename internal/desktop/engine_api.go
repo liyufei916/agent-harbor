@@ -222,11 +222,17 @@ func (d *DesktopAPI) EnsureContainerEngine() contracts.ContainerEngineHealthResp
 	if err := eng.Start(ctx); err != nil {
 		return fail(err)
 	}
-	// 仅 Harbor Colima 构建 runtime 镜像；本机 Docker 路径不下载托管组件。
-	if src == engine.SourceHarborColima {
-		if c, ok := eng.(*engine.Colima); ok {
-			if dir := resolveDockerfileDir(); dir != "" {
-				_ = c.EnsureImage(ctx, dir) // best-effort
+	// 构建 runtime 镜像（本机 Docker / Colima 都需要；不下载托管 CLI）。
+	if dir := resolveDockerfileDir(); dir != "" {
+		d.app.setEngineProgress(93, "检查/构建运行时镜像…", true)
+		switch e := eng.(type) {
+		case *engine.Colima:
+			if err := e.EnsureImage(ctx, dir); err != nil {
+				return fail(err)
+			}
+		case *engine.SystemDocker:
+			if err := e.EnsureImage(ctx, dir); err != nil {
+				return fail(err)
 			}
 		}
 	}
