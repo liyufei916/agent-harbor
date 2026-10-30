@@ -81,7 +81,7 @@ export function mountSettings(root, ctx) {
 
     <section class="card" style="margin-top:12px">
       <h3>隔离后端（P2）</h3>
-      <p class="meta">默认 Seatbelt。容器隔离主路径为 Harbor 托管 Colima（无需 Docker Desktop）。<strong>更改后端后需重启应用</strong>；<code>HARBOR_RUNTIME</code> 优先于本选项。</p>
+      <p class="meta">默认 Seatbelt。切到「容器隔离」时会<strong>自动启用</strong> Harbor Colima（无需 Docker Desktop；可改「本机 Docker」）。<strong>更改后端后需重启应用</strong>；<code>HARBOR_RUNTIME</code> 优先于本选项。</p>
       <label class="field">后端
         <select id="set-isolation-backend">
           <option value="seatbelt">Seatbelt（P1 · 默认）</option>
@@ -364,6 +364,34 @@ export function mountSettings(root, ctx) {
     ctx.applyUIPrefs?.(ctx.state.uiPrefs);
     syncClearDefaultEnabled();
     paintRunMode(nextBackend);
+
+    // M4：切到容器隔离时自动 Ensure（无感路径；失败仍 fail-closed，不静默放行）。
+    if (nextBackend === "docker" && prevBackend !== "docker") {
+      const engSt = root.querySelector("#engine-action-status");
+      if (engSt) engSt.textContent = "正在自动启用容器引擎…";
+      st.innerHTML = `<span class="warn">已保存 · 正在启用引擎…</span>`;
+      showToast("已切到容器隔离，正在启用引擎…", "ok");
+      try {
+        const h = await api.ensureContainerEngine();
+        paintEngineHealth(h);
+        if (h?.ready) {
+          if (engSt) engSt.innerHTML = `<span class="ok">引擎已就绪 · 请重启应用</span>`;
+          st.innerHTML = `<span class="warn">已保存 · 引擎就绪 · 请重启应用后生效</span>`;
+          showToast("容器引擎已就绪，请重启应用", "ok");
+        } else {
+          const msg = h?.message || h?.error?.message || "引擎未就绪";
+          if (engSt) engSt.innerHTML = `<span class="bad">${msg}</span>`;
+          st.innerHTML = `<span class="warn">已保存 · 引擎未就绪 · 可点「启用容器引擎」重试后重启</span>`;
+          showToast(msg, "bad");
+        }
+      } catch {
+        if (engSt) engSt.innerHTML = `<span class="bad">自动启用失败</span>`;
+        st.innerHTML = `<span class="warn">已保存 · 自动启用失败 · 请手动启用后重启</span>`;
+        showToast("自动启用容器引擎失败", "bad");
+      }
+      return;
+    }
+
     if (prevBackend !== nextBackend) {
       st.innerHTML = `<span class="warn">已保存 · 隔离后端须重启应用后生效</span>`;
       showToast("隔离后端已保存，请重启应用后生效", "ok");

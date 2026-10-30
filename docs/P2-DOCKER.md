@@ -33,8 +33,8 @@ Gate / Policy / 页面主契约不变，只换 `Runtime` 实现；引擎由 Harb
 | **M2a** | `internal/engine`：SystemDocker 适配 + Colima 占位（fail-closed） | **完成** |
 | **M2b** | Colima Start/Stop/Health（PATH 或 `engine/bin`）；`EnsureImage`；不抢全局 docker context | **完成** |
 | **M2c** | 钉扎下载 colima + lima + docker CLI（SHA256）；`HARBOR_ENGINE_AUTO_DOWNLOAD` | **完成** |
-| **M3** | 设置：引擎来源 / Health / 启用；`DOCKER_HOST` 接入 Runtime | **本提交** |
-| **M4** | 默认无感路径（C）；陌生机无 Desktop 证据 | 待做 |
+| **M3** | 设置：引擎来源 / Health / 启用；`DOCKER_HOST` 接入 Runtime | **完成** |
+| **M4** | 切容器隔离自动 Ensure；启动时拉起；陌生机无 Desktop 勾选表 | **本提交** |
 
 开发期若本机已有 Docker，仍可用外置 daemon 验证 Runtime（`bash scripts/docker-p2-up.sh`），与 B→C 产品主路径不冲突。
 
@@ -52,7 +52,7 @@ bash scripts/docker-p2-up.sh   # 构建镜像 + 边界冒烟（需已有 docker�
 # 或：export HARBOR_RUNTIME=docker
 ```
 
-产品主路径（M3）：设置 → 容器引擎来源（默认 Harbor Colima）→「启用容器引擎」→ 切隔离后端为容器 → **重启应用**。M4 再做首启无感。
+产品主路径（M4）：设置 → 切「容器隔离」→ **自动** Ensure/启动 Harbor Colima（亦可手动「启用容器引擎」）→ **重启应用** → Health `isolationLevel=docker`。陌生机无 Desktop 勾选见 [stranger-first-run-record](../demos/stranger-first-run-record.md) §P2 B。
 
 ## 环境变量
 

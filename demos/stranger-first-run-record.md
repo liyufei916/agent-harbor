@@ -66,14 +66,30 @@ dsh：`bash scripts/install-dsh.sh` 默认路径下桌面可自动 Detect，**�
 
 ## P2 Docker（可选 · 分支 `feat/p2-docker-runtime`）
 
-默认仍是 Seatbelt。若测容器路径：
+默认仍是 Seatbelt。
+
+### A · 有本机 Docker（开发冒烟）
 
 ```text
 1. bash scripts/docker-p2-up.sh → PASS（构建 + 冒烟）
-2. 设置 → 隔离后端 → Docker → 重启应用（或 HARBOR_RUNTIME=docker）
-3. 设置「重新检测隔离」应显示 isolationLevel=docker；失败文案应区分 CLI/daemon/镜像
-4. 新会话用镜像内 Claude/Codex/dsh（不必本机预装同名 CLI）
+2. 设置 → 隔离后端 → 容器隔离 → 重启（或 HARBOR_RUNTIME=docker）
+3. 设置「重新检测隔离」应显示 isolationLevel=docker
 □ 冒烟 PASS  □ Health docker  □ 首任务（脱敏）
+```
+
+### B · 无 Docker Desktop（产品主路径 B→C / M4）
+
+**前置**：本机未装 Docker Desktop；`which docker` 可无或不可用。勿要求用户先装 Desktop。
+
+```text
+1. 设置 → 容器引擎来源 = Harbor 托管 Colima（默认）
+2. 隔离后端切「容器隔离」→ 应自动启用引擎（或点「启用容器引擎」）
+   （首次可能下载钉扎 colima/lima/docker CLI；校验 SHA256）
+3. 引擎状态 ready 后重启应用
+4. 侧栏/设置「重新检测隔离」→ isolationLevel=docker；失败须 fail-closed（无「仍要继续」）
+5. （可选）新会话用镜像内 Agent CLI
+本机 Docker Desktop：□ 未安装  □ 已安装但未用
+□ Ensure/自动启用成功  □ Health docker  □ 无 Desktop 仍可用（或失败文案可理解）
 ```
 
 ## 失败时

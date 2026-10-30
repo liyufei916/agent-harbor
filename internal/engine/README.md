@@ -22,6 +22,8 @@
 | `SystemDocker` | 已有（高级：本机 docker） |
 | `Colima` | PATH/`bin`；profile `agent-harbor`；`EnsureImage` |
 | 钉扎下载 | **M2c**：colima + lima + docker CLI；SHA256；默认自动下载 |
+| 设置 / API | **M3**：`Get/EnsureContainerEngine` + UI 来源 |
+| 无感路径 | **M4**：切容器隔离自动 Ensure；Attach 时 Ensure/Start |
 
 ## 文件
 

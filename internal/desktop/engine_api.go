@@ -37,10 +37,18 @@ func (a *App) resetEngine() {
 	a.eng = nil
 }
 
+func dockerIsolationBackend(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "docker", "p2", "container":
+		return true
+	default:
+		return false
+	}
+}
+
 // applyEngineDockerHost 在隔离后端为 docker 且 Harbor Colima 已就绪时，把 DOCKER_HOST 接到本进程（供 Runtime 使用）。
 func (a *App) applyEngineDockerHost(ctx context.Context) {
-	backend := strings.ToLower(strings.TrimSpace(a.getPrefs().IsolationBackend))
-	if backend != "docker" && backend != "p2" && backend != "container" {
+	if !dockerIsolationBackend(a.getPrefs().IsolationBackend) {
 		return
 	}
 	eng := a.engineRef()
@@ -53,6 +61,31 @@ func (a *App) applyEngineDockerHost(ctx context.Context) {
 		return
 	}
 	_ = c.ApplyDockerHost()
+}
+
+// ensureEngineForDockerRuntime M4：容器隔离偏好下启动时自动 Ensure/Start（无感）；失败不 panic，由 Runtime Health fail-closed。
+func (a *App) ensureEngineForDockerRuntime(ctx context.Context) {
+	if !dockerIsolationBackend(a.getPrefs().IsolationBackend) {
+		return
+	}
+	eng := a.engineRef()
+	st, err := eng.Health(ctx)
+	if err == nil && st.Ready {
+		a.applyEngineDockerHost(ctx)
+		return
+	}
+	_ = eng.Ensure(ctx)
+	_ = eng.Start(ctx)
+	st2, err2 := eng.Health(ctx)
+	if err2 != nil || !st2.Ready {
+		return
+	}
+	if c, ok := eng.(*engine.Colima); ok {
+		_ = c.ApplyDockerHost()
+		if dir := resolveDockerfileDir(); dir != "" {
+			_ = c.EnsureImage(ctx, dir)
+		}
+	}
 }
 
 func mapEngineStatus(st engine.Status) contracts.ContainerEngineHealthResponse {
