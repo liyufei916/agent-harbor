@@ -85,14 +85,27 @@ func TestEnsureEngineForDockerRuntimeSeatbeltNoop(t *testing.T) {
 	}
 }
 
-func TestEnsureEngineForDockerRuntimeNoPanicWithoutDownload(t *testing.T) {
+func TestEnsureEngineForDockerRuntimeNoDownloadOnAttach(t *testing.T) {
 	t.Setenv("HARBOR_ENGINE_AUTO_DOWNLOAD", "0")
+	prevHost := os.Getenv("DOCKER_HOST")
+	_ = os.Unsetenv("DOCKER_HOST")
+	t.Cleanup(func() {
+		if prevHost == "" {
+			_ = os.Unsetenv("DOCKER_HOST")
+		} else {
+			_ = os.Setenv("DOCKER_HOST", prevHost)
+		}
+	})
 	app := NewApp()
 	app.setPrefs(contracts.UIPrefs{
 		IsolationBackend: "docker",
 		EngineSource:     engine.SourceHarborColima,
 	})
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	app.ensureEngineForDockerRuntime(ctx) // 无 Desktop / 缺 bin 时 fail-closed，不 panic
+	// Must return quickly: Attach must not download/start Colima.
+	app.ensureEngineForDockerRuntime(ctx)
+	if os.Getenv("DOCKER_HOST") != "" {
+		t.Fatalf("unready engine must not set DOCKER_HOST=%s", os.Getenv("DOCKER_HOST"))
+	}
 }

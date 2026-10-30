@@ -122,29 +122,10 @@ func (a *App) applyEngineDockerHost(ctx context.Context) {
 	_ = c.ApplyDockerHost()
 }
 
-// ensureEngineForDockerRuntime M4：容器隔离偏好下启动时自动 Ensure/Start（无感）；失败不 panic，由 Runtime Health fail-closed。
+// ensureEngineForDockerRuntime 启动时只挂已就绪引擎的 DOCKER_HOST，绝不在此下载/启 VM
+// （否则 prefs=docker 时应用会卡在闪屏；下载仅由用户点「一键安装」触发）。
 func (a *App) ensureEngineForDockerRuntime(ctx context.Context) {
-	if !dockerIsolationBackend(a.getPrefs().IsolationBackend) {
-		return
-	}
-	eng := a.engineRef()
-	st, err := eng.Health(ctx)
-	if err == nil && st.Ready {
-		a.applyEngineDockerHost(ctx)
-		return
-	}
-	_ = eng.Ensure(ctx)
-	_ = eng.Start(ctx)
-	st2, err2 := eng.Health(ctx)
-	if err2 != nil || !st2.Ready {
-		return
-	}
-	if c, ok := eng.(*engine.Colima); ok {
-		_ = c.ApplyDockerHost()
-		if dir := resolveDockerfileDir(); dir != "" {
-			_ = c.EnsureImage(ctx, dir)
-		}
-	}
+	a.applyEngineDockerHost(ctx)
 }
 
 func mapEngineStatus(st engine.Status) contracts.ContainerEngineHealthResponse {
