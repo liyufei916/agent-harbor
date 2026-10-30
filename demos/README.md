@@ -16,7 +16,7 @@ go run ./scripts/cmd/agent-task-evidence -agents=codex,dsh
 ```
 
 
-**MCP 边界**：默认远程 HTTP + Token；stdio 为可选「宿主侧 · 更高信任」；OAuth 需自备 Client，属高级轨。不承诺「市面每一个 MCP 开箱即用」。
+**MCP 边界**：默认远程 HTTP + Token；stdio 为可选「宿主侧 · 更高信任」；OAuth 需自备 Client，属高级轨。不承诺「市面每一个 MCP 开箱即用」。矩阵见 [mcp-compat-matrix.md](mcp-compat-matrix.md)。失败 Top→改进对照见 [failure-top-improvements.md](failure-top-improvements.md)。
 
 ### 桌面一打开就「无法安全启动」？
 

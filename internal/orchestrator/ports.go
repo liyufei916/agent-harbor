@@ -22,11 +22,24 @@ type SessionService interface {
 	List(context.Context) ([]contracts.SessionSummary, error)
 	Destroy(context.Context, string) (contracts.SessionSnapshot, error)
 	SyncBack(context.Context, string) (contracts.SessionSnapshot, error)
+	// RequestPermission / ProjectWorkspace：扩权 ask 与记住主机写回所需。
+	RequestPermission(context.Context, string, contracts.PermissionNeeded) (string, error)
+	ProjectWorkspace(context.Context, string) (string, error)
 	ResolvePermission(context.Context, contracts.ResolvePermissionInput) error
 	SwitchModel(context.Context, contracts.SwitchModelInput) (contracts.SessionSnapshot, error)
 	WritePty(context.Context, contracts.PtyInput) error
 	ResizePty(context.Context, contracts.PtyInput) error
 	Shutdown(context.Context) error
+}
+
+// PermissionAsker 桌面 PromptPermission 的可选能力口（避免匿名类型断言）。
+type PermissionAsker interface {
+	RequestPermission(context.Context, string, contracts.PermissionNeeded) (string, error)
+}
+
+// ProjectWorkspaceReader 扩权 project 范围写回记住主机时解析源工作区。
+type ProjectWorkspaceReader interface {
+	ProjectWorkspace(context.Context, string) (string, error)
 }
 
 type AccountCatalog interface {

@@ -39,6 +39,8 @@ npm ci --prefix frontend
 
 ## MCP 边界（避免「所有主流 MCP」落差）
 
+完整矩阵（协议版本 × 认证 × 工具集）：[mcp-compat-matrix.md](mcp-compat-matrix.md)。
+
 - **默认**：远程 HTTP + Token（或 OAuth 高级轨，需自备 Client ID/Secret）  
 - **stdio**：可选；进程在宿主、经回环桥，UI/文档应视为更高信任  
 - 不承诺任意第三方 stdio 包零配置可用

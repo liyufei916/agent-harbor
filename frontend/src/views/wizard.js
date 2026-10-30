@@ -110,9 +110,27 @@ export function mountWizard(root, ctx, opts = {}) {
             `<li class="${f.level === "warn" ? "bad" : "meta"}"><strong>${f.title}</strong> — ${f.detail}</li>`,
         )
         .join("");
+      const agentList = ctx.state.agents || [];
+      const anyAgent = agentList.some((a) => a.available);
+      const agentBits = agentList
+        .map(
+          (a) =>
+            `<li class="${a.available ? "meta" : "bad"}">${a.name || a.id}：${a.available ? "● 可用" : "○ 未安装"} ${a.version || ""}</li>`,
+        )
+        .join("");
       body = `
         <h2>选择工作区</h2>
-        <p class="sub">选择要隔离运行的项目文件夹。</p>
+        <p class="sub">选择要隔离运行的项目文件夹。开会话前须至少一台本机 Agent CLI。</p>
+        <div class="card" style="margin-bottom:12px">
+          <h3>本机 Agent CLI（先检）</h3>
+          <ul class="audit-list">${agentBits || "<li class='bad'>尚未检测到 Agent</li>"}</ul>
+          ${
+            anyAgent
+              ? `<p class="meta">已有可用 CLI，可继续选工作区。</p>`
+              : `<p class="meta bad">当前无可用 Agent：请先安装 Claude / Codex / dsh 之一后再开新会话（下一步亦会拦截）。</p>`
+          }
+          <button type="button" class="btn" id="wz-redetect-early">重新检测 CLI</button>
+        </div>
         <div class="card drop-zone">
           <button type="button" class="btn primary" id="wz-pick">选择文件夹（mock）</button>
           <button type="button" class="btn" id="wz-pick-b" title="第二条演示路径，用于双会话">演示路径 B</button>
@@ -244,12 +262,27 @@ export function mountWizard(root, ctx, opts = {}) {
           paint();
         };
       });
+      wrap.querySelector("#wz-redetect-early")?.addEventListener("click", async () => {
+        const btn = wrap.querySelector("#wz-redetect-early");
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = "检测中…";
+        }
+        await refreshAgents();
+        await paint();
+      });
       wrap.querySelector("#wz-next").onclick = () => {
         if (!draft.workspace) return;
+        const anyAgent = (ctx.state.agents || []).some((a) => a.available);
+        if (!anyAgent) {
+          showToast("请先安装并检测到至少一台 Agent CLI", "bad");
+          return;
+        }
         step = 1;
         paint();
       };
-      wrap.querySelector("#wz-next").disabled = !draft.workspace;
+      const anyAgent = (ctx.state.agents || []).some((a) => a.available);
+      wrap.querySelector("#wz-next").disabled = !draft.workspace || !anyAgent;
     } else if (step === 1) {
       wrap.querySelector("#wz-redetect").onclick = async () => {
         const btn = wrap.querySelector("#wz-redetect");

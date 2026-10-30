@@ -140,10 +140,18 @@ func (p *modelProxy) handle(w http.ResponseWriter, r *http.Request) {
 	if len(key) > 0 {
 		secretsToRedact = append(secretsToRedact, string(key))
 	}
-	if err := writeRelay(w, resp, secretsToRedact, idle, total); err != nil {
+	scan := &usageScanner{}
+	if err := writeRelayScan(w, resp, secretsToRedact, idle, total, scan); err != nil {
 		if streamTimeoutStatus(err) == http.StatusGatewayTimeout {
 			p.h.emitAudit(rt, contracts.AuditData{Target: host, Tool: auditToolModel, Result: "failed"})
 		}
+		return
+	}
+	if in, out := scan.Totals(); in > 0 || out > 0 {
+		p.h.emitAudit(rt, contracts.AuditData{
+			Target: host, Tool: auditToolModel, Result: "allowed",
+			InputTokens: in, OutputTokens: out,
+		})
 	}
 }
 

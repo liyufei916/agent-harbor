@@ -95,7 +95,7 @@ function shortTarget(target) {
 export function recordUsageEvent(ev) {
   if (!ev?.kind) return;
   const state = load();
-  state.events.push({
+  const row = {
     t: Date.now(),
     kind: ev.kind,
     result: ev.result || "",
@@ -106,7 +106,10 @@ export function recordUsageEvent(ev) {
     code: ev.code || "",
     decision: ev.decision || "",
     action: ev.action || "",
-  });
+  };
+  if (Number(ev.inputTokens) > 0) row.inputTokens = Number(ev.inputTokens);
+  if (Number(ev.outputTokens) > 0) row.outputTokens = Number(ev.outputTokens);
+  state.events.push(row);
   save(state);
 }
 
@@ -119,6 +122,8 @@ export function recordAudit(audit, sessionId = "") {
     tool: audit.tool,
     target: audit.target,
     sessionId,
+    inputTokens: Number(audit.inputTokens) > 0 ? Number(audit.inputTokens) : undefined,
+    outputTokens: Number(audit.outputTokens) > 0 ? Number(audit.outputTokens) : undefined,
   });
 }
 
@@ -414,14 +419,36 @@ export function removeModelPrice(prices, model) {
 export function estimateCostStatus() {
   const prices = loadModelPrices();
   const s = summarizeUsage();
+  const { events } = load();
+  let inputTokens = 0;
+  let outputTokens = 0;
+  for (const e of events) {
+    if (Number(e.inputTokens) > 0) inputTokens += Number(e.inputTokens);
+    if (Number(e.outputTokens) > 0) outputTokens += Number(e.outputTokens);
+  }
   if (prices.length === 0) {
     return {
-      status: "未配置单价",
-      detail: "在下方填写模型参考单价后，仅作估算口径；当前事件无 token 字段，金额显示为未计价。",
+      status: inputTokens || outputTokens ? "有 token、未配置单价" : "未配置单价",
+      detail: inputTokens || outputTokens
+        ? `已采集 in ${inputTokens} / out ${outputTokens} token；填写下方单价后可估算金额。`
+        : "在下方填写模型参考单价后，仅作估算口径；Gate 出站若带回 usage 会记入本机事件。",
     };
   }
+  if (!(inputTokens > 0 || outputTokens > 0)) {
+    return {
+      status: "未计价（缺 token）",
+      detail: `已保存 ${prices.length} 条单价快照；尚无 input/output token（新会话经 Gate 出站后才会写入）。会话样本 ${s.sessions}。`,
+    };
+  }
+  const ccy = lockedPriceCurrency(prices);
+  // 用列表首条单价做粗算（人工快照；非账单）
+  const p0 = prices[0];
+  const cost =
+    (inputTokens / 1e6) * Number(p0.inputPer1M || 0) +
+    (outputTokens / 1e6) * Number(p0.outputPer1M || 0);
+  const ccyLabel = ccy === "MIXED" ? p0.currency || "" : ccy || p0.currency || "";
   return {
-    status: "未计价（缺 token）",
-    detail: `已保存 ${prices.length} 条单价快照；本机记录未含 input/output token，故不编造金额。会话样本 ${s.sessions}。`,
+    status: "已估算（参考）",
+    detail: `in ${inputTokens} / out ${outputTokens} token ≈ ${cost.toFixed(4)} ${ccyLabel}（按「${p0.model}」单价粗算，非官方账单）。`,
   };
 }

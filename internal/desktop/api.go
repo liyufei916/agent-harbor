@@ -315,9 +315,7 @@ func (d *DesktopAPI) PromptPermission(in contracts.PromptPermissionInput) contra
 	if in.SessionID == "" || !orchestrator.ValidPermissionTarget(target) {
 		return contracts.EmptyResponse{Error: contracts.NewAppError(contracts.ErrInvalidArgument, "会话或目标主机不合法", false)}
 	}
-	prompter, ok := d.app.sessionRef().(interface {
-		RequestPermission(context.Context, string, contracts.PermissionNeeded) (string, error)
-	})
+	prompter, ok := d.app.sessionRef().(orchestrator.PermissionAsker)
 	if !ok {
 		return contracts.EmptyResponse{Error: unimplemented()}
 	}
@@ -354,9 +352,7 @@ func (d *DesktopAPI) ResolvePermission(in contracts.ResolvePermissionInput) cont
 	}
 	if (in.Decision == "project" || in.Decision == "once") && in.Target != "" {
 		ws := ""
-		if project, ok := d.app.sessionRef().(interface {
-			ProjectWorkspace(context.Context, string) (string, error)
-		}); ok {
+		if project, ok := d.app.sessionRef().(orchestrator.ProjectWorkspaceReader); ok {
 			ws, _ = project.ProjectWorkspace(ctx, in.SessionID)
 		}
 		if in.Decision == "project" && ws != "" {

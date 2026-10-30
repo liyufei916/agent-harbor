@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   clearUsageAnalytics,
+  estimateCostStatus,
   formatEventRow,
   listUsageEvents,
   loadModelPrices,
@@ -64,6 +65,22 @@ test("records channels split blocks vs permissions", () => {
   assert.match(formatEventRow(perms[0]), /deny|project/);
   assert.equal(summarizeUsage().permissionCount, 2);
   clearUsageAnalytics();
+});
+
+test("estimateCostStatus uses collected tokens when prices exist", () => {
+  clearUsageAnalytics();
+  saveModelPrices([]);
+  recordAudit({ result: "allowed", tool: "model", target: "api.example", inputTokens: 1000, outputTokens: 500 }, "s1");
+  let st = estimateCostStatus();
+  assert.match(st.status, /有 token/);
+  saveModelPrices([
+    { model: "demo", inputPer1M: 1, outputPer1M: 2, currency: "CNY", asOf: "2026-10-30" },
+  ]);
+  st = estimateCostStatus();
+  assert.equal(st.status, "已估算（参考）");
+  assert.match(st.detail, /CNY/);
+  clearUsageAnalytics();
+  saveModelPrices([]);
 });
 
 test("model prices upsert/edit/delete and reject CNY/USD mix", () => {

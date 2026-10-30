@@ -423,7 +423,24 @@ func uniqStrings(in []string) []string {
 	return out
 }
 
+// 客户端优先提出的版本；接受列表覆盖评审要求的邻近修订。
 const mcpProtocolVersion = "2025-03-26"
+
+var mcpAcceptedProtocolVersions = []string{
+	"2025-06-18",
+	"2025-03-26",
+	"2024-11-05",
+}
+
+func mcpProtocolAccepted(v string) bool {
+	v = strings.TrimSpace(v)
+	for _, a := range mcpAcceptedProtocolVersions {
+		if a == v {
+			return true
+		}
+	}
+	return false
+}
 
 func (c *Connections) probe(ctx context.Context, prof policy.FixedProfile, apiKey string) error {
 	if prof.Kind == "mcp" {
@@ -825,7 +842,7 @@ func (c *Connections) probeMCP(ctx context.Context, prof policy.FixedProfile, ke
 	}
 	err = decodeRPC(resp, 1, &initialized)
 	resp.Body.Close()
-	if err != nil || initialized.Protocol != mcpProtocolVersion || len(initialized.Capabilities.Tools) == 0 || string(initialized.Capabilities.Tools) == "null" {
+	if err != nil || !mcpProtocolAccepted(initialized.Protocol) || len(initialized.Capabilities.Tools) == 0 || string(initialized.Capabilities.Tools) == "null" {
 		return nil, ErrUpstreamDown
 	}
 	resp, err = c.probeRequest(ctx, prof, key, session, http.MethodPost, []byte(`{"jsonrpc":"2.0","method":"notifications/initialized"}`), modelAuthBearer)

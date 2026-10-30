@@ -56,9 +56,11 @@ type OutputData struct {
 
 // AuditData 是出站审计摘要，不含认证头或正文。
 type AuditData struct {
-	Target string `json:"target"` // 主机名，不包含 URL 查询串
-	Tool   string `json:"tool"`
-	Result string `json:"result"` // allowed、denied 或 failed
+	Target       string `json:"target"` // 主机名，不包含 URL 查询串
+	Tool         string `json:"tool"`
+	Result       string `json:"result"` // allowed、denied 或 failed
+	InputTokens  int64  `json:"inputTokens,omitempty"`
+	OutputTokens int64  `json:"outputTokens,omitempty"`
 }
 
 // PermissionNeeded 是扩权挂起载荷（不含密钥）。

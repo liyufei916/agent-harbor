@@ -80,6 +80,11 @@ func (d *deadlineReader) Read(p []byte) (int, error) {
 // relayResponse 把上游响应写给沙箱，并抹掉已知密钥。
 // 首字节超时且尚未写出时返回错误，调用方可以改成 504。
 func relayResponse(w http.ResponseWriter, resp *http.Response, secrets []string, idle, total time.Duration) error {
+	return relayResponseScan(w, resp, secrets, idle, total, nil)
+}
+
+// relayResponseScan 同 relayResponse；scan 非空时旁路扫描明文块中的 usage（不改写出内容）。
+func relayResponseScan(w http.ResponseWriter, resp *http.Response, secrets []string, idle, total time.Duration, scan *usageScanner) error {
 	defer resp.Body.Close()
 	reader := &deadlineReader{
 		r:        resp.Body,
@@ -97,6 +102,9 @@ func relayResponse(w http.ResponseWriter, resp *http.Response, secrets []string,
 	scrubHeaders(w.Header(), secrets)
 	w.WriteHeader(resp.StatusCode)
 	if n > 0 {
+		if scan != nil {
+			scan.Push(buf[:n])
+		}
 		if err := writeAll(w, red.Push(buf[:n])); err != nil {
 			return err
 		}
@@ -110,6 +118,9 @@ func relayResponse(w http.ResponseWriter, resp *http.Response, secrets []string,
 		}
 		n, err = reader.Read(buf)
 		if n > 0 {
+			if scan != nil {
+				scan.Push(buf[:n])
+			}
 			if werr := writeAll(w, red.Push(buf[:n])); werr != nil {
 				return werr
 			}
@@ -168,8 +179,12 @@ func (s *statusWriter) Flush() {
 }
 
 func writeRelay(w http.ResponseWriter, resp *http.Response, secrets []string, idle, total time.Duration) error {
+	return writeRelayScan(w, resp, secrets, idle, total, nil)
+}
+
+func writeRelayScan(w http.ResponseWriter, resp *http.Response, secrets []string, idle, total time.Duration, scan *usageScanner) error {
 	sw := &statusWriter{ResponseWriter: w}
-	err := relayResponse(sw, resp, secrets, idle, total)
+	err := relayResponseScan(sw, resp, secrets, idle, total, scan)
 	if err != nil && !sw.wrote {
 		status := streamTimeoutStatus(err)
 		msg := "upstream unavailable"
