@@ -32,13 +32,51 @@ type Kit struct {
 
 var _ kits.Kit = (*Kit)(nil)
 
+// DefaultInstallation is the path written by scripts/install-dsh.sh with no custom target.
+// Empty when $HOME cannot be resolved.
+func DefaultInstallation() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	return filepath.Join(home, ".local", "share", "agent-harbor", "dsh-"+SupportedVersion)
+}
+
+// DefaultNode is the bundled Node binary under an install root (Darwin arm64 layout).
+func DefaultNode(installation string) string {
+	if installation == "" {
+		return ""
+	}
+	return filepath.Join(installation, "node-"+SupportedNodeVersion+"-darwin-arm64", "bin", "node")
+}
+
+// ResolvePaths fills empty node/installation from the default install layout so a
+// packaged desktop app can Detect without HARBOR_DSH_* in the process environment.
+// Explicit non-empty values are kept (custom installs still use env/CLI).
+func ResolvePaths(node, installation string) (string, string) {
+	installation = strings.TrimSpace(installation)
+	node = strings.TrimSpace(node)
+	if installation == "" {
+		installation = DefaultInstallation()
+	}
+	if node == "" || node == "node" {
+		if bundled := DefaultNode(installation); bundled != "" {
+			if _, err := os.Stat(bundled); err == nil {
+				return bundled, installation
+			}
+		}
+		if node == "" {
+			node = "node"
+		}
+	}
+	return node, installation
+}
+
 func New(node, installation, model string) (*Kit, error) {
 	if strings.TrimSpace(model) == "" || len(model) > 256 || strings.ContainsAny(model, "\x00\r\n") {
 		return nil, kitError("INVALID_ARGUMENT")
 	}
-	if node == "" {
-		node = "node"
-	}
+	node, installation = ResolvePaths(node, installation)
 	return &Kit{node: node, installation: installation, model: model}, nil
 }
 

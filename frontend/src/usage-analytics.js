@@ -428,16 +428,16 @@ export function estimateCostStatus() {
   }
   if (prices.length === 0) {
     return {
-      status: inputTokens || outputTokens ? "有 token、未配置单价" : "未配置单价",
+      status: inputTokens || outputTokens ? "有 token · 先填单价" : "先填单价",
       detail: inputTokens || outputTokens
-        ? `已采集 in ${inputTokens} / out ${outputTokens} token；填写下方单价后可估算金额。`
-        : "在下方填写模型参考单价后，仅作估算口径；Gate 出站若带回 usage 会记入本机事件。",
+        ? `已采集 in ${inputTokens} / out ${outputTokens}；下方填参考单价即可粗算。`
+        : "下方填模型参考单价（CNY/USD 勿混）；跑一轮经 Gate 出站后才会有 token。",
     };
   }
   if (!(inputTokens > 0 || outputTokens > 0)) {
     return {
-      status: "未计价（缺 token）",
-      detail: `已保存 ${prices.length} 条单价快照；尚无 input/output token（新会话经 Gate 出站后才会写入）。会话样本 ${s.sessions}。`,
+      status: "有单价 · 先跑一轮",
+      detail: `已存 ${prices.length} 条单价；尚无 token。新会话经 Gate 出站写入 usage 后即可估算。会话样本 ${s.sessions}。`,
     };
   }
   const ccy = lockedPriceCurrency(prices);

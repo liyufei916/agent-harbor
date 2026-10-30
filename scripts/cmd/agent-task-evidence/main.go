@@ -147,11 +147,15 @@ func runOneAgent(api *desktop.DesktopAPI, ws string, agents []contracts.AgentInf
 			break
 		}
 		if st == contracts.StateFailed || st == contracts.StateStopped {
-			code := ""
+			code, msg := "", ""
 			if g.Session.Error != nil {
 				code = g.Session.Error.Code
+				msg = strings.TrimSpace(g.Session.Error.Message)
 			}
 			_ = api.DestroySession(sid)
+			if msg != "" {
+				return fmt.Sprintf("%s: 失败: 未进 running（%s %s: %s）", agentID, st, code, msg)
+			}
 			return fmt.Sprintf("%s: 失败: 未进 running（%s %s）", agentID, st, code)
 		}
 		time.Sleep(300 * time.Millisecond)
@@ -228,19 +232,32 @@ func pickModel(api *desktop.DesktopAPI, agentID string) string {
 }
 
 func modelFits(m contracts.AccountInfo, agentID string) bool {
-	if len(m.Agents) > 0 {
-		for _, a := range m.Agents {
-			if a == agentID {
-				return true
-			}
+	// 与 policy.AccountAllowsAgent 对齐：空 Agents 时 custom/demo→仅 claude，dsh-model→仅 dsh。
+	agents := append([]string(nil), m.Agents...)
+	if len(agents) == 0 {
+		switch m.ProfileID {
+		case "dsh-model":
+			agents = []string{"dsh"}
+		case "codex-model":
+			agents = []string{"codex"}
+		case "demo-model", "custom", "":
+			agents = []string{"claude"}
 		}
+	}
+	listed := false
+	for _, a := range agents {
+		if a == agentID {
+			listed = true
+			break
+		}
+	}
+	if !listed {
 		return false
 	}
 	switch agentID {
-	case "claude":
-		return m.ProfileID == "demo-model" || m.ProfileID == "custom" || contains(m.Protocols, "anthropic")
-	case "dsh":
-		return m.ProfileID == "dsh-model" || m.ProfileID == "custom" || contains(m.Protocols, "anthropic")
+	case "claude", "dsh":
+		return m.ProfileID == "dsh-model" || m.ProfileID == "demo-model" || m.ProfileID == "custom" ||
+			contains(m.Protocols, "anthropic") || len(m.Protocols) == 0
 	case "codex":
 		return m.ProfileID == "codex-model" || contains(m.Protocols, "openai-responses")
 	}

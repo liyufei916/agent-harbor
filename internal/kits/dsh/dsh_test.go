@@ -2,15 +2,55 @@ package dsh
 
 import (
 	"context"
-	"github.com/liyufei916/agent-harbor/internal/contracts"
-	"github.com/liyufei916/agent-harbor/internal/kits"
-	"github.com/liyufei916/agent-harbor/internal/runtime"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/liyufei916/agent-harbor/internal/contracts"
+	"github.com/liyufei916/agent-harbor/internal/kits"
+	"github.com/liyufei916/agent-harbor/internal/runtime"
 )
+
+func TestResolvePathsKeepsExplicit(t *testing.T) {
+	node, inst := ResolvePaths("/custom/bin/node", "/custom/dsh-root")
+	if node != "/custom/bin/node" || inst != "/custom/dsh-root" {
+		t.Fatalf("explicit paths changed: %q %q", node, inst)
+	}
+}
+
+func TestResolvePathsDefaultsWhenEmpty(t *testing.T) {
+	node, inst := ResolvePaths("", "")
+	wantInst := DefaultInstallation()
+	if inst != wantInst {
+		t.Fatalf("installation=%q want %q", inst, wantInst)
+	}
+	bundled := DefaultNode(wantInst)
+	if _, err := os.Stat(bundled); err == nil {
+		if node != bundled {
+			t.Fatalf("node=%q want bundled %q", node, bundled)
+		}
+		return
+	}
+	if node != "node" {
+		t.Fatalf("without install, node=%q want node", node)
+	}
+}
+
+func TestNewUsesDefaultInstallLayout(t *testing.T) {
+	bundled := DefaultNode(DefaultInstallation())
+	if _, err := os.Stat(bundled); err != nil {
+		t.Skip("本机未装默认 dsh 布局")
+	}
+	k, err := New("", "", "fixture-model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if k.node != bundled || k.installation != DefaultInstallation() {
+		t.Fatalf("got node=%q install=%q", k.node, k.installation)
+	}
+}
 
 func TestInstalledDSHBootstrap(t *testing.T) {
 	if os.Getenv("HARBOR_TEST_DSH") != "1" {

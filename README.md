@@ -83,11 +83,12 @@ wails3 task darwin:package   # macOS .app
 
 ---
 
-## 演示视频
+## 演示视频 / 截图
 
 | 内容 | 链接 |
 |---|---|
 | 产品演示（全量 PAGE / 工作台） | [agent-harbor-demo.mov](https://winterbd251225.qbox.net/agent-harbor-demo.mov) |
+| **亮点截图（mock）** | [demos/screenshots/](demos/screenshots/) |
 | mock 三分钟话术（可对照操作） | [demos/README.md · 三分钟 mock](demos/README.md#三分钟-mock-话术全量-page--d4) |
 | live 十分钟话术（I1/I2） | [demos/README.md · 十分钟 live](demos/README.md#十分钟-live-话术i1i2-评审向--p0-c-doc-2) |
 
@@ -120,7 +121,7 @@ go test -tags production,harbor_desktop -run TestNativeDesktopBindingsAndShutdow
 
 已接入官方 `@deepseek-ai/dsh@0.2.1-rc.2`，使用专用 Node `v26.12.1`。支持桌面选择 Agent、单任务、文件 Read/Write/Edit、Gate 模型流式调用、认证 MCP、停止清理和失败恢复。目标平台仍为非 root 的 Darwin 25 / arm64，不开放 Bash、子进程或插件安装。
 
-首次执行 `bash scripts/install-dsh.sh`，按 [dsh 安装、配置和验收](docs/DSH-INTEGRATION.md) 设置独立运行时路径和当前预置 profile 所需的 `HARBOR_DSH_MODEL_ORIGIN`、`HARBOR_DSH_MODEL`；上游有路径前缀时再设置 `HARBOR_DSH_MODEL_BASE_PATH`（DeepSeek 为 `/anthropic`）。桌面「模型」页选择 `DeepSeek dsh` 后连接 `dsh-model`；Key 仅在桌面输入，MCP 地址可在「工具」页配置。
+首次执行 `bash scripts/install-dsh.sh`（默认路径桌面会自动 Detect）；按 [dsh 安装、配置和验收](docs/DSH-INTEGRATION.md) 设置当前预置 profile 所需的 `HARBOR_DSH_MODEL_ORIGIN`、`HARBOR_DSH_MODEL`；上游有路径前缀时再设置 `HARBOR_DSH_MODEL_BASE_PATH`（DeepSeek 为 `/anthropic`）。自定义安装目录才需 `HARBOR_DSH_INSTALLATION` / `HARBOR_DSH_NODE`。桌面「模型」页选择 `DeepSeek dsh` 后连接 `dsh-model`；Key 仅在桌面输入，MCP 地址可在「工具」页配置。
 
 真实 dsh + 受控上游已完成文件/MCP、多轮运行、停止和认证故障恢复验证；真实 DeepSeek 账号与远程 MCP 验收仍待测试凭据。
 
@@ -224,7 +225,7 @@ HARBOR_NO_COMMIT=1 ./scripts/github-push.sh
 
 - 边界条常驻；扩权一句话「谁访什么」；三选一：拒绝 / 仅本次 / 本项目始终允许；**无「全网」**；亦可工作台主动 ask（主路径不依赖 302）。
 - 权限一览可撤销「本项目始终允许」；与设置「已记住的网站」同一数据。
-- 对话区过滤协议 JSON 后展示可读行（Claude stream-json / Codex app-server delta / dsh）；下方输入发下一轮；停止可询问是否清除隔离数据。
+- 对话区过滤协议 JSON 后展示可读行（Claude stream-json / Codex app-server delta / dsh `text-delta`·`final`）；下方输入发下一轮；停止可询问是否清除隔离数据。
 
 **隔离与状态灯**
 

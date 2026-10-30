@@ -17,8 +17,8 @@
 | 0–10 | 向导：工作区 → Agent → 模型 →（可跳过工具）→ 开始 | provisioning → running |
 | 10–35 | 任务：`在工作区根目录创建 SYNCBACK_DEMO.md，写入一行 harbor-syncback-ok，然后用一句话确认已写入。` | 对话区有助手输出；无 spawn EPERM；尽量无 tool_use_error |
 | 35–45 | **停止** | stopped / cleanupComplete |
-| 45–55 | **导回原文件夹** → 确认 | toast「已导回…」 |
-| 55–60 | 源目录终端（见下） | 文件存在且 grep 命中 |
+| 45–55 | **导回原文件夹** → 确认 | toast「已导回…（已在访达中显示）」；访达应定位到源目录 |
+| 55–60 | 源目录终端 / 访达（见下） | 文件存在且 grep 命中 |
 
 ```bash
 # SOURCE_WORKSPACE=你在向导里选的原目录（不是副本）

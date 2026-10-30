@@ -38,8 +38,7 @@
 
 ```bash
 bash scripts/install-dsh.sh
-export HARBOR_DSH_INSTALLATION="$HOME/.local/share/agent-harbor/dsh-0.2.1-rc.2"
-export HARBOR_DSH_NODE="$HARBOR_DSH_INSTALLATION/node-v26.12.1-darwin-arm64/bin/node"
+# 默认路径下桌面 Detect 会自动识别安装根与捆绑 Node，无需 export HARBOR_DSH_INSTALLATION / NODE
 export HARBOR_DSH_MODEL_ORIGIN='https://api.deepseek.com'
 export HARBOR_DSH_MODEL_BASE_PATH='/anthropic'
 export HARBOR_DSH_MODEL='替换为账号已批准的实际模型ID'
@@ -51,7 +50,7 @@ wails3 task darwin:package
 
 以上不包含密钥。模型 Key 和 MCP Token 在桌面配置页录入，重启需重新连接。官方地址只是配置示例，连接按钮会向所登记服务发送探测请求（可能计费）；测试前登记实际模型与只读 MCP 组合。origin 只含协议、主机和可选端口，不可把 `/anthropic` 放进 origin；Gate 仅接受固定 `/v1/messages` 并在宿主添加前缀。
 
-安装器也接受新目录参数 `bash scripts/install-dsh.sh /绝对路径/专用目录`；相应替换两个路径变量。目标已存在时拒绝覆盖，安装失败后保留目录供诊断，重试使用另一个专用路径。不能把安装目录设为工作区、HOME、全局 node_modules 或敏感目录。`HARBOR_DSH_NODE` 必须指向固定版 Node 文件，不能指向 shell wrapper。
+安装器也接受新目录参数 `bash scripts/install-dsh.sh /绝对路径/专用目录`；自定义目录时须 export `HARBOR_DSH_INSTALLATION` / `HARBOR_DSH_NODE`（或从打印输出复制）。目标已存在时拒绝覆盖，安装失败后保留目录供诊断，重试使用另一个专用路径。不能把安装目录设为工作区、HOME、全局 node_modules 或敏感目录。`HARBOR_DSH_NODE` 必须指向固定版 Node 文件，不能指向 shell wrapper。
 
 更新 dsh 时必须一起更新 Kit 的版本常量、安装依赖锁和官方 profile 配置，并重新执行真实 CLI 和隔离测试。预览版源码与 npm 发布版不总是一致，不能仅凭最新源码升级插件列表。
 
@@ -60,10 +59,10 @@ wails3 task darwin:package
 通用准备、证据记录、安全与退出用例见 [完整人工测试手册](archive/MANUAL-INTEGRATION-TEST.md)。以下步骤补充 dsh 特有差异；尚未执行的真实远程用例不得标为通过。
 
 1. 创建不含真实项目或密钥的专用工作区，写入 `input.txt`，内容 `HARBOR-DSH-INPUT`；工作区不能包含 dsh 安装目录。记下实际批准的 MCP 工具名、输入 schema、预期只读返回。
-2. 从上述终端启动新构建应用。顶栏必须显示“真实绑定”，在“执行 Agent”选择 `DeepSeek dsh`，点击“重新检测”；预期显示 `0.2.1-rc.2`、可用，模型 profile 为只读的 `dsh-model`。未安装或版本不支持时不可开始。
+2. 启动新构建应用（默认安装路径下**无需**先 export `HARBOR_DSH_INSTALLATION` / `NODE`）。顶栏必须显示“真实绑定”，在“执行 Agent”选择 `DeepSeek dsh`，点击“重新检测”；预期显示 `0.2.1-rc.2`、可用，模型 profile 为只读的 `dsh-model`。未安装或版本不支持时不可开始。
 3. 在模型卡片输入显示名和真实模型 Key，点“连接模型”；成功后输入清空。MCP 卡片输入 Token 并连接，须得到真实工具清单；认证失败不能保存候选账号。配置缺失时应拒绝连接，不能自动访问默认供应商。
 4. 选择测试工作区，替换默认 mock 任务为：`读取 input.txt；创建 result.txt，写入 HARBOR-DSH-FILE-OK；将其中 FILE 改为 EDIT；只调用已批准的 MCP 工具 <实际工具名>，参数为 <按 schema 填入非敏感参数>；最后概括文件内容和工具返回。不要使用 shell、安装插件或访问其它目录。`
-5. 点击“开始运行”，检查状态、文本输出、模型和 MCP allowed 审计。核对真实文件最终为 `HARBOR-DSH-EDIT-OK`，工具返回与预期一致，终态 `stopped` 且 `cleanupComplete=true`。dsh 输出为逐行 JSON 文本，不提供交互终端。仅出现 running 或 Agent 自称成功不能算通过。
+5. 点击“开始运行”，检查状态、对话区可读输出（须见「DeepSeek dsh 会话就绪」及流式/`final` 正文，而非空白仅有审计计数）、模型和 MCP allowed 审计。核对真实文件最终为 `HARBOR-DSH-EDIT-OK`，工具返回与预期一致，终态 `stopped` 且 `cleanupComplete=true`。底层仍为 conversation JSONL，工作台经 `stream-display` 过滤后展示。仅出现 running 或 Agent 自称成功不能算通过。
 6. 原目录再做一轮不同内容任务，确认新 session、文件改变及新工具调用，证明清理后可再次运行。任务过程中停止，确认 `cleanupComplete=true` 后才能再次开始，停止应取消正在转发的模型请求。
 7. 终态后从 dsh 切到 Claude：模型连接引用和未提交 Key 应清空，profile 切回 `demo-model`，工作区/MCP 保留。切回 dsh 仍需重连模型；账号不能跨 Agent 误用。只有登记了 Claude 上游且通过版本检测才能执行 Claude 真实任务。
 8. 停止应用，重启验证真实密钥没有持久保存。按照通用手册继续测试敏感路径/符号链接、未授权网络、认证撤销、异常退出和无残留进程；不在授权目录内放真实敏感数据进行攻击测试。

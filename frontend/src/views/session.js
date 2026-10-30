@@ -582,7 +582,14 @@ export function mountSession(root, ctx) {
           ctx.state.lastSnapshot = res.session;
           renderSnapshot(res.session);
         }
-        showToast("已导回原文件夹：请到源目录确认新文件/改动", "ok");
+        const destHint = dest ? `：${dest}` : "";
+        showToast(
+          api.isMock()
+            ? `已导回原文件夹（模拟）${destHint}`
+            : `已导回原文件夹${destHint}（已在访达中显示）`,
+          "ok",
+          { durationMs: 6000 },
+        );
         if (els.hint) {
           els.hint.classList.remove("hidden");
           els.hint.textContent =
@@ -659,7 +666,17 @@ export function mountSession(root, ctx) {
             );
             if (!still) return;
           } else {
-            showToast("已导回原文件夹：请到源目录确认新文件/改动", "ok");
+            const src =
+              syncRes.session?.sourceWorkspace ||
+              ctx.state.lastSnapshot?.sourceWorkspace ||
+              "";
+            showToast(
+              api.isMock()
+                ? `已导回原文件夹（模拟）${src ? `：${src}` : ""}`
+                : `已导回原文件夹${src ? `：${src}` : ""}（已在访达中显示）`,
+              "ok",
+              { durationMs: 6000 },
+            );
           }
         }
       }

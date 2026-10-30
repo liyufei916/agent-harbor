@@ -430,7 +430,7 @@ type Runtime interface {
 | StopSession | 返回 stopping，事件报清理 | 终态幂等；未知 → `SESSION_NOT_FOUND` |
 | ListSessions | 本应用生命周期内会话摘要 | 含终态直至 Destroy；空 `[]` |
 | DestroySession | 移除终态会话记录 | 非 stopped/failed 或 cleanupComplete=false → `INVALID_ARGUMENT`；未知 → `SESSION_NOT_FOUND`；并删除停止后保留的 clone 副本 |
-| SyncBackWorkspace | 将 clone 副本合并写回 `sourceWorkspace` | 仅 `mountMode=clone`；覆盖同名常规文件，不删原目录多余项；无副本/direct → `INVALID_ARGUMENT`；未知 → `SESSION_NOT_FOUND` |
+| SyncBackWorkspace | 将 clone 副本合并写回 `sourceWorkspace` | 仅 `mountMode=clone`；覆盖同名常规文件，不删原目录多余项；成功后桌面在访达中显示源目录；无副本/direct → `INVALID_ARGUMENT`；未知 → `SESSION_NOT_FOUND` |
 | GetRuntimeHealth | 隔离/Runtime 探测 | available=false 时 reason 必填；可选 `vaultNotice` 提示凭据介质告警；不因此自动放行无隔离启动 |
 | GetPermissionOverview | 只读边界摘要 | 无 Key/Sentinel/完整 Gate URL；sessionId 空则返回「默认/全局」允许摘要（无工作区时 workspace=""） |
 | ListRememberedHosts | 已记住主机 | workspace 空=全部；与设置「管理网站」同源 |

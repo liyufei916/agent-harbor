@@ -1,6 +1,6 @@
 /**
  * 把 Agent 协议 JSON 压成可读行；非 JSON 原样透出。
- * 支持 Claude --print stream-json 与 Codex exec --json。
+ * 支持 Claude --print stream-json、Codex exec/app-server JSON、dsh conversation JSONL。
  */
 
 /** 将 Agent 英文工具错误压成可操作中文（不含 Key）。 */
@@ -161,8 +161,43 @@ function formatCodexEvent(obj, state) {
   return null;
 }
 
+/** dsh harbor-conversation.mjs：ready / text-delta / final / error */
+function formatDshEvent(obj, state) {
+  const type = obj.type;
+  if (type === "ready") {
+    return `● DeepSeek dsh 会话就绪\r\n`;
+  }
+  if (type === "text-delta" && obj.text) {
+    state.streaming = true;
+    return String(obj.text);
+  }
+  if (type === "reasoning-delta") {
+    return "";
+  }
+  if (type === "final") {
+    const streamed = state.streaming;
+    state.streaming = false;
+    if (streamed) {
+      return `\r\n—— 本轮结束\r\n`;
+    }
+    const text = obj.text != null ? String(obj.text).trim() : "";
+    if (text) {
+      return `${text}\r\n—— 本轮结束\r\n`;
+    }
+    return `—— 本轮结束\r\n`;
+  }
+  if (type === "error" && obj.message) {
+    const suffix = state.streaming ? "\r\n" : "";
+    state.streaming = false;
+    return `${suffix}✗ ${String(obj.message).slice(0, 240)}\r\n`;
+  }
+  return null;
+}
+
 function formatEvent(obj, state) {
   if (!obj || typeof obj !== "object") return "";
+  const dsh = formatDshEvent(obj, state);
+  if (dsh != null) return dsh;
   const claude = formatClaudeEvent(obj);
   if (claude != null) return claude;
   const codex = formatCodexEvent(obj, state);

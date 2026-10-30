@@ -191,13 +191,16 @@ func (d *DesktopAPI) DestroySession(sessionID string) contracts.SessionResponse 
 	return contracts.SessionResponse{Session: &snap}
 }
 
-// SyncBackWorkspace 将 clone 副本合并写回原工作区。
+// SyncBackWorkspace 将 clone 副本合并写回原工作区；成功后在访达中显示源目录。
 func (d *DesktopAPI) SyncBackWorkspace(sessionID string) contracts.SessionResponse {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	snap, err := d.app.sessionRef().SyncBack(ctx, sessionID)
 	if err != nil {
 		return contracts.SessionResponse{Error: mapError(err)}
+	}
+	if src := strings.TrimSpace(snap.SourceWorkspace); src != "" {
+		revealInFileManager(src)
 	}
 	return contracts.SessionResponse{Session: &snap}
 }
