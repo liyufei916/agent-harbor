@@ -64,7 +64,8 @@ func (s *SystemDocker) Health(ctx context.Context) (Status, error) {
 	}
 	probeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	if _, err := s.run(probeCtx, "docker", "info", "--format", "{{.ServerVersion}}"); err != nil {
+	out, err := s.run(probeCtx, "docker", "info", "--format", "{{.ServerVersion}}")
+	if err != nil || strings.TrimSpace(out) == "" {
 		return Status{
 			Ready:   false,
 			Source:  SourceSystemDocker,

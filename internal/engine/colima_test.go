@@ -100,8 +100,9 @@ func TestColimaStartIdempotentWhenHealthy(t *testing.T) {
 	if os.Getenv("DOCKER_HOST") == "" {
 		t.Fatal("expected DOCKER_HOST applied")
 	}
-	if !strings.HasPrefix(os.Getenv("PATH"), bin+string(os.PathListSeparator)) && os.Getenv("PATH") != bin {
-		t.Fatalf("engine bin not prepended to PATH: %s", os.Getenv("PATH"))
+	path := os.Getenv("PATH")
+	if !strings.HasPrefix(path, bin+string(os.PathListSeparator)) && path != bin {
+		t.Fatalf("engine bin not prepended to PATH: %s", path)
 	}
 	if len(calls) < 1 {
 		t.Fatal("expected health probe")
@@ -125,7 +126,9 @@ func TestApplyDockerHostPrependsBinPATH(t *testing.T) {
 	if err := c.ApplyDockerHost(); err != nil {
 		t.Fatal(err)
 	}
-	want := bin + string(os.PathListSeparator) + "/usr/bin"
+	limaBin := filepath.Join(root, "lima", "bin")
+	sep := string(os.PathListSeparator)
+	want := bin + sep + limaBin + sep + "/usr/bin"
 	if os.Getenv("PATH") != want {
 		t.Fatalf("PATH=%q want %q", os.Getenv("PATH"), want)
 	}
@@ -135,6 +138,29 @@ func TestApplyDockerHostPrependsBinPATH(t *testing.T) {
 	}
 	if os.Getenv("PATH") != want {
 		t.Fatalf("PATH grew on second apply: %s", os.Getenv("PATH"))
+	}
+}
+
+func TestColimaHealthRejectsEmptyDockerInfo(t *testing.T) {
+	root := t.TempDir()
+	bin := filepath.Join(root, "bin")
+	_ = os.MkdirAll(bin, 0700)
+	for _, name := range []string{"colima", "docker", "limactl"} {
+		_ = os.WriteFile(filepath.Join(bin, name), []byte("x"), 0755)
+	}
+	c := NewColima()
+	c.Root = root
+	c.lookPath = func(string) (string, error) { return "", errors.New("x") }
+	c.run = func(context.Context, string, []string, []string) (string, error) {
+		// Simulate pinned docker CLI: exit 0, empty stdout, daemon down.
+		return "", nil
+	}
+	st, err := c.Health(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Ready {
+		t.Fatal("empty ServerVersion must not be Ready")
 	}
 }
 

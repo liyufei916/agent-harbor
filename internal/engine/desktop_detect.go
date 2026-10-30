@@ -5,12 +5,16 @@ import (
 	"path/filepath"
 )
 
-// DockerDesktopInstalled reports whether Docker Desktop.app is present (macOS).
-// Used for UI copy: missing Desktop → recommend one-click Harbor Colima install.
+// DockerDesktopInstalled reports whether Docker Desktop appears available (macOS).
+// Checks the .app bundle and the Desktop CLI socket (App 可能已装/在跑但路径非标准).
 func DockerDesktopInstalled() bool {
 	candidates := []string{"/Applications/Docker.app"}
 	if home, err := os.UserHomeDir(); err == nil && home != "" {
 		candidates = append(candidates, filepath.Join(home, "Applications", "Docker.app"))
+		sock := filepath.Join(home, ".docker", "run", "docker.sock")
+		if st, err := os.Stat(sock); err == nil && !st.IsDir() {
+			return true
+		}
 	}
 	for _, p := range candidates {
 		st, err := os.Stat(p)

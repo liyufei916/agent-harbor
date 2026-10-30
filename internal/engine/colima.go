@@ -170,7 +170,7 @@ func (c *Colima) waitDocker(ctx context.Context) error {
 			return ctx.Err()
 		}
 		probeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		_, err := c.run(probeCtx, docker, []string{"info", "--format", "{{.ServerVersion}}"}, c.dockerEnv())
+		_, err := dockerInfoVersion(probeCtx, c.run, docker, c.dockerEnv())
 		cancel()
 		if err == nil {
 			c.report(92, "Docker daemon 已就绪")
@@ -213,11 +213,11 @@ func (c *Colima) Health(ctx context.Context) (Status, error) {
 	}
 	probeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	if _, err := c.run(probeCtx, docker, []string{"info", "--format", "{{.ServerVersion}}"}, c.dockerEnv()); err != nil {
+	if _, err := dockerInfoVersion(probeCtx, c.run, docker, c.dockerEnv()); err != nil {
 		return Status{
 			Ready:      false,
 			Source:     SourceHarborColima,
-			Message:    "Harbor Colima 未运行或 daemon 不可用。请点「启用容器引擎」。",
+			Message:    "Harbor Colima 未运行或 daemon 不可用。请点「重新启用 Colima」。",
 			DockerHost: c.DockerHost(),
 		}, nil
 	}
@@ -244,22 +244,26 @@ func (c *Colima) ApplyDockerHost() error {
 }
 
 func (c *Colima) prependBinToPATH() {
-	bin := c.binDir()
-	if bin == "" {
-		return
-	}
-	cur := os.Getenv("PATH")
 	sep := string(os.PathListSeparator)
-	for _, p := range strings.Split(cur, sep) {
-		if p == bin {
-			return
+	extra := []string{c.binDir(), filepath.Join(c.root(), "lima", "bin")}
+	cur := os.Getenv("PATH")
+	parts := []string{}
+	seen := map[string]bool{}
+	for _, p := range extra {
+		if p == "" || seen[p] {
+			continue
 		}
+		seen[p] = true
+		parts = append(parts, p)
 	}
-	if cur == "" {
-		_ = os.Setenv("PATH", bin)
-		return
+	for _, p := range strings.Split(cur, sep) {
+		if p == "" || seen[p] {
+			continue
+		}
+		seen[p] = true
+		parts = append(parts, p)
 	}
-	_ = os.Setenv("PATH", bin+sep+cur)
+	_ = os.Setenv("PATH", strings.Join(parts, sep))
 }
 
 var _ Engine = (*Colima)(nil)

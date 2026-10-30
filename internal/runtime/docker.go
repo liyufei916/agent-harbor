@@ -112,7 +112,9 @@ func (r *Docker) Health(ctx context.Context) error {
 	}
 	probeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	if _, err := r.runner.Run(probeCtx, "info", "--format", "{{.ServerVersion}}"); err != nil {
+	ver, err := r.runner.Run(probeCtx, "info", "--format", "{{.ServerVersion}}")
+	// 部分钉扎 docker CLI 在 daemon 不可达时仍 exit 0 且 stdout 为空；必须校验版本非空。
+	if err != nil || strings.TrimSpace(ver) == "" {
 		return isolationUnavailable("Docker daemon 不可用，已拒绝启动。")
 	}
 	if err := r.ensureHarborNetwork(ctx); err != nil {

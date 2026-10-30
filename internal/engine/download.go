@@ -199,6 +199,17 @@ func (c *Colima) installArtifact(ctx context.Context, fetch fetchFunc, a pinnedA
 					return errEngine("无法安装 " + a.Name + "。")
 				}
 			}
+			// Colima 依赖 PATH 上的 `lima`（不仅是 limactl）。
+			if a.Name == "limactl" {
+				limaSrc := filepath.Join(prefix, "bin", "lima")
+				limaDest := filepath.Join(c.binDir(), "lima")
+				_ = os.Remove(limaDest)
+				if err := os.Symlink(limaSrc, limaDest); err != nil {
+					if data, rerr := os.ReadFile(limaSrc); rerr == nil {
+						_ = os.WriteFile(limaDest, data, 0755)
+					}
+				}
+			}
 			break
 		}
 		if err := extractTarGzMember(rawPath, a.Member, dest); err != nil {
