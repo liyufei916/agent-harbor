@@ -81,32 +81,35 @@ export function mountSettings(root, ctx) {
 
     <section class="card" style="margin-top:12px">
       <h3>隔离后端（P2）</h3>
-      <p class="meta">默认 Seatbelt。切到「容器隔离」时会<strong>自动启用</strong> Harbor Colima（无需 Docker Desktop；可改「本机 Docker」）。<strong>更改后端后需重启应用</strong>；<code>HARBOR_RUNTIME</code> 优先于本选项。</p>
+      <p class="meta">二选一：<strong>Seatbelt</strong>（P1 默认，macOS 沙箱）或 <strong>容器隔离</strong>（P2，一会话一容器）。Colima / 本机 Docker 只是容器隔离的<strong>引擎</strong>，选 Seatbelt 时不必选引擎。<strong>改后端后需重启</strong>；<code>HARBOR_RUNTIME</code> 优先。</p>
       <label class="field">后端
         <select id="set-isolation-backend">
           <option value="seatbelt">Seatbelt（P1 · 默认）</option>
           <option value="docker">容器隔离（P2）</option>
         </select>
       </label>
-      <label class="field">容器引擎来源
-        <select id="set-engine-source">
-          <option value="harbor-colima">Harbor 托管 Colima（推荐）</option>
-          <option value="system-docker">本机已有 Docker（高级）</option>
-        </select>
-      </label>
-      <p class="meta" id="engine-desktop-status" role="status">Docker Desktop：检测中…</p>
-      <p class="meta" id="engine-health-status" role="status">引擎状态：—</p>
-      <div class="engine-progress" id="engine-progress" aria-live="polite">
-        <div class="engine-progress-track">
-          <div class="engine-progress-bar" id="engine-progress-bar"></div>
+      <div id="engine-panel" class="engine-panel" hidden>
+        <p class="meta">容器隔离需要 Docker API 兼容 daemon：默认由 Harbor 托管 Colima（无需 Desktop）；高级用户可改用本机已有 Docker。</p>
+        <label class="field">容器引擎来源
+          <select id="set-engine-source">
+            <option value="harbor-colima">Harbor 托管 Colima（推荐）</option>
+            <option value="system-docker">本机已有 Docker（高级）</option>
+          </select>
+        </label>
+        <p class="meta" id="engine-desktop-status" role="status">Docker Desktop：检测中…</p>
+        <p class="meta" id="engine-health-status" role="status">引擎状态：—</p>
+        <div class="engine-progress" id="engine-progress" aria-live="polite">
+          <div class="engine-progress-track">
+            <div class="engine-progress-bar" id="engine-progress-bar"></div>
+          </div>
+          <p class="meta engine-progress-label" id="engine-progress-label">0%</p>
         </div>
-        <p class="meta engine-progress-label" id="engine-progress-label">0%</p>
+        <div class="actions">
+          <button type="button" class="btn" id="btn-engine-health">检测引擎</button>
+          <button type="button" class="btn primary" id="btn-engine-ensure">一键安装并启用</button>
+        </div>
+        <p class="meta" id="engine-action-status">未装 Docker Desktop 时可一键安装 Harbor 托管引擎（约数十 MB，显示进度）。</p>
       </div>
-      <div class="actions">
-        <button type="button" class="btn" id="btn-engine-health">检测引擎</button>
-        <button type="button" class="btn primary" id="btn-engine-ensure">一键安装并启用</button>
-      </div>
-      <p class="meta" id="engine-action-status">未装 Docker Desktop 时可一键安装 Harbor 托管引擎（约数十 MB，显示进度）。</p>
     </section>
 
     <section class="card" style="margin-top:12px">
@@ -341,6 +344,14 @@ export function mountSettings(root, ctx) {
     }
   }
 
+  function syncEnginePanel(backend) {
+    const panel = root.querySelector("#engine-panel");
+    const docker = normalizeIsolationBackend(backend) === "docker";
+    if (!panel) return;
+    if (docker) panel.removeAttribute("hidden");
+    else panel.setAttribute("hidden", "");
+  }
+
   async function refreshEngineHealth() {
     const h = await api.getContainerEngineHealth();
     paintEngineHealth(h);
@@ -362,11 +373,15 @@ export function mountSettings(root, ctx) {
     const tierEl = root.querySelector("#set-security-tier");
     if (tierEl) tierEl.value = normalizeTierPref(prefs.securityTier);
     const isoEl = root.querySelector("#set-isolation-backend");
-    if (isoEl) isoEl.value = normalizeIsolationBackend(prefs.isolationBackend);
+    const backend = normalizeIsolationBackend(prefs.isolationBackend);
+    if (isoEl) isoEl.value = backend;
     const engEl = root.querySelector("#set-engine-source");
     if (engEl) engEl.value = normalizeEngineSource(prefs.engineSource);
     syncClearDefaultEnabled();
-    refreshEngineHealth().catch(() => paintEngineHealth(null));
+    syncEnginePanel(backend);
+    if (backend === "docker") {
+      refreshEngineHealth().catch(() => paintEngineHealth(null));
+    }
   }
 
   async function savePrefs() {
@@ -401,6 +416,7 @@ export function mountSettings(root, ctx) {
     ctx.state.uiPrefs = res.prefs || prefs;
     ctx.applyUIPrefs?.(ctx.state.uiPrefs);
     syncClearDefaultEnabled();
+    syncEnginePanel(nextBackend);
     paintRunMode(nextBackend);
 
     // M4：切到容器隔离时自动一键安装（无感路径；失败仍 fail-closed）。
