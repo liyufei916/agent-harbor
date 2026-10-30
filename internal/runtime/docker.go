@@ -258,6 +258,7 @@ func (r *Docker) createArgs(home, workspace string, readOnly []string, mounts ma
 		"--label", "agent-harbor=1",
 		"--label", "agent-harbor.runtime=docker",
 		"--user", "65534:65534",
+		"--init", // tini: reap zombies from Agent child tools
 		"--cap-drop", "ALL",
 		"--security-opt", "no-new-privileges",
 		"--read-only",

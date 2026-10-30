@@ -144,6 +144,9 @@ func TestDockerCreateDestroyAndExecUnsupported(t *testing.T) {
 			if !strings.Contains(joined, "--cap-drop ALL") {
 				t.Fatal("want cap-drop ALL")
 			}
+			if !strings.Contains(joined, "--init") {
+				t.Fatal("want --init for zombie reaping")
+			}
 			return "cid-abc", nil
 		},
 	}

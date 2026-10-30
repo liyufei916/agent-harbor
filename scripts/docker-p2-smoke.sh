@@ -28,6 +28,7 @@ cid="$(docker create --rm \
   --add-host harbor.gate:host-gateway \
   --add-host host.docker.internal:127.0.0.1 \
   --user 65534:65534 \
+  --init \
   --cap-drop ALL \
   --security-opt no-new-privileges \
   --read-only \
