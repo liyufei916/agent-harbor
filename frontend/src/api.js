@@ -109,9 +109,13 @@ async function call(method, ...args) {
       method === "revokeRememberedHost" ||
       method === "resolvePermission" ||
       method === "promptPermission" ||
+      method === "saveTextFile" ||
       method === "getUIPrefs" ||
       method === "setUIPrefs"
     ) {
+      if (method === "saveTextFile") {
+        return { path: "", cancelled: false, error: wrapTransportError(e) };
+      }
       return { error: wrapTransportError(e) };
     }
     return { session: null, error: wrapTransportError(e) };
@@ -190,6 +194,9 @@ export function resolvePermission(input) {
 }
 export function promptPermission(input) {
   return call("promptPermission", input);
+}
+export function saveTextFile(input) {
+  return call("saveTextFile", input);
 }
 export function getUIPrefs() {
   return call("getUIPrefs");

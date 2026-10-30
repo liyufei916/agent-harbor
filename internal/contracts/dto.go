@@ -217,6 +217,20 @@ type EmptyResponse struct {
 	Error *AppError `json:"error"`
 }
 
+// SaveTextFileInput 经系统另存为面板写入本机文本（导出脱敏 JSON 等）。
+type SaveTextFileInput struct {
+	SuggestedName string `json:"suggestedName"`
+	Content       string `json:"content"`
+	Reveal        bool   `json:"reveal,omitempty"` // 保存后在访达/资源管理器中显示
+}
+
+// SaveFileResponse 是另存为结果。
+type SaveFileResponse struct {
+	Path      string    `json:"path,omitempty"`
+	Cancelled bool      `json:"cancelled"`
+	Error     *AppError `json:"error"`
+}
+
 // DesktopAPI 是绑定到桌面的业务方法集合。实现在 desktop 包，不在本包执行 IO。
 type DesktopAPI interface {
 	ListAgents() AgentsResponse
@@ -246,6 +260,7 @@ type DesktopAPI interface {
 	CancelMcpOAuth(pendingID string) EmptyResponse
 	WritePty(PtyInput) EmptyResponse
 	ResizePty(PtyInput) EmptyResponse
+	SaveTextFile(SaveTextFileInput) SaveFileResponse
 }
 
 // SwitchModelInput 切换会话当前模型（影响之后出站）。

@@ -54,7 +54,7 @@ export function mountRecords(root, ctx, opts = {}) {
 
     root.innerHTML = `
       <h2>记录</h2>
-      <p class="sub">仅存本机，不外传。导出为脱敏 JSON（会话 ID 截断）。</p>
+      <p class="sub">仅存本机，不外传。导出为脱敏 JSON（会话 ID 截断）；桌面会弹出「另存为」并在访达中显示文件。</p>
 
       <div class="row records-tabs" role="tablist" style="gap:8px;margin:12px 0;flex-wrap:wrap">
         <button type="button" class="btn ${tab === "usage" ? "primary" : ""}" data-tab="usage" role="tab">用量</button>
@@ -168,17 +168,47 @@ export function mountRecords(root, ctx, opts = {}) {
       paint();
       showToast("已清除本机记录", "ok");
     });
-    root.querySelector("#rec-export")?.addEventListener("click", () => {
+    root.querySelector("#rec-export")?.addEventListener("click", async () => {
       const bundle = exportUsageBundle();
-      const blob = new Blob([JSON.stringify(bundle, null, 2)], {
-        type: "application/json",
-      });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `harbor-records-${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      showToast("已导出脱敏 JSON", "ok");
+      const name = `harbor-records-${Date.now()}.json`;
+      const text = JSON.stringify(bundle, null, 2);
+      // 优先 SaveTextFile：live=系统另存为+访达显示；mock=下载并提示「下载」文件夹
+      if (typeof api.saveTextFile === "function") {
+        try {
+          const res = await api.saveTextFile({
+            suggestedName: name,
+            content: text,
+            reveal: !api.isMock(),
+          });
+          if (res?.cancelled) {
+            showToast("已取消导出", "");
+            return;
+          }
+          if (res?.error) {
+            showToast(
+              `${res.error.code || "错误"}: ${res.error.message || "导出失败"}`,
+              "bad",
+            );
+            return;
+          }
+          if (api.isMock()) {
+            showToast(
+              `已下载 ${name}。请打开 Finder → 边栏「下载」（或 ~/Downloads）。`,
+              "ok",
+              { durationMs: 9000 },
+            );
+            return;
+          }
+          showToast(`已保存并在访达中显示：${res?.path || name}`, "ok", {
+            durationMs: 9000,
+          });
+          return;
+        } catch (e) {
+          showToast(e?.message || "导出失败", "bad");
+          return;
+        }
+      }
+      showToast("当前通道未绑定 SaveTextFile，请重新生成绑定后再导出", "bad");
     });
     root.querySelector("#price-add")?.addEventListener("click", () => {
       const model = root.querySelector("#price-model")?.value?.trim();

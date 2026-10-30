@@ -2,6 +2,10 @@ package desktop
 
 import (
 	"context"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -442,4 +446,62 @@ func (d *DesktopAPI) ResizePty(in contracts.PtyInput) contracts.EmptyResponse {
 		return contracts.EmptyResponse{Error: mapError(err)}
 	}
 	return contracts.EmptyResponse{}
+}
+
+// SaveTextFile 弹出系统另存为；可选在访达中显示已保存文件。
+func (d *DesktopAPI) SaveTextFile(in contracts.SaveTextFileInput) contracts.SaveFileResponse {
+	name := strings.TrimSpace(in.SuggestedName)
+	if name == "" || strings.ContainsAny(name, `/\`) || len(name) > 200 {
+		return contracts.SaveFileResponse{Error: contracts.NewAppError(contracts.ErrInvalidArgument, "文件名不合法", false)}
+	}
+	if len(in.Content) == 0 || len(in.Content) > 2<<20 {
+		return contracts.SaveFileResponse{Error: contracts.NewAppError(contracts.ErrInvalidArgument, "内容为空或过大", false)}
+	}
+	wailsApp := application.Get()
+	if wailsApp == nil {
+		return contracts.SaveFileResponse{Error: contracts.NewAppError(contracts.ErrInternal, "应用未就绪", false)}
+	}
+	downloads := ""
+	if home, err := os.UserHomeDir(); err == nil {
+		downloads = filepath.Join(home, "Downloads")
+	}
+	dlg := wailsApp.Dialog.SaveFile().
+		SetMessage("导出脱敏 JSON（不含 Key）").
+		SetFilename(name).
+		CanCreateDirectories(true)
+	if downloads != "" {
+		dlg = dlg.SetDirectory(downloads)
+	}
+	path, err := dlg.PromptForSingleSelection()
+	if err != nil {
+		return contracts.SaveFileResponse{Error: mapError(err)}
+	}
+	if path == "" {
+		return contracts.SaveFileResponse{Cancelled: true}
+	}
+	if err := os.WriteFile(path, []byte(in.Content), 0600); err != nil {
+		return contracts.SaveFileResponse{Error: contracts.NewAppError(contracts.ErrInternal, "写入失败", true)}
+	}
+	if in.Reveal {
+		revealInFileManager(path)
+	}
+	return contracts.SaveFileResponse{Path: path}
+}
+
+// revealInFileManager 在系统文件管理器中显示文件（失败静默）。
+func revealInFileManager(path string) {
+	path = filepath.Clean(path)
+	if path == "" || path == "." {
+		return
+	}
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", "-R", path)
+	case "windows":
+		cmd = exec.Command("explorer", "/select,", path)
+	default:
+		cmd = exec.Command("xdg-open", filepath.Dir(path))
+	}
+	_ = cmd.Start()
 }

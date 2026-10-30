@@ -323,15 +323,32 @@ body { padding: 0; }
   left: 50%;
   transform: translateX(-50%);
   z-index: 60;
+  max-width: min(520px, calc(100vw - 32px));
   padding: 10px 16px;
-  border-radius: 999px;
+  border-radius: 14px;
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--panel) 94%, var(--shell-mix));
   color: var(--text);
   font-size: 13px;
   box-shadow: var(--shadow-elev);
   animation: toast-in 0.2s ease;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
 }
+.toast-text { flex: 1; line-height: 1.4; word-break: break-word; }
+.toast-action {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: var(--brand);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+}
+.toast-action:hover { text-decoration: underline; }
 .toast.ok { border-color: rgba(93, 206, 138, 0.4); }
 .toast.bad { border-color: rgba(229, 115, 115, 0.45); color: var(--danger); }
 @keyframes toast-in {

@@ -358,6 +358,29 @@ export async function promptPermission(input) {
   return { error: null };
 }
 
+export async function saveTextFile(input) {
+  const name = String(input?.suggestedName || "").trim();
+  const content = String(input?.content || "");
+  if (!name || name.includes("/") || name.includes("\\")) {
+    return { path: "", cancelled: false, error: err("INVALID_ARGUMENT", "文件名不合法（模拟）") };
+  }
+  if (!content || content.length > 2 << 20) {
+    return { path: "", cancelled: false, error: err("INVALID_ARGUMENT", "内容为空或过大（模拟）") };
+  }
+  // 浏览器 mock：走下载；提示用户打开「下载」文件夹
+  const blob = new Blob([content], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  return {
+    path: `下载/${name}`,
+    cancelled: false,
+    error: null,
+  };
+}
+
 export async function resolvePermission(input) {
   if (!input?.sessionId || !input?.target || !input?.decision) {
     return { error: err("INVALID_ARGUMENT", "扩权参数不完整（模拟）") };

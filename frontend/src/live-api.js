@@ -51,6 +51,7 @@ export function createLiveTransport() {
     cancelMcpOAuth: bind("CancelMcpOAuth"),
     writePty: bind("WritePty"),
     resizePty: bind("ResizePty"),
+    saveTextFile: bind("SaveTextFile"),
     onEvent(callback) {
       return Events.On("harbor:event", (ev) => callback(unwrapEvent(ev)));
     },

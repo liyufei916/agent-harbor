@@ -32,6 +32,7 @@ const LIVE_SURFACE = [
   "cancelMcpOAuth",
   "writePty",
   "resizePty",
+  "saveTextFile",
   "onEvent",
 ];
 
