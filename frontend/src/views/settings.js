@@ -357,13 +357,12 @@ export function mountSettings(root, ctx) {
       });
       const vaultEl = root.querySelector("#about-vault");
       if (vaultEl) {
-        if (h?.vaultNotice) {
-          vaultEl.textContent = h.vaultNotice;
-          vaultEl.classList.remove("hidden");
-        } else {
-          vaultEl.textContent = "";
-          vaultEl.classList.add("hidden");
-        }
+        // 凭据介质始终可见：正常也写一行，告警时用 warn 文案。
+        vaultEl.textContent = h?.vaultNotice
+          ? h.vaultNotice
+          : "凭据介质：macOS Keychain（正常）。密钥不进沙箱。";
+        vaultEl.classList.toggle("warn", Boolean(h?.vaultNotice));
+        vaultEl.classList.remove("hidden");
       }
       if (h?.available) {
         el.innerHTML = `<span class="ok">● 隔离可用 ${h.isolationLevel || ""}</span>`;

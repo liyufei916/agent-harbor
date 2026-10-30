@@ -78,7 +78,7 @@ Gate 只在会话准备时由编排调用 `Start`，停止或失败清理时 `Re
 go test ./internal/gate ./internal/policy ./internal/secrets ./internal/desktop
 ```
 
-CI 侧要求 `gofmt` 干净，以及 `go test`。这些测试证明网关改写、工具过滤、超时、撤销、策略主机/路径和桌面错误映射在替身或本机回环上符合当时用例。它们不证明真实模型、真实认证 MCP 或打包应用里的核心闭环。ACCEPTANCE 的 D3、D5、I1、I2、I6、I11 在本记录结束时仍是待执行。
+CI：独立 `format` job + `go test -json -race` + `scripts/ci_skip_gate.py`（E5 SKIP 可见）。当时包测证明网关改写等；**真实闭环仍以 [ACCEPTANCE](ACCEPTANCE.md) 为准**（I1/I2 待 live，非本节历史「全部待执行」口径）。
 
 本记录没有启动并点击过 Wails 窗口，也没有用真实密钥打过上游。
 
@@ -102,18 +102,9 @@ wails3 task package # macOS 上得到 bin/AgentHarbor.app，可双击打开
 
 只看 C 的页面时，在 `frontend` 执行 `npm run dev`，不要加 `?live=1`。浏览器 mock 不会创建沙箱，也不会启动 Gate。
 
-### 明确未做（历史两天记录）
+### 明确未做（历史两天记录 · 已过时）
 
-当时两天范围之外、本记录没有实现：
-
-- OAuth / SSO、钥匙串或任何重启后仍在的凭据
-- 多会话、`switchModel`、clone / 导回、完整 PTY、会话内追加提问
-- CPU / 内存配额
-- 官方 MCP Go SDK 客户端
-- 窗口导航锁定与 CSP
-- 真实上游协议组合的验收证据
-
-**分支 `feat/page-design-full`（2026-10-25）**：上列 OAuth / 多会话 / `switchModel` / clone / PTY **改回范围内**（见 [SYSTEM-DESIGN](SYSTEM-DESIGN.md) v2、[CONTRACT](CONTRACT.md) v1.2、[TASK-SPLIT-ABC](archive/TASK-SPLIT-ABC.md) v2.0）。DesktopAPI 方法名已占位；真实现与证据仍待 B（Gate OAuth）与 A（PTY/clone 编排）接线。其余项（配额、官方 MCP SDK、CSP 等）仍不在本分支必做。
+> **现行状态**：OAuth / Keychain / 多会话 / SwitchModel / clone·导回 / PTY / 宿主 stdio 均已接线；仍缺 **I1–I11 live 证据** 与公证签名、官方 MCP SDK、CSP、配额等。勿再按「方法占位」开工。
 
 连接探测当时把 HTTP 404 和其他小于 400 的状态当成成功后再写入 Secrets。这在后续审查里被标为缺陷，并已由后续提交改掉，不属于本节的完成项。
 
@@ -233,7 +224,8 @@ go test ./internal/desktop ./internal/secrets
 | A5 后代 | `KitInfo.NeedsDescendants` → `AllowDescendants`；README「不开 Bash」改为工具面口径 |
 | E1 CI | `format` job 独立；`go` job 不再因 gofmt 跳过 race/覆盖率/打包 |
 | B4/B5 | `FormatMCPSummary`；模型页说明 Gate 改写模型名 |
-| A6 | `mock-live-surface.test.js` 对齐 live transport 方法面 |
+| A6 | `mock-live-surface.test.js` + `mock-session-shape.test.js`（方法面 + SessionSnapshot 字段） |
+| E5 | CI `go test -json` + `scripts/ci_skip_gate.py`；gate/secrets 非允许名单 skip 失败 |
 
 ```sh
 go test ./internal/desktop ./internal/gate ./internal/policy ./internal/orchestrator ./internal/secrets

@@ -31,7 +31,7 @@
 | 1 | 默认挂载 direct vs clone | 向导默认 **`clone`（安全副本）**；可选改 `direct`（强警告） | PAGE §5.3；ARCHITECTURE §10 |
 | 2 | 内嵌 PTY vs 外置终端 | **内嵌 PTY**（工作台）；不做唤起外部终端连沙箱 | PAGE §5.4；CONTRACT API-09 |
 | 3 | 是否只做 microVM | **本分支不挡主路径**：继续 Seatbelt / 严格进程隔离；microVM 仍 backlog（P1-A-07） | TASK-SPLIT；DEV-A |
-| 4 | 本地 stdio MCP | **宿主侧已做**：stdio 进程 + 回环 HTTP 桥；沙箱仍只见 Gateway | CONTRACT / `internal/mcpstdio`；工具页 |
+| 4 | 本地 stdio MCP | **宿主侧已做**：`mcpstdio` 回环桥（不拆 Gateway 为 UpstreamTransport；沙箱仍只见 HTTP Gateway） | CONTRACT / ARCHITECTURE §6；工具页 |
 | 5 | 品牌情绪文案 | **不挡开发**；沿用现有「密钥留在本机 · Agent 隔离运行」；对外口号可后改 | PAGE §3 |
 
 ---

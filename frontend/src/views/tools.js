@@ -90,6 +90,11 @@ export function mountTools(root, ctx, opts = {}) {
           <div>
             <strong>${a.name}</strong>
             <span class="meta">${a.transport === "stdio" ? "stdio" : a.authMode || "token"} · ${a.transport === "stdio" ? a.command || "host" : a.host || a.profileId}${toolsHint} · ● 已连接</span>
+            ${
+              a.transport === "stdio"
+                ? `<p class="meta">宿主桥：应用重启后按已存命令自动重拉（端口可能变化）。密钥与进程留在宿主机。</p>`
+                : ""
+            }
           </div>
           <div class="row">
             <button type="button" class="btn" data-edit="${a.id}">编辑</button>
