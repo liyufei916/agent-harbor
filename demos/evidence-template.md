@@ -73,7 +73,15 @@ MCP host：mcp.context7.com ×2
 ## I11 打包退出（可选本机）
 
 ```text
-操作：wails3 build 或 darwin:package → 打开 → 退出
-进程残留：本机无 wails3，未跑打包
-状态：阻断（Shutdown 单测通过≠本项）
+操作：open bin/AgentHarbor.app → 退出
+进程残留：无 AgentHarbor 主进程
+状态：通过（未做 Apple 公证）
+```
+
+## 扩权 Modal A/B/C
+
+```text
+状态：待补（需可控跨主机 302 Origin）
+API 面：GetPermissionOverview + Resolve 无挂起→INVALID_ARGUMENT 已通过
+步骤：demos/workspace/permission-live-test.md
 ```
