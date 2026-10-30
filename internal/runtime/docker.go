@@ -11,13 +11,15 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/liyufei916/agent-harbor/internal/contracts"
 )
 
-// DefaultDockerImage is the placeholder guest for Create/Destroy until the Harbor
-// agent image (Claude/Codex/dsh) lands. Override with HARBOR_DOCKER_IMAGE.
-const DefaultDockerImage = "alpine:3.20"
+// DefaultDockerImage is the Harbor P2 guest. Build with:
+//
+//	docker build -t agent-harbor/runtime:dev -f deploy/docker/Dockerfile deploy/docker
+//
+// Override with HARBOR_DOCKER_IMAGE. Falls back to alpine only if unset and env empty —
+// prefer the Harbor image so /usr/local/bin/node exists.
+const DefaultDockerImage = "agent-harbor/runtime:dev"
 
 // dockerRunner is injectable so unit tests can assert fail-closed without a daemon.
 type dockerRunner interface {
@@ -77,9 +79,12 @@ type dockerEntry struct {
 	handle               Handle
 	root, workspace      string
 	containerID          string
+	mounts               map[string]string // host abs → guest abs
 	readOnly             map[string]bool
 	allowedTCP           []string
+	process              *dockerProcess
 	attempted, destroyed bool
+	started              bool
 }
 
 var _ Runtime = (*Docker)(nil)
@@ -165,8 +170,9 @@ func (r *Docker) Create(ctx context.Context, spec RuntimeSpec) (Handle, error) {
 	if ctx.Err() != nil {
 		return Handle{}, runtimeError("CANCELLED")
 	}
-	args := r.createArgs(home, workspace, readOnly)
-	createCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	mounts := make(map[string]string, len(readOnly))
+	args := r.createArgs(home, workspace, readOnly, mounts)
+	createCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
 	containerID, err := r.runner.Run(createCtx, args...)
 	if err != nil || containerID == "" {
@@ -183,6 +189,7 @@ func (r *Docker) Create(ctx context.Context, spec RuntimeSpec) (Handle, error) {
 		root:        root,
 		workspace:   workspace,
 		containerID: containerID,
+		mounts:      mounts,
 		readOnly:    make(map[string]bool),
 		allowedTCP:  append([]string(nil), spec.AllowedTCP...),
 	}
@@ -196,7 +203,7 @@ func (r *Docker) Create(ctx context.Context, spec RuntimeSpec) (Handle, error) {
 	return handle, nil
 }
 
-func (r *Docker) createArgs(home, workspace string, readOnly []string) []string {
+func (r *Docker) createArgs(home, workspace string, readOnly []string, mounts map[string]string) []string {
 	args := []string{
 		"create",
 		"--label", "agent-harbor=1",
@@ -206,17 +213,18 @@ func (r *Docker) createArgs(home, workspace string, readOnly []string) []string 
 		"--security-opt", "no-new-privileges",
 		"--read-only",
 		"--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
-		"--network", "none",
-		"--mount", "type=bind,src=" + home + ",dst=/home/harbor",
-		"--mount", "type=bind,src=" + workspace + ",dst=/workspace",
-		"--workdir", "/workspace",
-		"--env", "HOME=/home/harbor",
+		// Bridge + host-gateway: Agent talks to Gate on host (127.0.0.1 rewritten to host.docker.internal).
+		"--add-host", "host.docker.internal:host-gateway",
+		"--mount", "type=bind,src=" + home + ",dst=" + dockerGuestHome,
+		"--mount", "type=bind,src=" + workspace + ",dst=" + dockerGuestWorkspace,
+		"--workdir", dockerGuestWorkspace,
+		"--env", "HOME=" + dockerGuestHome,
 	}
 	for i, path := range readOnly {
-		dst := "/harbor/ro/" + hex.EncodeToString([]byte{byte(i)}) + "/" + filepath.Base(path)
+		dst := dockerROMount(i, path)
+		mounts[path] = dst
 		args = append(args, "--mount", "type=bind,src="+path+",dst="+dst+",readonly")
 	}
-	// Placeholder guest: keeps container alive for Destroy proof. Agent Exec is next slice.
 	args = append(args, r.image, "sleep", "infinity")
 	return args
 }
@@ -231,28 +239,6 @@ func (r *Docker) lookup(handle Handle) (*dockerEntry, error) {
 	return e, nil
 }
 
-// Exec is intentionally unavailable until the Harbor agent image maps host Kit
-// launch paths into the guest. Create/Destroy already prove the container shell.
-func (r *Docker) Exec(ctx context.Context, handle Handle, launch LaunchSpec, _ func(contracts.OutputData)) (Process, error) {
-	if ctx.Err() != nil {
-		return nil, runtimeError("CANCELLED")
-	}
-	e, err := r.lookup(handle)
-	if err != nil {
-		return nil, err
-	}
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if e.destroyed {
-		return nil, runtimeError("INVALID_ARGUMENT")
-	}
-	if launch.Command == "" {
-		return nil, runtimeError("INVALID_ARGUMENT")
-	}
-	e.attempted = true
-	return nil, runtimeError("AGENT_UNSUPPORTED")
-}
-
 func (r *Docker) Destroy(ctx context.Context, handle Handle) error {
 	e, err := r.lookup(handle)
 	if err != nil {
@@ -263,13 +249,18 @@ func (r *Docker) Destroy(ctx context.Context, handle Handle) error {
 	if e.destroyed {
 		return nil
 	}
+	if e.process != nil {
+		e.process.kill(true)
+		select {
+		case <-e.process.done:
+		case <-ctx.Done():
+			return runtimeError("CLEANUP_FAILED")
+		}
+	}
 	if e.containerID != "" {
 		rmCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 		if _, err := r.runner.Run(rmCtx, "rm", "-f", e.containerID); err != nil {
-			if ctx.Err() != nil {
-				return runtimeError("CLEANUP_FAILED")
-			}
 			return runtimeError("CLEANUP_FAILED")
 		}
 		e.containerID = ""
@@ -285,6 +276,8 @@ func (r *Docker) Destroy(ctx context.Context, handle Handle) error {
 	e.destroyed = true
 	e.root, e.workspace = "", ""
 	e.readOnly = nil
+	e.mounts = nil
 	e.allowedTCP = nil
+	e.process = nil
 	return nil
 }

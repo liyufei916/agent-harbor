@@ -12,7 +12,7 @@
 | `macos.go` | macOS 能力检查、私有 HOME、执行与清理 |
 | `default_darwin.go` / `default_stub.go` | `NewDefault()`：Darwin→`NewMacOS`，其它平台不可用 stub |
 | `select.go` | `NewSelected()`：`HARBOR_RUNTIME=docker\|p2\|container` → Docker，否则 Default |
-| `docker.go` | P2 容器 Runtime（一会话一容器；无 sock；Exec 待 Agent 镜像） |
+| `docker.go` / `docker_exec.go` / `docker_paths.go` | P2 容器 Runtime：Create/Destroy/Exec；Gate host 改写；无 sock |
 | `workspace_policy.go` | 工作区/安装根拒绝规则（Seatbelt 与 Docker 共用） |
 | `proctree_darwin.go` | AllowDescendants 杀树 |
 | `sandbox.sb` | 默认拒绝；`ProcessFork` 由 Create 参数选择 |

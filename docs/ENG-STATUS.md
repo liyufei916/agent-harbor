@@ -7,6 +7,7 @@
 | 2026-10-30c | **可落地优化**：MCP 兼容矩阵；向导第 1 步 CLI 前检；ports 声明 PermissionAsker；MCP 协议接受 2024-11-05/2025-06-18；Gate usage 旁路扫描；dsh Detect stub 单测；失败 Top→改进表。 |
 | 2026-10-30d | **UX/Detect**：扩权 toast 带主机；SyncBack 成功访达显示源目录；用量空态缩短；dsh 默认安装路径 `ResolvePaths`（无 `HARBOR_DSH_*` 亦可 Detect）；工作台 `stream-display` 解析 dsh `ready`/`text-delta`/`final`；亮点 mock 截图 `demos/screenshots/`。 |
 | 2026-10-30e | **P2 起步**：确认 Docker（非 microVM）；分支 `feat/p2-docker-runtime`；`NewSelected` + `Docker` Health/Create/Destroy；Exec 待 Agent 镜像。见 [P2-DOCKER](P2-DOCKER.md)。 |
+| 2026-10-30f | **P2 切片 1**：`Exec`/Interactive、guest 路径与 Gate `host.docker.internal` 改写；`deploy/docker` 开发镜像（Node 20 alpine）。 |
 
 ## eng-complete（代码已接线）
 

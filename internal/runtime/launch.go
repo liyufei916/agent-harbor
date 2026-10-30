@@ -26,6 +26,12 @@ func runtimeError(code string) *contracts.AppError {
 		message = "隔离资源清理未确认完成。"
 	case "CANCELLED":
 		message = "操作已取消。"
+	case "UNIMPLEMENTED":
+		message = "当前隔离后端不支持该能力。"
+	case "AGENT_EXIT_FAILED":
+		message = "Agent 进程异常退出。"
+	case "INTERNAL_ERROR":
+		message = "隔离运行内部错误。"
 	}
 	return &contracts.AppError{Code: code, Message: message}
 }

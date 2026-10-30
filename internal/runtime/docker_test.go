@@ -38,6 +38,8 @@ func (f *fakeDockerRunner) Run(_ context.Context, args ...string) (string, error
 			return f.create(args)
 		}
 		return "cid-test", nil
+	case "start", "kill":
+		return "", nil
 	case "rm":
 		return "", f.rmErr
 	default:
@@ -88,8 +90,11 @@ func TestDockerCreateDestroyAndExecUnsupported(t *testing.T) {
 		binOK: true,
 		create: func(args []string) (string, error) {
 			joined := strings.Join(args, " ")
-			if !strings.Contains(joined, "--network none") {
-				t.Fatalf("want network none: %s", joined)
+			if strings.Contains(joined, "--network none") {
+				t.Fatal("Gate needs bridge + host-gateway, not network none")
+			}
+			if !strings.Contains(joined, "host.docker.internal:host-gateway") {
+				t.Fatalf("want host-gateway: %s", joined)
 			}
 			if strings.Contains(joined, "docker.sock") {
 				t.Fatal("must not mount docker.sock")
@@ -112,13 +117,6 @@ func TestDockerCreateDestroyAndExecUnsupported(t *testing.T) {
 	}
 	if h.PrivateHome == "" || h.Workspace != ws {
 		t.Fatalf("handle=%+v", h)
-	}
-	_, err = r.Exec(context.Background(), h, LaunchSpec{Command: "/bin/true"}, nil)
-	if err == nil {
-		t.Fatal("Exec should be AGENT_UNSUPPORTED until agent image")
-	}
-	if app, ok := err.(*contracts.AppError); !ok || app.Code != "AGENT_UNSUPPORTED" {
-		t.Fatalf("got %#v", err)
 	}
 	if err := r.Destroy(context.Background(), h); err != nil {
 		t.Fatal(err)
