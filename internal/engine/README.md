@@ -16,4 +16,17 @@
 
 ## 状态
 
-B0 决策已定；实现从 M2 起（接口与 Colima 驱动待加）。
+| 组件 | 状态 |
+|---|---|
+| `Engine` 接口 / `NewSelected` | 已有；默认 `harbor-colima` |
+| `SystemDocker` | 已有（高级：本机 docker） |
+| `Colima` | **占位** fail-closed；M2b 实现下载与启停 |
+
+## 文件
+
+| 文件 | 职责 |
+|---|---|
+| `engine.go` | 接口与 Status |
+| `select.go` | 按来源选型 |
+| `system_docker.go` | 本机 Docker 探测 |
+| `colima.go` | 托管引擎（M2b） |

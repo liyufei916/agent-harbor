@@ -29,8 +29,9 @@ Gate / Policy / 页面主契约不变，只换 `Runtime` 实现；引擎由 Harb
 
 | 里程碑 | 内容 | 状态 |
 |---|---|---|
-| **B0** | DECISIONS：Colima 主路径、目录、fail-closed、不做 Desktop 内嵌 | **本提交** |
-| **M2** | 引擎 Ensure/Start/Stop/Health；钉扎下载或本地探测；构建 runtime 镜像 | 待做 |
+| **B0** | DECISIONS：Colima 主路径、目录、fail-closed、不做 Desktop 内嵌 | **完成** |
+| **M2a** | `internal/engine`：SystemDocker 适配 + Colima 占位（fail-closed） | **本提交** |
+| **M2b** | Colima 钉扎下载/Start/Stop；构建 runtime 镜像 | 待做 |
 | **M3** | 设置：引擎来源（Harbor / 本机 Docker）；`DOCKER_HOST` 接入 Runtime | 待做 |
 | **M4** | 默认无感路径（C）；陌生机无 Desktop 证据 | 待做 |
 

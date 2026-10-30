@@ -23,6 +23,7 @@
 | 2026-10-30s | **P2 切片 15**：`HARBOR_DOCKER_*` 配额格式校验；设置保存后刷新关于栏后端文案。 |
 | 2026-10-30t | **P2 切片 16**：`scripts/docker-p2-up.sh` 一键构建+冒烟；目录结构注明 docker*.go。 |
 | 2026-10-30u | **P2 引擎 B0**：确认主路径 **B→C**（托管 Colima，不逼装 Desktop）；DECISIONS + `internal/engine` 接口骨架。 |
+| 2026-10-30v | **P2 引擎 M2a**：SystemDocker 适配器 + Colima 占位（未实现前 fail-closed）；默认选型 Colima。 |
 
 ## eng-complete（代码已接线）
 
