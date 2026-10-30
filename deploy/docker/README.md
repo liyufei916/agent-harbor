@@ -21,3 +21,5 @@ export HARBOR_DOCKER_IMAGE=agent-harbor/runtime:dev
 - Gate：`127.0.0.1:<port>` → `host.docker.internal`
 
 构建需联网拉取 npm 包，体积较大；首次失败时检查 npm registry 与 Node 小版本 tag `26.12.1`。
+
+运行时网络：`agent-harbor-p2`（`--internal`）+ `host.docker.internal`。边界冒烟：`bash scripts/docker-p2-smoke.sh`。

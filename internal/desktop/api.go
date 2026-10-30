@@ -5,12 +5,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
+	goruntime "runtime"
 	"strings"
 	"time"
 
 	"github.com/liyufei916/agent-harbor/internal/contracts"
 	"github.com/liyufei916/agent-harbor/internal/orchestrator"
+	"github.com/liyufei916/agent-harbor/internal/runtime"
 	"github.com/liyufei916/agent-harbor/internal/secrets"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -249,10 +250,16 @@ func (d *DesktopAPI) GetRuntimeHealth() contracts.RuntimeHealthResponse {
 			Error:       ae,
 		}
 	}
+	level := "seatbelt"
+	reason := ""
+	if runtime.DockerEnabled() {
+		level = "docker"
+		reason = "P2 Docker（internal 网 + host-gateway；镜像内 Agent）"
+	}
 	return contracts.RuntimeHealthResponse{
 		Available:      true,
-		Reason:         "",
-		IsolationLevel: "seatbelt",
+		Reason:         reason,
+		IsolationLevel: level,
 		VaultNotice:    vaultNote,
 		Error:          nil,
 	}
@@ -516,7 +523,7 @@ func revealInFileManager(path string) {
 		return
 	}
 	var cmd *exec.Cmd
-	switch runtime.GOOS {
+	switch goruntime.GOOS {
 	case "darwin":
 		cmd = exec.Command("open", "-R", path)
 	case "windows":

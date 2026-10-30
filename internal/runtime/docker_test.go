@@ -33,6 +33,9 @@ func (f *fakeDockerRunner) Run(_ context.Context, args ...string) (string, error
 	switch args[0] {
 	case "info":
 		return "24.0.0", f.infoErr
+	case "network":
+		// inspect miss → create; tests treat both as ok
+		return "ok", nil
 	case "create":
 		if f.create != nil {
 			return f.create(args)
@@ -90,11 +93,14 @@ func TestDockerCreateDestroyAndExecUnsupported(t *testing.T) {
 		binOK: true,
 		create: func(args []string) (string, error) {
 			joined := strings.Join(args, " ")
-			if strings.Contains(joined, "--network none") {
-				t.Fatal("Gate needs bridge + host-gateway, not network none")
+			if !strings.Contains(joined, "--network "+HarborDockerNetwork) {
+				t.Fatalf("want internal network: %s", joined)
 			}
 			if !strings.Contains(joined, "host.docker.internal:host-gateway") {
 				t.Fatalf("want host-gateway: %s", joined)
+			}
+			if !strings.Contains(joined, "--memory") || !strings.Contains(joined, "--cpus") {
+				t.Fatalf("want resource limits: %s", joined)
 			}
 			if strings.Contains(joined, "docker.sock") {
 				t.Fatal("must not mount docker.sock")

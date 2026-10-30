@@ -113,6 +113,9 @@ func (r *Docker) Health(ctx context.Context) error {
 	if _, err := r.runner.Run(probeCtx, "info", "--format", "{{.ServerVersion}}"); err != nil {
 		return runtimeError("ISOLATION_UNAVAILABLE")
 	}
+	if err := r.ensureHarborNetwork(ctx); err != nil {
+		return runtimeError("ISOLATION_UNAVAILABLE")
+	}
 	return nil
 }
 
@@ -234,13 +237,15 @@ func (r *Docker) createArgs(home, workspace string, readOnly []string, mounts ma
 		"--security-opt", "no-new-privileges",
 		"--read-only",
 		"--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
-		// Bridge + host-gateway: Agent talks to Gate on host (127.0.0.1 rewritten to host.docker.internal).
+		// Internal net: no public Internet masquerade; Gate via host-gateway only.
+		"--network", HarborDockerNetwork,
 		"--add-host", "host.docker.internal:host-gateway",
 		"--mount", "type=bind,src=" + home + ",dst=" + dockerGuestHome,
 		"--mount", "type=bind,src=" + workspace + ",dst=" + dockerGuestWorkspace,
 		"--workdir", dockerGuestWorkspace,
 		"--env", "HOME=" + dockerGuestHome,
 	}
+	args = appendResourceLimits(args)
 	for i, path := range readOnly {
 		dst := dockerROMount(i, path)
 		mounts[path] = dst

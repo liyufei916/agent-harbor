@@ -365,7 +365,9 @@ export function mountSettings(root, ctx) {
         vaultEl.classList.remove("hidden");
       }
       if (h?.available) {
-        el.innerHTML = `<span class="ok">● 隔离可用 ${h.isolationLevel || ""}</span>`;
+        const level = h.isolationLevel || "";
+        const note = h.reason && level === "docker" ? ` · ${h.reason}` : "";
+        el.innerHTML = `<span class="ok">● 隔离可用 ${level}${note}</span>`;
         showToast(
           h?.vaultNotice ? "隔离通过；凭据库有告警，见关于" : "隔离检测通过",
           h?.vaultNotice ? "bad" : "ok",

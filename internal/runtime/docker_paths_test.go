@@ -56,7 +56,10 @@ func TestDockerCreateArgsHostGateway(t *testing.T) {
 	if !strings.Contains(joined, "host.docker.internal:host-gateway") {
 		t.Fatal(joined)
 	}
-	if strings.Contains(joined, "docker.sock") || strings.Contains(joined, "--network none") {
+	if !strings.Contains(joined, "--network "+HarborDockerNetwork) {
+		t.Fatal(joined)
+	}
+	if strings.Contains(joined, "docker.sock") {
 		t.Fatal(joined)
 	}
 	if mounts["/usr/bin/true"] != "/harbor/ro/0/true" {
