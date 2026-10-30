@@ -120,7 +120,7 @@ func (r *Docker) Create(ctx context.Context, spec RuntimeSpec) (Handle, error) {
 	if err := r.Health(ctx); err != nil {
 		return Handle{}, err
 	}
-	if spec.SessionID == "" || (spec.MountMode != "direct" && spec.MountMode != "clone") || len(spec.AllowedTCP) == 0 || len(spec.ReadOnlyPaths) == 0 {
+	if spec.SessionID == "" || (spec.MountMode != "direct" && spec.MountMode != "clone") || len(spec.AllowedTCP) == 0 {
 		return Handle{}, runtimeError("INVALID_ARGUMENT")
 	}
 	workspace, err := canonicalPath(spec.Workspace)
@@ -131,8 +131,20 @@ func (r *Docker) Create(ctx context.Context, spec RuntimeSpec) (Handle, error) {
 	if err != nil || !info.IsDir() || forbiddenWorkspace(workspace) {
 		return Handle{}, runtimeError("WORKSPACE_DENIED")
 	}
+	// Guest image paths (e.g. /usr/local/bin/claude) need not exist on the host and are not bind-mounted.
 	readOnly := make([]string, 0, len(spec.ReadOnlyPaths))
+	guestOnly := make(map[string]string)
 	for _, path := range spec.ReadOnlyPaths {
+		path = strings.TrimSpace(path)
+		if path == "" {
+			return Handle{}, runtimeError("INVALID_ARGUMENT")
+		}
+		if IsGuestImagePath(path) {
+			clean := filepath.Clean(path)
+			guestOnly[clean] = clean
+			readOnly = append(readOnly, clean)
+			continue
+		}
 		resolved, err := canonicalPath(path)
 		if err != nil || within(workspace, resolved) {
 			return Handle{}, runtimeError("INVALID_ARGUMENT")
@@ -170,8 +182,17 @@ func (r *Docker) Create(ctx context.Context, spec RuntimeSpec) (Handle, error) {
 	if ctx.Err() != nil {
 		return Handle{}, runtimeError("CANCELLED")
 	}
-	mounts := make(map[string]string, len(readOnly))
-	args := r.createArgs(home, workspace, readOnly, mounts)
+	hostMounts := make([]string, 0, len(readOnly))
+	for _, path := range readOnly {
+		if _, ok := guestOnly[path]; !ok {
+			hostMounts = append(hostMounts, path)
+		}
+	}
+	mounts := make(map[string]string, len(hostMounts)+len(guestOnly))
+	for g, dst := range guestOnly {
+		mounts[g] = dst
+	}
+	args := r.createArgs(home, workspace, hostMounts, mounts)
 	createCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
 	containerID, err := r.runner.Run(createCtx, args...)

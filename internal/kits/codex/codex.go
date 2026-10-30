@@ -192,6 +192,9 @@ func packageRootForScript(script string) string {
 // 必须 node + codex.js，与 Claude Kit 同模式；ReadOnly 须覆盖整个 npm 包根（含 optional 原生二进制）。
 // ChatGPT.app 等原生 codex 若支持 app-server，同样经 node 跑 turn_bridge，再由桥直接拉起该二进制。
 func (k *Kit) resolveLaunch(ctx context.Context) (launchSpec, error) {
+	if kits.DockerGuest() {
+		return dockerLaunch(), nil
+	}
 	script, err := k.resolveScript()
 	if err != nil {
 		return launchSpec{}, err
@@ -241,6 +244,9 @@ func (k *Kit) Detect(ctx context.Context) (kits.KitInfo, error) {
 	info := kits.KitInfo{Agent: contracts.AgentInfo{ID: "codex", Name: "OpenAI Codex", ModelProfileID: "codex-model", Reason: "未安装或受限检测未通过。"}, ReadOnlyPaths: []string{}, NeedsChildProcesses: true, NeedsDescendants: true}
 	if ctx.Err() != nil {
 		return info, kitError("CANCELLED")
+	}
+	if kits.DockerGuest() {
+		return k.detectDockerGuest(ctx, info)
 	}
 	launch, err := k.resolveLaunch(ctx)
 	if err != nil {

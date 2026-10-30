@@ -143,6 +143,9 @@ func resolveNode() (string, error) {
 }
 
 func (k *Kit) resolveLaunch() (launchSpec, error) {
+	if kits.DockerGuest() {
+		return dockerLaunch(), nil
+	}
 	script, err := k.resolve()
 	if err != nil {
 		return launchSpec{}, err
@@ -287,6 +290,9 @@ func (k *Kit) Detect(ctx context.Context) (kits.KitInfo, error) {
 	}
 	if ctx.Err() != nil {
 		return info, kitError("CANCELLED")
+	}
+	if kits.DockerGuest() {
+		return k.detectDockerGuest(ctx, info)
 	}
 	launch, err := k.resolveLaunch()
 	if err != nil {

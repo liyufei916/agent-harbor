@@ -8,6 +8,7 @@
 | 2026-10-30d | **UX/Detect**：扩权 toast 带主机；SyncBack 成功访达显示源目录；用量空态缩短；dsh 默认安装路径 `ResolvePaths`（无 `HARBOR_DSH_*` 亦可 Detect）；工作台 `stream-display` 解析 dsh `ready`/`text-delta`/`final`；亮点 mock 截图 `demos/screenshots/`。 |
 | 2026-10-30e | **P2 起步**：确认 Docker（非 microVM）；分支 `feat/p2-docker-runtime`；`NewSelected` + `Docker` Health/Create/Destroy；Exec 待 Agent 镜像。见 [P2-DOCKER](P2-DOCKER.md)。 |
 | 2026-10-30f | **P2 切片 1**：`Exec`/Interactive、guest 路径与 Gate `host.docker.internal` 改写；`deploy/docker` 开发镜像（Node 20 alpine）。 |
+| 2026-10-30g | **P2 切片 3**：Kit Docker Detect/Build 用镜像路径；Dockerfile 装 Claude/Codex/dsh + Node 26.12.1；guest-only ReadOnly 不 bind。 |
 
 ## eng-complete（代码已接线）
 

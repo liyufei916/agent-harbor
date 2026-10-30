@@ -4,10 +4,20 @@
 docker build -t agent-harbor/runtime:dev -f deploy/docker/Dockerfile deploy/docker
 export HARBOR_RUNTIME=docker
 export HARBOR_DOCKER_IMAGE=agent-harbor/runtime:dev
+./scripts/dev-desktop.sh
 ```
 
-- Base: `node:20.19-alpine`（Linux Node；**不能**执行宿主机 macOS CLI）
-- Runtime：`--user 65534`、`--cap-drop ALL`、无 `docker.sock`
-- Gate：容器内把 `http://127.0.0.1:<port>` 改写为 `host.docker.internal`
+## 镜像内容
 
-下一步：镜像内固化 Claude / Codex / dsh 固定版本，并让 Kit Detect 在 `HARBOR_RUNTIME=docker` 时返回镜像内路径。
+| 路径 | 用途 |
+|---|---|
+| `/usr/local/bin/node` | Node **v26.12.1**（匹配 dsh） |
+| `/usr/local/bin/claude` | `@anthropic-ai/claude-code`（npm -g） |
+| `/usr/local/bin/codex` | `@openai/codex`（npm -g） |
+| `/opt/harbor/dsh-0.2.1-rc.2/` | 固定版 `@deepseek-ai/dsh@0.2.1-rc.2` |
+
+- `--user 65534`、无 `docker.sock`
+- Kit 在 `HARBOR_RUNTIME=docker` 时 Detect/Build 使用上述**镜像内路径**，经 `docker run --rm` 探测
+- Gate：`127.0.0.1:<port>` → `host.docker.internal`
+
+构建需联网拉取 npm 包，体积较大；首次失败时检查 npm registry 与 Node 小版本 tag `26.12.1`。
