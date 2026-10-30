@@ -323,7 +323,7 @@ HOME · 新会话 · 工作台 · **模型**（嘴）· **工具**（手）· �
 
 1. **默认挂载模式**：~~待定~~ → **本分支默认 `clone`**，可选 `direct`（强警告）。
 2. **内嵌终端 vs 外部终端**：~~待定~~ → **内嵌 PTY**（不做外置终端连沙箱）。
-3. **隔离后端绑定**：~~待定~~ → **本分支继续进程/Seatbelt 主路径**；microVM 为 backlog，不挡 PAGE。
+3. **隔离后端绑定**：~~待定~~ → **默认 Seatbelt**；可选 **Docker（P2，已合 `main`）**；microVM 为 backlog。
 4. **本地 stdio MCP 信任**：~~待定~~ → ~~V1 禁止~~ → **宿主侧允许**（`internal/mcpstdio` 回环桥；沙箱仍只见 Gateway，禁止沙箱内直接 stdio/写密）。远程 HTTP（Token / OAuth）继续可用。
 5. **品牌与对外文案**：仓库已定名 Agent Harbor；对外情绪向口号仍可后定（开发沿用 PAGE 现有副文案）。
 

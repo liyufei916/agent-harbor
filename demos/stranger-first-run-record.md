@@ -18,7 +18,7 @@ go run ./scripts/cmd/agent-task-evidence -agents=claude,codex,dsh
 日期：2026-10-30
 操作人：研发代填（证据驱动；非独立陌生机）
 固定提交 SHA：3da6dd72668e5d90179deba3d16f5f2ce1c48799（v0.1.0 tag tip；见 demos/evidence/delivery-v0.1.0.md）
-工作树旁证：feat/p2-docker-runtime @ 1237c59（代填合入）
+工作树旁证：`main` @ 1a5db77（含 P2；代填自检 3aa7db8）
 Release tag / CI run URL：https://github.com/liyufei916/agent-harbor/releases/tag/v0.1.0 · Actions 41016911696
 产物：AgentHarbor-macos.zip
 SHA256（期望）：bd008fb709a5606bcc356b04eeae70334dd5bc4d3cdd82da21484bf55c96d754
@@ -68,7 +68,7 @@ EXIT:0
 
 dsh：`bash scripts/install-dsh.sh` 默认路径下桌面可自动 Detect，**不必** export 路径。
 
-## P2 Docker（可选 · 分支 `feat/p2-docker-runtime`）
+## P2 Docker（可选 · 已在 `main`）
 
 默认仍是 Seatbelt。
 
@@ -118,6 +118,6 @@ dsh：`bash scripts/install-dsh.sh` 默认路径下桌面可自动 Detect，**�
 
 ```text
 文件名 / 时长：无扩权 GUI 录屏；Docker Health 静帧见 17-desktop-docker-health.png
-对应提交：feat/p2-docker-runtime（扩权演示 ff67c10；GUI Docker 7c8d017；代填 1237c59）
+对应提交：`main`（扩权演示 ff67c10；GUI Docker 7c8d017；代填/自检 3aa7db8；合入 1a5db77）
 扩权段落时间码：—
 ```

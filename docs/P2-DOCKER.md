@@ -1,6 +1,6 @@
 # 二期容器 Runtime（Docker）
 
-**选型（2026-10-30）**：二期隔离后端采用 **Docker API 兼容容器**（非 microVM）。分支：`feat/p2-docker-runtime`。
+**选型（2026-10-30）**：二期隔离后端采用 **Docker API 兼容容器**（非 microVM）。**已合入 `main`**（源自 `feat/p2-docker-runtime` · merge `1a5db77`）。
 
 **引擎主路径（2026-10-30 确认）**：**B→C** — Harbor **托管 Colima + docker CLI**，用户无需安装 Docker Desktop；系统 Docker 仅高级兼容。见 [DECISIONS](DECISIONS.md)。
 
