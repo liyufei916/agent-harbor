@@ -147,7 +147,7 @@ agent-harbor/
 
 产品范围以 [PAGE-DESIGN](docs/PAGE-DESIGN.md) 为准（历史上在 `feat/page-design-full` 落地，**已合入 `main`**）。与 [MVP-2D3P](docs/archive/MVP-2D3P.md)「两天裁剪」冲突时以 PAGE-DESIGN 为准。
 
-当前基线：macOS Darwin 25 · arm64；Claude / Codex / dsh（须本机 CLI）；Gate 反代、远程 HTTP MCP 与宿主 stdio 桥；工作台多轮对话、clone 导回、扩权与双会话；设置含本机使用概况。产品内「使用说明」与工具/向导页标明能力边界。可安装包见 Releases / CI Artifacts。
+当前基线：macOS Darwin 25 · arm64；Claude / Codex / dsh（须本机 CLI）；Gate 反代、远程 HTTP MCP 与宿主 stdio 桥；工作台多轮对话、clone 导回、扩权与双会话；侧栏「记录」含用量/阻拦/扩权。产品内「使用说明」与工具/向导页标明能力边界。可安装包见 Releases / CI Artifacts。
 
 ## GitHub 推送 / 拉取
 
@@ -194,6 +194,7 @@ HARBOR_NO_COMMIT=1 ./scripts/github-push.sh
 | 工作台 | 边界条 + 当前模型切换 + 对话区（过滤协议 JSON）+ 摘要；顶栏切换焦点会话 |
 | 模型 | 自定义 Origin+Key（可多选 Agent），或预置 profile（`demo-model` / `dsh-model` / `codex-model`）；Key 提交后清空 |
 | 工具 | MCP **双轨**：浏览器 OAuth/SSO **或** Token；编辑 / 删除 |
+| 记录 | 用量 / 阻拦 / 扩权三 Tab（本机 localStorage，不外传） |
 | 设置 | Agent 检测、默认挂载、结束与清理、侧栏偏好、记住的网站、关于（重检时展开逐条，完成后收起） |
 | 顶栏 | 模式徽章；会话切换；**使用说明**弹窗（应用内操作文档） |
 | Onboarding | 一屏三句 + **逐条隔离检测**（可「下次启动重新显示引导」再跑） |

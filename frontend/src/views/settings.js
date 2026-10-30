@@ -9,11 +9,6 @@ import {
   paintCheckList,
   runIsolationProbe,
 } from "../isolation-checks.js";
-import {
-  clearUsageAnalytics,
-  summarizeUsage,
-} from "../usage-analytics.js";
-
 export function mountSettings(root, ctx) {
   root.innerHTML = `
     <h2>设置</h2>
@@ -89,16 +84,6 @@ export function mountSettings(root, ctx) {
           <option value="cleanup">cleanupComplete=false</option>
         </select>
       </label>
-    </section>
-
-    <section class="card" style="margin-top:12px">
-      <h3>本机使用概况</h3>
-      <p class="meta">仅存本机 localStorage，不外传。复用审计事件与会话终态。</p>
-      <div class="meta" id="usage-stats">—</div>
-      <div class="actions">
-        <button type="button" class="btn" id="btn-refresh-usage">刷新</button>
-        <button type="button" class="btn" id="btn-clear-usage">清除本地统计</button>
-      </div>
     </section>
 
     <section class="card" style="margin-top:12px">
@@ -294,29 +279,6 @@ export function mountSettings(root, ctx) {
     el.onchange = savePrefs;
   });
   loadPrefs();
-  function paintUsage() {
-    const el = root.querySelector("#usage-stats");
-    if (!el) return;
-    const s = summarizeUsage();
-    const top =
-      s.topFailures.length === 0
-        ? "<li class='meta'>暂无</li>"
-        : s.topFailures.map((f) => `<li>${f.label} · ${f.count}</li>`).join("");
-    el.innerHTML = `
-      <p>会话样本：${s.sessions} · 审计条数：${s.auditTotal}</p>
-      <p>首任务成功率：${s.firstTaskSuccessRate}</p>
-      <p>越权拒绝率：${s.denyRate}</p>
-      <p>工具调用失败率：${s.mcpFailRate}</p>
-      <p>典型失败 Top：</p>
-      <ul class="audit-list">${top}</ul>`;
-  }
-  paintUsage();
-  root.querySelector("#btn-refresh-usage")?.addEventListener("click", paintUsage);
-  root.querySelector("#btn-clear-usage")?.addEventListener("click", () => {
-    clearUsageAnalytics();
-    paintUsage();
-    showToast("已清除本机使用统计", "ok");
-  });
   const runMode = root.querySelector("#about-run-mode");
   if (runMode) {
     runMode.textContent = api.isMock()

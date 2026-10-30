@@ -10,6 +10,7 @@
 | [models.js](models.js) / [tools.js](tools.js) / [settings.js](settings.js) | stub | OpenAPI 模型；工具 OAuth 轮询/Token；设置 |
 | [block.js](block.js) | stub | 隔离不可用阻断 |
 | [permission-modal.js](permission-modal.js) | stub | 扩权 Modal |
+| [permission-overview-modal.js](permission-overview-modal.js) | stub+ | 权限一览弹窗 |
 | [setup.js](setup.js) | 已实现 | 连接/工作区/任务/启动；可嵌入向导 |
 | [session.js](session.js) | stub+ | 工作台：边界条、模型切换、PTY 区、扩权、摘要 |
 

@@ -746,7 +746,15 @@ label.field textarea { min-height: 88px; resize: vertical; }
   font: inherit;
   font-size: 12px;
 }
-.perm-drawer { margin-top: 12px; }
+.permission-overview-card {
+  width: min(560px, 100%);
+  max-height: min(84vh, 720px);
+  overflow: auto;
+}
+.permission-overview-card h4 {
+  margin: 14px 0 6px;
+  font-size: 13px;
+}
 .modal-layer {
   position: fixed;
   inset: 0;

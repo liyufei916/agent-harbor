@@ -1,12 +1,25 @@
 /**
- * 本机使用侧聚合：复用审计事件 + 会话历史，不外传。
+ * 本机记录：会话用量 + 阻拦/扩权明细。不外传。
  * localStorage key: harbor-usage-analytics
  */
 
 const STORAGE_KEY = "harbor-usage-analytics";
-const MAX_EVENTS = 400;
+const MAX_EVENTS = 800;
 
-/** @typedef {{ t: number, kind: string, result?: string, tool?: string, target?: string, sessionId?: string, state?: string, code?: string }} UsageEvent */
+/**
+ * @typedef {{
+ *   t: number,
+ *   kind: string,
+ *   result?: string,
+ *   tool?: string,
+ *   target?: string,
+ *   sessionId?: string,
+ *   state?: string,
+ *   code?: string,
+ *   decision?: string,
+ *   action?: string,
+ * }} UsageEvent
+ */
 
 /** 测试可注入；浏览器用 localStorage，Node 单测回退内存。 */
 let memoryStore = null;
@@ -65,6 +78,19 @@ function save(state) {
   }
 }
 
+function shortSession(id) {
+  const s = String(id || "").trim();
+  if (!s) return "—";
+  return s.length <= 12 ? s : `${s.slice(0, 8)}…`;
+}
+
+function shortTarget(target) {
+  const t = String(target || "").trim();
+  if (!t) return "—";
+  if (t.length <= 64) return t;
+  return `${t.slice(0, 61)}…`;
+}
+
 /** @param {UsageEvent} ev */
 export function recordUsageEvent(ev) {
   if (!ev?.kind) return;
@@ -74,15 +100,17 @@ export function recordUsageEvent(ev) {
     kind: ev.kind,
     result: ev.result || "",
     tool: ev.tool || "",
-    target: ev.target || "",
+    target: shortTarget(ev.target),
     sessionId: ev.sessionId || "",
     state: ev.state || "",
     code: ev.code || "",
+    decision: ev.decision || "",
+    action: ev.action || "",
   });
   save(state);
 }
 
-/** 工作台 audit 事件 */
+/** 工作台 audit 事件（含 Gate 阻拦 denied/failed） */
 export function recordAudit(audit, sessionId = "") {
   if (!audit?.result) return;
   recordUsageEvent({
@@ -91,6 +119,26 @@ export function recordAudit(audit, sessionId = "") {
     tool: audit.tool,
     target: audit.target,
     sessionId,
+  });
+}
+
+/** 扩权决策结果（deny / once / project） */
+export function recordPermissionDecision({
+  sessionId = "",
+  target = "",
+  action = "",
+  decision = "",
+  uiDemo = false,
+} = {}) {
+  const d = String(decision || "").trim();
+  if (!d) return;
+  recordUsageEvent({
+    kind: "permission",
+    sessionId,
+    target,
+    action,
+    decision: d,
+    result: uiDemo ? "ui_demo" : "resolved",
   });
 }
 
@@ -112,6 +160,7 @@ export function recordSessionOutcome(snapshot) {
  *   firstTaskSuccessRate: string,
  *   denyRate: string,
  *   mcpFailRate: string,
+ *   permissionCount: number,
  *   topFailures: { label: string, count: number }[],
  *   auditTotal: number,
  * }}
@@ -119,7 +168,6 @@ export function recordSessionOutcome(snapshot) {
 export function summarizeUsage() {
   const { events } = load();
   const outcomes = events.filter((e) => e.kind === "session_outcome");
-  // 按 sessionId 取首次终态（近似「首任务」）
   const firstBySession = new Map();
   for (const e of outcomes) {
     if (!firstBySession.has(e.sessionId)) firstBySession.set(e.sessionId, e);
@@ -127,15 +175,21 @@ export function summarizeUsage() {
   const firsts = [...firstBySession.values()];
   const firstOk = firsts.filter((e) => e.state === "stopped" && !e.code).length;
   const firstTaskSuccessRate =
-    firsts.length === 0 ? "—" : `${Math.round((100 * firstOk) / firsts.length)}%（${firstOk}/${firsts.length}）`;
+    firsts.length === 0
+      ? "—"
+      : `${Math.round((100 * firstOk) / firsts.length)}%（${firstOk}/${firsts.length}）`;
 
   const audits = events.filter((e) => e.kind === "audit");
   const denied = audits.filter((e) => e.result === "denied").length;
   const failed = audits.filter((e) => e.result === "failed").length;
   const denyRate =
-    audits.length === 0 ? "—" : `${Math.round((100 * denied) / audits.length)}%（${denied}/${audits.length}）`;
+    audits.length === 0
+      ? "—"
+      : `${Math.round((100 * denied) / audits.length)}%（${denied}/${audits.length}）`;
   const mcpFailRate =
-    audits.length === 0 ? "—" : `${Math.round((100 * failed) / audits.length)}%（${failed}/${audits.length}）`;
+    audits.length === 0
+      ? "—"
+      : `${Math.round((100 * failed) / audits.length)}%（${failed}/${audits.length}）`;
 
   const failCounts = new Map();
   for (const e of events) {
@@ -144,6 +198,8 @@ export function summarizeUsage() {
       label = e.code || "session_failed";
     } else if (e.kind === "audit" && (e.result === "denied" || e.result === "failed")) {
       label = `${e.result}:${e.tool || "mcp"}`;
+    } else if (e.kind === "permission" && e.decision === "deny") {
+      label = "permission:deny";
     }
     if (!label) continue;
     failCounts.set(label, (failCounts.get(label) || 0) + 1);
@@ -158,9 +214,57 @@ export function summarizeUsage() {
     firstTaskSuccessRate,
     denyRate,
     mcpFailRate,
+    permissionCount: events.filter((e) => e.kind === "permission").length,
     topFailures,
     auditTotal: audits.length,
   };
+}
+
+/**
+ * @param {"blocks"|"permissions"|"sessions"} channel
+ * @param {{ limit?: number }} [opts]
+ * @returns {UsageEvent[]}
+ */
+export function listUsageEvents(channel, opts = {}) {
+  const limit = Math.min(Math.max(Number(opts.limit) || 100, 1), 400);
+  const { events } = load();
+  let filtered = events;
+  if (channel === "blocks") {
+    filtered = events.filter(
+      (e) =>
+        e.kind === "audit" &&
+        (e.result === "denied" || e.result === "failed"),
+    );
+  } else if (channel === "permissions") {
+    filtered = events.filter((e) => e.kind === "permission");
+  } else if (channel === "sessions") {
+    filtered = events.filter((e) => e.kind === "session_outcome");
+  }
+  return filtered.slice(-limit).reverse();
+}
+
+export function formatEventTime(t) {
+  try {
+    return new Date(t).toLocaleString();
+  } catch {
+    return String(t);
+  }
+}
+
+export function formatEventRow(ev) {
+  const when = formatEventTime(ev.t);
+  const sid = shortSession(ev.sessionId);
+  if (ev.kind === "audit") {
+    return `${when} · ${sid} · ${ev.result} · ${ev.tool || "—"} @ ${ev.target || "—"}`;
+  }
+  if (ev.kind === "permission") {
+    const demo = ev.result === "ui_demo" ? "（界面演示）" : "";
+    return `${when} · ${sid} · ${ev.decision}${demo} · ${ev.action || "connect"} @ ${ev.target || "—"}`;
+  }
+  if (ev.kind === "session_outcome") {
+    return `${when} · ${sid} · ${ev.state}${ev.code ? ` · ${ev.code}` : ""}`;
+  }
+  return `${when} · ${sid} · ${ev.kind}`;
 }
 
 export function clearUsageAnalytics() {

@@ -1,5 +1,5 @@
 /**
- * PAGE-DESIGN 全量壳：顶栏会话切换 + 侧栏 HOME/模型/工具/设置
+ * PAGE-DESIGN 全量壳：顶栏会话切换 + 侧栏 HOME/模型/工具/记录/设置
  */
 import "./xterm-boot.js";
 import * as api from "./api.js";
@@ -8,6 +8,7 @@ import { mountHome } from "./views/home.js";
 import { mountWizard } from "./views/wizard.js";
 import { mountModels } from "./views/models.js";
 import { mountTools } from "./views/tools.js";
+import { mountRecords } from "./views/records.js";
 import { mountSettings } from "./views/settings.js";
 import { mountSession } from "./views/session.js";
 import { mountOnboarding } from "./views/onboarding.js";
@@ -39,6 +40,7 @@ const views = {
   wizard: document.getElementById("view-wizard"),
   models: document.getElementById("view-models"),
   tools: document.getElementById("view-tools"),
+  records: document.getElementById("view-records"),
   settings: document.getElementById("view-settings"),
   session: document.getElementById("view-session"),
 };
@@ -392,6 +394,7 @@ function navigate(name, opts = {}) {
   if (name === "wizard") wizardView = mountWizard(views.wizard, ctx, opts);
   if (name === "models") mountModels(views.models, ctx, opts);
   if (name === "tools") mountTools(views.tools, ctx, opts);
+  if (name === "records") mountRecords(views.records, ctx, opts);
   if (name === "settings") mountSettings(views.settings, ctx);
   if (name === "session") {
     if (!ctx.state.sessionId) {

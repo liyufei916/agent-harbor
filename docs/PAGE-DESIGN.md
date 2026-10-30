@@ -39,7 +39,7 @@ Agent Harbor
     └── 隔离不可用（阻断页）
 ```
 
-导航：左侧主入口 **HOME / 模型 / 工具 / 设置**。「工作台」仅在有 `running` 会话时出现在内容区，不强占侧栏。
+导航：左侧主入口 **HOME / 模型 / 工具 / 记录 / 设置**。「工作台」仅在有 `running` 会话时出现在内容区，不强占侧栏。
 
 **二者怎么区分（对人一句话）**
 
@@ -319,30 +319,29 @@ Agent Harbor
 
 ---
 
-### 5.5 权限一览（抽屉 / 子页）
+### 5.5 权限一览（弹窗）
 
-以只读展示边界为主；**网络「记住的允许」可在此撤销**（工作台内改错「本项目始终允许」的主入口，不必先去设置）。
+工作台顶栏「权限一览」打开**模态弹窗**（与扩权 Modal 同层 `modal-root`）；以只读展示边界为主；**网络「记住的允许」可在此撤销**（工作台内改错「本项目始终允许」的主入口，不必先去设置）。Esc /「关闭」退出。
 
 ```
-│  当前边界                              [ 关闭 ]       │
-│                                                      │
-│  文件                                                │
-│   · 可读写：~/work/foo（安全副本）                    │
-│   · 默认不可见：SSH 密钥、云厂商凭证、其它项目…       │
-│                                                      │
-│  网络（白名单）                         [ 管理 ]     │
-│   · api.anthropic.com     （模型 / 系统）             │
-│   · api.github.com        本项目始终允许  [ 撤销 ]    │
-│   · api.npmjs.org         本项目始终允许  [ 撤销 ]    │
-│                                                      │
-│  工具 · 密钥 …（只读说明）                             │
+┌─ 当前边界 ──────────────────────────── [ 关闭 ] ─┐
+│  文件                                              │
+│   · 可读写：~/work/foo（安全副本）                  │
+│   · 默认不可见：SSH 密钥、云厂商凭证、其它项目…     │
+│                                                    │
+│  网络（白名单）                                     │
+│   · api.anthropic.com     （模型 / 系统）           │
+│   · api.github.com        本项目始终允许  [ 撤销 ]  │
+│   · api.npmjs.org         本项目始终允许  [ 撤销 ]  │
+│                                                    │
+│  工具 · 密钥 …（只读说明）                           │
+└────────────────────────────────────────────────────┘
 ```
 
 | 规则 | 说明 |
 |---|---|
-| **要**做在工作台里 | 边界条 → **权限一览** → 网络行旁 **撤销**，或点 **管理** 打开「已记住的网站」 |
+| **要**做在工作台里 | 边界条 → **权限一览**弹窗 → 网络行旁 **撤销**；侧栏「已记住」与最近活动「本项目始终允许」亦可行内撤销 |
 | **不必**再做 | 工作台顶栏单独「撤销网站」按钮 |
-| 可后置 | 右侧「最近活动」里对「已始终允许 xxx」加一行内「撤销」（P2） |
 | 禁止 | 「允许全部网络」快捷开关 |
 
 文件 / 工具 / 密钥区保持说明性只读；仅网络「用户记住的允许/拒绝」可撤销。
@@ -507,6 +506,18 @@ Agent Harbor
 
 ---
 
+### 5.7b 记录（侧栏 · 工具与设置之间）
+
+单页三 Tab，数据仅本机 localStorage（`usage-analytics`），**无新 DesktopAPI**：
+
+| Tab | 内容 |
+|---|---|
+| **用量** | 本机会话维度摘要（样本数、首终态成功率、denied/failed 占比）+ 近期会话终态 |
+| **阻拦** | Gate/策略直接拒绝的 audit（`denied` / `failed`），未进扩权弹窗 |
+| **扩权** | 用户对 `permission_needed` 的 deny/once/project（含界面演示标注） |
+
+提供刷新与「清除本机记录」。文案强调不外传、不含 Key/Sentinel。
+
 ### 5.8 设置
 
 设置页只改**本机默认偏好**，不改正在跑的会话（除非文案标明「立即生效」）。
@@ -523,7 +534,6 @@ Agent Harbor
 │  ▸ 网络安全                                          │
 │  ▸ 结束与清理                                        │
 │  ▸ 外观与侧栏                                        │
-│  ▸ 本机使用概况（审计/会话聚合，不外传）               │
 │  ▸ 关于（运行模式 mock/live；隔离逐条检测）            │
 └──────────────────────────────────────────────────────┘
 ```
@@ -555,19 +565,6 @@ Agent Harbor
 | 与 Step 2 | 同一数据源；预置项始终在列表中；仅「可用 / 未安装」变化；向导未安装卡也可复制安装命令 |
 
 V1 禁止：自定义 binary 路径、Base URL + API Key 当作「添加 Agent」、从列表隐藏未安装项。
-
-#### 5.8.2b 本机使用概况
-
-复用工作台审计事件与会话终态，**仅存本机**（localStorage），不外传：
-
-| 指标 | 含义 |
-|---|---|
-| 首任务成功率 | 按 sessionId 首次终态 `stopped` 且无 error 的比例 |
-| 越权拒绝率 | audit `denied` / 全部 audit |
-| 工具调用失败率 | audit `failed` / 全部 audit |
-| 典型失败 Top-N | 错误码或 `denied|failed:tool` 计数 |
-
-设置页可刷新或清除本地统计。「关于」固定显示当前运行模式（模拟 / 真实绑定）。
 
 #### 5.8.3 会话默认
 
@@ -815,7 +812,8 @@ V1 禁止：自定义 binary 路径、Base URL + API Key 当作「添加 Agent�
 | 工作台 | `GetSession` `StopSession` `SyncBackWorkspace` `SwitchModel` `GetPermissionOverview` `WritePty`/`ResizePty` `ResolvePermission` | `state` `output` `pty` `audit` `error` `permission_needed` |
 | 模型 | `ConnectModel`（可带 origin）`ListAccounts` `RemoveAccount` | — |
 | 工具 | `ConnectMcp`（HTTP Token **或** `transport=stdio`）**或** `StartMcpOAuth`/`CancelMcpOAuth`；`ListAccounts` `RemoveAccount` | — |
-| 设置 | `ListAgents` `GetRuntimeHealth` 记住主机与 Overview 同源 API；Prefs；本机使用概况为前端 localStorage（无新 API） | — |
+| 记录 | 无新 API；前端 `usage-analytics`（audit / permission / session_outcome） | 订阅工作台同源事件写入 |
+| 设置 | `ListAgents` `GetRuntimeHealth` 记住主机与 Overview 同源 API；Prefs | — |
 | 扩权 | `ResolvePermission` + 事件 `permission_needed` | `permission_needed` |
 
 状态展示必须以 Orchestrator 事件为准，页面不本地猜「是否已隔离」。UI 只经 `frontend/src/api.js`，不直连 Gate / Secrets / Runtime。

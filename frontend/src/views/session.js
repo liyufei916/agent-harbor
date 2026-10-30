@@ -9,16 +9,27 @@ import {
   mountPermissionModal,
   hidePermissionModal,
 } from "./permission-modal.js";
+import {
+  mountPermissionOverviewModal,
+  hidePermissionOverviewModal,
+} from "./permission-overview-modal.js";
 import { showToast } from "../toast.js";
 import { askConfirm } from "../confirm-dialog.js";
 import {
   filterModelsForAgent,
   filterModelsForSwitch,
 } from "../agent-compat.js";
-import { recordAudit } from "../usage-analytics.js";
+import { recordAudit, recordPermissionDecision } from "../usage-analytics.js";
 
 const SWITCH_MODEL_META =
   "仅可切换同 profile / 同主机账号；跨协议或改固定模型名不支持。";
+
+function escapeAttr(s) {
+  return String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;");
+}
 
 export function mountSession(root, ctx) {
   const healthOk = ctx.state.health?.available !== false;
@@ -77,7 +88,6 @@ export function mountSession(root, ctx) {
           <p class="meta" id="sess-error"></p>
         </aside>
       </div>
-      <div id="perm-drawer" class="perm-drawer hidden"></div>
     </div>
   `;
 
@@ -102,7 +112,6 @@ export function mountSession(root, ctx) {
     hint: root.querySelector("#sess-hint"),
     statOut: root.querySelector("#stat-out"),
     statAudit: root.querySelector("#stat-audit"),
-    drawer: root.querySelector("#perm-drawer"),
   };
 
   let tail = new OutputTail();
@@ -267,7 +276,10 @@ export function mountSession(root, ctx) {
         remembered
           .map(
             (h) =>
-              `<li>${h.host} · ${h.scope === "project" ? "本项目" : "本会话"}</li>`,
+              `<li class="row audit-revokable" style="justify-content:space-between;gap:8px;align-items:center">
+                <span>${escapeAttr(h.host)} · ${h.scope === "project" ? "本项目" : "本会话"}</span>
+                <button type="button" class="btn" data-rev-host="${escapeAttr(h.host)}" data-rev-ws="${escapeAttr(h.workspace || o.workspace || "")}">撤销</button>
+              </li>`,
           )
           .join("") || `<li class="meta">尚无扩权记住项</li>`;
       els.permSummary.innerHTML = `
@@ -275,11 +287,39 @@ export function mountSession(root, ctx) {
         <p class="meta">网络白名单</p>
         <ul class="audit-list">${hostLis}</ul>
         <p class="meta">已记住（扩权）</p>
-        <ul class="audit-list">${remLis}</ul>
+        <ul class="audit-list" id="sess-rem-hosts">${remLis}</ul>
         <p class="meta">完整边界点顶栏「权限一览」</p>`;
+      bindRevokeButtons(els.permSummary);
     } catch (e) {
       els.permSummary.innerHTML = `<p class="meta">边界摘要暂不可用</p>`;
     }
+  }
+
+  function bindRevokeButtons(scope) {
+    scope?.querySelectorAll("[data-rev-host]").forEach((btn) => {
+      btn.onclick = async () => {
+        btn.disabled = true;
+        try {
+          await api.revokeRememberedHost({
+            host: btn.getAttribute("data-rev-host"),
+            workspace: btn.getAttribute("data-rev-ws"),
+          });
+          showToast("已撤销记住的允许", "ok");
+          await refreshPermSummary();
+        } catch (e) {
+          showToast(e?.message || "撤销失败", "bad");
+          btn.disabled = false;
+        }
+      };
+    });
+  }
+
+  function prependActivity(innerHtml) {
+    if (!els.audit) return;
+    const li = document.createElement("li");
+    li.innerHTML = innerHtml;
+    els.audit.prepend(li);
+    bindRevokeButtons(li);
   }
 
   async function fillModels(selectedId) {
@@ -434,6 +474,7 @@ export function mountSession(root, ctx) {
       const sid = ctx.state.sessionId || snap?.sessionId || "";
       const uiDemo = !!ev.permission.uiDemo;
       setAwaiting(true);
+      hidePermissionOverviewModal(modalRoot);
       mountPermissionModal(modalRoot, {
         sessionLabel: `${snap?.agentId || "—"} · ${snap?.workspace || "—"} · ${sid}`,
         target: ev.permission.target,
@@ -451,12 +492,34 @@ export function mountSession(root, ctx) {
               throw new Error(`${res.error.code}: ${res.error.message}`);
             }
           }
+          recordPermissionDecision({
+            sessionId: sid,
+            target: ev.permission.target,
+            action: ev.permission.action,
+            decision,
+            uiDemo: uiDemo && !api.isMock(),
+          });
           hidePermissionModal(modalRoot);
           setAwaiting(false);
-          const li = document.createElement("li");
           const tag = uiDemo ? "演示扩权" : "扩权";
-          li.textContent = `${tag} ${decision} · ${ev.permission.target} · ${sid}`;
-          els.audit?.prepend(li);
+          const wroteProject =
+            decision === "project" && !(uiDemo && !api.isMock());
+          const ws =
+            snap?.workspace ||
+            ctx.state.lastSnapshot?.workspace ||
+            "";
+          if (wroteProject) {
+            prependActivity(
+              `<span class="row audit-revokable" style="justify-content:space-between;gap:8px;align-items:center;width:100%">
+                <span>${tag} ${decision} · ${escapeAttr(ev.permission.target)}</span>
+                <button type="button" class="btn" data-rev-host="${escapeAttr(ev.permission.target)}" data-rev-ws="${escapeAttr(ws)}">撤销</button>
+              </span>`,
+            );
+          } else {
+            prependActivity(
+              `<span>${tag} ${decision} · ${escapeAttr(ev.permission.target)} · ${escapeAttr(sid)}</span>`,
+            );
+          }
           if (uiDemo && !api.isMock() && decision === "project") {
             // live UI 演示：权限一览仍以本机记住表为准，不写入假 project
             els.error.textContent =
@@ -652,66 +715,16 @@ export function mountSession(root, ctx) {
   }
 
   const permBtn = root.querySelector("#btn-perm");
-  if (permBtn) permBtn.onclick = async () => {
-    if (!els.drawer) return;
-    const sid = ctx.state.sessionId || "";
-    const res = await api.getPermissionOverview(sid);
-    const hostsRes = await api.listRememberedHosts(sid);
-    const o = res.overview;
-    const remembered = hostsRes.hosts || [];
-    els.drawer.classList.remove("hidden");
-    els.drawer.innerHTML = `
-      <div class="card">
-        <div class="row" style="justify-content:space-between">
-          <h3>当前边界</h3>
-          <button type="button" class="btn" id="perm-close">关闭</button>
-        </div>
-        ${
-          res.error
-            ? `<p class="bad">${res.error.code}: ${res.error.message}</p>`
-            : `
-          <p class="meta">会话 ${sid || "—"} · 工作区：${o?.workspace || "—"}</p>
-          <h4>文件</h4>
-          <ul class="audit-list">
-            <li>可读写：${o?.workspace || "—"}（${ctx.state.lastSnapshot?.mountMode === "clone" ? "安全副本" : "直接编辑"}）</li>
-            ${(o?.deniedPathCategories || []).map((m) => `<li>默认不可见：${m}</li>`).join("")}
-          </ul>
-          <h4>网络（白名单）</h4>
-          <ul class="audit-list" id="perm-hosts">
-            ${(o?.allowedHosts || [])
-              .map((h) => `<li>${h} · 模型/系统</li>`)
-              .join("") || "<li class='meta'>无</li>"}
-            ${remembered
-              .map(
-                (h) =>
-                  `<li class="row" style="justify-content:space-between">
-                    <span>${h.host} · ${h.scope === "project" ? "本项目始终允许" : "本会话"}</span>
-                    <button type="button" class="btn" data-rev="${h.host}" data-ws="${h.workspace || o?.workspace || ""}">撤销</button>
-                  </li>`,
-              )
-              .join("")}
-          </ul>
-          <h4>工具</h4>
-          <ul class="audit-list">${(o?.mcpSummary || []).map((m) => `<li>${m}</li>`).join("") || "<li class='meta'>无挂载 MCP</li>"}</ul>
-          <p class="meta">密钥与 Token 留在宿主机 Gate；沙箱仅见 Sentinel / Gateway。</p>
-        `
-        }
-      </div>`;
-    els.drawer.querySelector("#perm-close").onclick = () => {
-      els.drawer.classList.add("hidden");
-      els.drawer.innerHTML = "";
+  if (permBtn) {
+    permBtn.onclick = () => {
+      hidePermissionModal(modalRoot);
+      mountPermissionOverviewModal(modalRoot, {
+        sessionId: ctx.state.sessionId || "",
+        mountMode: ctx.state.lastSnapshot?.mountMode || "",
+        onChanged: () => refreshPermSummary(),
+      });
     };
-    els.drawer.querySelectorAll("[data-rev]").forEach((btn) => {
-      btn.onclick = async () => {
-        await api.revokeRememberedHost({
-          host: btn.getAttribute("data-rev"),
-          workspace: btn.getAttribute("data-ws"),
-        });
-        refreshPermSummary();
-        permBtn.click();
-      };
-    });
-  };
+  }
 
   if (els.ptyInput?.addEventListener) {
     els.ptyInput.addEventListener("keydown", (e) => {

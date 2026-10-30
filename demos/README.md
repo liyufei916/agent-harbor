@@ -62,7 +62,7 @@ eng 已 **code-complete**，关 I1–I11 仍差 live 证据 → [ENG-STATUS](../
 | 3:00 | 工作区 `demos/workspace` 绝对路径；开始 | provisioning→running |
 | 4:00 | 工作台对话区 | Claude：Gate + stream-json；Codex：app-server delta 流式；均可键盘多轮 |
 | 5:30 | 诱导跨主机重定向或未授权出站 | `permission_needed` Modal；三选一 |
-| 7:00 | 选 once/project；指审计与权限一览 | 无「全网」；project 可撤销 |
+| 7:00 | 选 once/project；指审计与权限一览弹窗 | 无「全网」；弹窗/侧栏/活动行内可撤销 |
 | 8:00 | 停止 → 再开一轮 | 第二轮能进工作台（I10 方向） |
 | 9:30 | 收尾：mock≠I；子进程仅白名单 exec | 诚实边界 |
 

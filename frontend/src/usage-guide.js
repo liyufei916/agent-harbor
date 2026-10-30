@@ -43,8 +43,8 @@ const GUIDE_HTML = `
     <li><strong>HOME</strong>：会话中心；同时运行中最多 2 个；打开工作台 / 停止 / 销毁。</li>
     <li><strong>模型</strong>：自定义账号可多选 Agent（上游须同时支持）；Claude 用 Messages，Codex 用 Responses。勿对仅 Anthropic 兼容的 DeepSeek 勾选 Codex。</li>
     <li><strong>工具</strong>：远程 MCP（OAuth/Token）或宿主 stdio；可编辑 / 删除。</li>
-    <li><strong>设置 · 本机使用概况</strong>：首任务成功率、越权拒绝率、工具失败率（仅本机，不外传）。</li>
-    <li><strong>设置</strong>：Agent 检测、默认挂载、清理偏好、侧栏偏好、已记住的网站、关于（含隔离逐条检测与「下次启动重新显示引导」）。</li>
+    <li><strong>记录</strong>（工具与设置之间）：用量 / 阻拦 / 扩权三 Tab；仅本机，不外传；可清除。</li>
+    <li><strong>设置</strong>：Agent 检测、默认挂载、清理偏好、侧栏与外观、已记住的网站、关于（含隔离逐条检测与「下次启动重新显示引导」）。</li>
     <li><strong>工作台</strong>：边界条 + 对话区（过滤协议 JSON）+ 摘要；顶栏可切换焦点会话。</li>
   </ul>
 

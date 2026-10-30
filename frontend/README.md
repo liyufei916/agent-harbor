@@ -8,7 +8,7 @@
 
 | 路径 | 状态 | 职责 | 负责人 |
 |---|---|---|---|
-| [index.html](index.html) / [src/](src/) | 全量 PAGE stub/mock | 侧栏 HOME/模型/工具/设置；顶栏会话切换 + **使用说明**；隔离逐条检测；工具三轨（OAuth/Token/stdio）；本机使用概况（`usage-analytics.js`）；安装命令（`agent-install.js`）；api/mock | C |
+| [index.html](index.html) / [src/](src/) | 全量 PAGE stub/mock | 侧栏 HOME/模型/工具/**记录**/设置；顶栏会话切换 + **使用说明**；隔离逐条检测；工具三轨；记录页（`usage-analytics.js`）；安装命令（`agent-install.js`）；api/mock | C |
 | [package.json](package.json) / Vite | B 已初始化 | 依赖与构建脚本 | B |
 | `bindings/` | 生成 | Wails v3 绑定，**不手改** | B |
 | `dist/` | 构建产物 | 供 Go embed | 构建生成 |
