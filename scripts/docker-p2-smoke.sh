@@ -25,7 +25,8 @@ docker network inspect "$NET" >/dev/null 2>&1 || \
 # 1) 无 docker.sock
 cid="$(docker create --rm \
   --network "$NET" \
-  --add-host host.docker.internal:host-gateway \
+  --add-host harbor.gate:host-gateway \
+  --add-host host.docker.internal:127.0.0.1 \
   --user 65534:65534 \
   --cap-drop ALL \
   --security-opt no-new-privileges \

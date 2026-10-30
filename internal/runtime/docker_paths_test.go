@@ -41,7 +41,7 @@ func TestDockerGuestPathAndGateRewrite(t *testing.T) {
 	if !strings.Contains(joined, "HOME=/home/harbor") {
 		t.Fatalf("HOME: %s", joined)
 	}
-	if !strings.Contains(joined, "host.docker.internal:49152") {
+	if !strings.Contains(joined, dockerGateHost+":49152") {
 		t.Fatalf("proxy rewrite: %s", joined)
 	}
 	if !strings.Contains(joined, "http://127.0.0.1:9") {
@@ -54,7 +54,10 @@ func TestDockerCreateArgsHostGateway(t *testing.T) {
 	mounts := map[string]string{}
 	args := r.createArgs("/private/tmp/h", "/private/tmp/w", []string{"/usr/bin/true"}, mounts)
 	joined := strings.Join(args, " ")
-	if !strings.Contains(joined, "host.docker.internal:host-gateway") {
+	if !strings.Contains(joined, dockerGateHost+":host-gateway") {
+		t.Fatal(joined)
+	}
+	if !strings.Contains(joined, "host.docker.internal:127.0.0.1") {
 		t.Fatal(joined)
 	}
 	if !strings.Contains(joined, "--network "+HarborDockerNetwork) {

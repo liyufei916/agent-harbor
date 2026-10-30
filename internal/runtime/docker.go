@@ -118,6 +118,11 @@ func (r *Docker) Health(ctx context.Context) error {
 	if err := r.ensureHarborNetwork(ctx); err != nil {
 		return runtimeError("ISOLATION_UNAVAILABLE")
 	}
+	imgCtx, imgCancel := context.WithTimeout(ctx, 15*time.Second)
+	defer imgCancel()
+	if _, err := r.runner.Run(imgCtx, "image", "inspect", "--format", "{{.Id}}", r.image); err != nil {
+		return runtimeError("ISOLATION_UNAVAILABLE")
+	}
 	return nil
 }
 
@@ -252,9 +257,10 @@ func (r *Docker) createArgs(home, workspace string, readOnly []string, mounts ma
 		"--security-opt", "no-new-privileges",
 		"--read-only",
 		"--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
-		// Internal net: no public Internet masquerade; Gate via host-gateway only.
+		// Internal net; Gate only via harbor.gate (host-gateway). Blackhole common SSRF alias.
 		"--network", HarborDockerNetwork,
-		"--add-host", "host.docker.internal:host-gateway",
+		"--add-host", dockerGateHost + ":host-gateway",
+		"--add-host", "host.docker.internal:127.0.0.1",
 		"--mount", "type=bind,src=" + home + ",dst=" + dockerGuestHome,
 		"--mount", "type=bind,src=" + workspace + ",dst=" + dockerGuestWorkspace,
 		"--workdir", dockerGuestWorkspace,

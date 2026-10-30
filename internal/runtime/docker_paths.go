@@ -10,7 +10,9 @@ import (
 const (
 	dockerGuestHome      = "/home/harbor"
 	dockerGuestWorkspace = "/workspace"
-	dockerGateHost       = "host.docker.internal"
+	// dockerGateHost is the only host-gateway alias guests should use for Gate proxies.
+	// host.docker.internal is intentionally blackholed to container loopback.
+	dockerGateHost = "harbor.gate"
 )
 
 func dockerROMount(index int, hostPath string) string {

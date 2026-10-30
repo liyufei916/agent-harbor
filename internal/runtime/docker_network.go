@@ -9,7 +9,7 @@ import (
 )
 
 // HarborDockerNetwork is an --internal network: no masquerade to the public
-// Internet; Gate remains reachable via host.docker.internal:host-gateway.
+// Internet; Gate remains reachable via harbor.gate:host-gateway.
 const HarborDockerNetwork = "agent-harbor-p2"
 
 func dockerMemoryLimit() string {

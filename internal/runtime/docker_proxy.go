@@ -8,8 +8,8 @@ import (
 )
 
 // tcpProxy forwards 127.0.0.1:listen → dial (one AllowedTCP target).
-// Guest uses host.docker.internal:listenPort. On Docker Desktop, guests may still
-// dial other host loopback ports directly; see P2-DOCKER residual note.
+// Guest uses harbor.gate:listenPort. host.docker.internal is blackholed in createArgs;
+// Desktop may still reach other host ports via residual paths — see P2-DOCKER.
 type tcpProxy struct {
 	ln   net.Listener
 	dial string
@@ -101,7 +101,7 @@ func closeProxies(proxies []*tcpProxy) {
 	}
 }
 
-// rewriteGateHostMapped: 127.0.0.1:gatePort → host.docker.internal:proxyPort.
+// rewriteGateHostMapped: 127.0.0.1:gatePort → harbor.gate:proxyPort.
 func rewriteGateHostMapped(value string, gateToProxy map[string]string) string {
 	const loop = "127.0.0.1:"
 	for {

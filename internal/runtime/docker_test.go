@@ -11,11 +11,12 @@ import (
 )
 
 type fakeDockerRunner struct {
-	binOK   bool
-	infoErr error
-	create  func(args []string) (string, error)
-	rmErr   error
-	calls   [][]string
+	binOK    bool
+	infoErr  error
+	imageErr error
+	create   func(args []string) (string, error)
+	rmErr    error
+	calls    [][]string
 }
 
 func (f *fakeDockerRunner) LookPath() (string, error) {
@@ -36,6 +37,8 @@ func (f *fakeDockerRunner) Run(_ context.Context, args ...string) (string, error
 	case "network":
 		// inspect miss → create; tests treat both as ok
 		return "ok", nil
+	case "image":
+		return "sha256:fixture", f.imageErr
 	case "create":
 		if f.create != nil {
 			return f.create(args)
@@ -68,6 +71,16 @@ func TestDockerHealthFailClosedWhenDaemonDown(t *testing.T) {
 	}
 }
 
+func TestDockerHealthFailClosedWhenImageMissing(t *testing.T) {
+	r := NewDocker()
+	r.runner = &fakeDockerRunner{binOK: true, imageErr: errors.New("No such image")}
+	if err := r.Health(context.Background()); err == nil {
+		t.Fatal("expected ISOLATION_UNAVAILABLE")
+	} else if app, ok := err.(*contracts.AppError); !ok || app.Code != "ISOLATION_UNAVAILABLE" {
+		t.Fatalf("got %#v", err)
+	}
+}
+
 func TestDockerCreateRejectsForbiddenWorkspace(t *testing.T) {
 	r := NewDocker()
 	r.runner = &fakeDockerRunner{binOK: true}
@@ -96,8 +109,11 @@ func TestDockerCreateDestroyAndExecUnsupported(t *testing.T) {
 			if !strings.Contains(joined, "--network "+HarborDockerNetwork) {
 				t.Fatalf("want internal network: %s", joined)
 			}
-			if !strings.Contains(joined, "host.docker.internal:host-gateway") {
-				t.Fatalf("want host-gateway: %s", joined)
+			if !strings.Contains(joined, dockerGateHost+":host-gateway") {
+				t.Fatalf("want harbor.gate host-gateway: %s", joined)
+			}
+			if !strings.Contains(joined, "host.docker.internal:127.0.0.1") {
+				t.Fatalf("want host.docker.internal blackhole: %s", joined)
 			}
 			if !strings.Contains(joined, "--memory") || !strings.Contains(joined, "--cpus") {
 				t.Fatalf("want resource limits: %s", joined)

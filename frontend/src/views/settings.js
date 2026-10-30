@@ -289,6 +289,12 @@ export function mountSettings(root, ctx) {
 
   async function savePrefs() {
     const clearRadio = root.querySelector('input[name="clear-default"]:checked');
+    const prevBackend = normalizeIsolationBackend(
+      ctx.state.uiPrefs?.isolationBackend,
+    );
+    const nextBackend = normalizeIsolationBackend(
+      root.querySelector("#set-isolation-backend")?.value,
+    );
     const prefs = {
       theme: normalizeTheme(root.querySelector("#set-theme").value),
       sidebarCollapsed: root.querySelector("#set-sidebar-collapsed").checked,
@@ -298,9 +304,7 @@ export function mountSettings(root, ctx) {
       securityTier: normalizeTierPref(
         root.querySelector("#set-security-tier")?.value,
       ),
-      isolationBackend: normalizeIsolationBackend(
-        root.querySelector("#set-isolation-backend")?.value,
-      ),
+      isolationBackend: nextBackend,
     };
     const res = await api.setUIPrefs(prefs);
     const st = root.querySelector("#set-prefs-status");
@@ -311,7 +315,12 @@ export function mountSettings(root, ctx) {
     ctx.state.uiPrefs = res.prefs || prefs;
     ctx.applyUIPrefs?.(ctx.state.uiPrefs);
     syncClearDefaultEnabled();
-    st.innerHTML = `<span class="ok">已保存</span>`;
+    if (prevBackend !== nextBackend) {
+      st.innerHTML = `<span class="warn">已保存 · 隔离后端须重启应用后生效</span>`;
+      showToast("隔离后端已保存，请重启应用后生效", "ok");
+    } else {
+      st.innerHTML = `<span class="ok">已保存</span>`;
+    }
   }
 
   root.querySelector("#set-theme").onchange = savePrefs;

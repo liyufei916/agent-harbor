@@ -47,7 +47,7 @@ func TestTCPProxyForwardsAllowedOnly(t *testing.T) {
 
 func TestRewriteGateHostMapped(t *testing.T) {
 	got := rewriteGateHostMapped("http://127.0.0.1:18080/v1", map[string]string{"18080": "9"})
-	if got != "http://host.docker.internal:9/v1" {
+	if got != "http://"+dockerGateHost+":9/v1" {
 		t.Fatal(got)
 	}
 }
