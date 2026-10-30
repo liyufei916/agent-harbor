@@ -141,6 +141,13 @@ func TestApplyDockerHostPrependsBinPATH(t *testing.T) {
 	}
 }
 
+func TestSanitizeColimaErr(t *testing.T) {
+	got := sanitizeColimaErr(errors.New(`time="x" level=fatal msg="lima not found, run brew install lima"`))
+	if got != "lima not found, run brew install lima" {
+		t.Fatalf("%q", got)
+	}
+}
+
 func TestColimaHealthRejectsEmptyDockerInfo(t *testing.T) {
 	root := t.TempDir()
 	bin := filepath.Join(root, "bin")

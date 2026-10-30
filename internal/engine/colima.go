@@ -152,11 +152,37 @@ func (c *Colima) Start(ctx context.Context) error {
 	if goruntime.GOOS == "darwin" && goruntime.GOARCH == "arm64" {
 		args = append(args, "--vm-type", "vz", "--mount-type", "virtiofs")
 	}
+	c.report(80, "正在创建/下载 Colima 虚拟机镜像（可能较慢）…")
 	if _, err := c.run(startCtx, colima, args, c.baseEnv()); err != nil {
-		return errEngine("无法启动 Harbor Colima 引擎。")
+		detail := sanitizeColimaErr(err)
+		if detail == "" {
+			return errEngine("无法启动 Harbor Colima 引擎。若本机已有 Docker Desktop，请改选「本机 Docker」。")
+		}
+		return errEngine("无法启动 Harbor Colima：" + detail + " 若本机已有 Docker Desktop，请改选「本机 Docker」。")
 	}
 	c.report(88, "等待 Docker daemon…")
 	return c.waitDocker(ctx)
+}
+
+// sanitizeColimaErr 提取可展示的短因（无路径堆栈/密钥）；过长则截断。
+func sanitizeColimaErr(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := strings.TrimSpace(err.Error())
+	// logrus 风格：level=fatal msg="..."
+	if i := strings.Index(msg, "msg=\""); i >= 0 {
+		rest := msg[i+len("msg=\""):]
+		if j := strings.Index(rest, "\""); j >= 0 {
+			msg = rest[:j]
+		}
+	}
+	msg = strings.ReplaceAll(msg, "\n", " ")
+	msg = strings.TrimSpace(msg)
+	if len(msg) > 160 {
+		msg = msg[:157] + "…"
+	}
+	return msg
 }
 
 func (c *Colima) waitDocker(ctx context.Context) error {
