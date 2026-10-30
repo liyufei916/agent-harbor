@@ -24,6 +24,8 @@ import {
 import { recordAudit, recordPermissionDecision } from "../usage-analytics.js";
 import { formatErrorWithHint } from "../error-hints.js";
 import { markTutorialStep } from "../tutorial-progress.js";
+import { healthAllowsStart, healthBlockReason } from "../health-ready.js";
+import { sessionStateLabel, shortPath } from "../session-state.js";
 
 const SWITCH_MODEL_META =
   "仅可切换同 profile / 同主机账号；跨协议或改固定模型名不支持。";
@@ -35,8 +37,15 @@ function escapeAttr(s) {
     .replace(/</g, "&lt;");
 }
 
+function escapeHtml(s) {
+  return String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 export function mountSession(root, ctx) {
-  const healthOk = ctx.state.health?.available !== false;
+  const healthOk = healthAllowsStart(ctx.state.health);
 
   root.innerHTML = `
     <div id="sess-empty" class="empty-state">
@@ -48,27 +57,32 @@ export function mountSession(root, ctx) {
     </div>
     <div id="sess-workbench" class="hidden">
       <div class="boundary" id="boundary">
-        <div class="row" style="justify-content:space-between;width:100%">
-          <div>
+        <div class="boundary-top">
+          <div class="boundary-id">
             <span id="sess-state" class="status-pill">无会话</span>
-            <span class="meta" id="sess-meta"></span>
+            <span class="meta" id="sess-agent"></span>
           </div>
-          <div class="row">
-            <label class="field inline">当前模型
-              <select id="sess-model"></select>
-              <span class="meta" id="sess-model-meta" style="display:block;max-width:22rem"></span>
+          <div class="boundary-actions">
+            <label class="field inline" id="sess-model-label" title="">当前模型
+              <select id="sess-model" title=""></select>
             </label>
-            <button type="button" class="btn" id="btn-perm">权限一览</button>
-            <button type="button" class="btn hidden" id="btn-syncback" disabled>导回原文件夹</button>
-            <button type="button" class="btn" id="btn-to-home">返回 HOME</button>
+            <details class="boundary-more" id="sess-more">
+              <summary class="btn">更多</summary>
+              <div class="boundary-more-menu" role="menu">
+                <button type="button" class="btn" id="btn-perm" role="menuitem">权限一览</button>
+                <button type="button" class="btn hidden" id="btn-syncback" disabled role="menuitem">导回原文件夹</button>
+                <button type="button" class="btn" id="btn-to-home" role="menuitem">返回 HOME</button>
+              </div>
+            </details>
             <button type="button" class="btn danger" id="btn-stop" disabled>停止</button>
           </div>
         </div>
+        <p class="meta boundary-paths" id="sess-meta"></p>
         <p class="meta" id="sess-hint-line"></p>
       </div>
       <div class="session-grid">
         <div class="pty-panel">
-          <div class="pty-toolbar meta">对话（已过滤协议 JSON）· 请在下方输入框发下一轮（点终端无效）</div>
+          <div class="pty-toolbar meta">对话</div>
           <div id="sess-pty" class="pty" tabindex="0"></div>
           <div class="pty-composer">
             <textarea id="sess-pty-input" class="pty-input" rows="2" placeholder="在此输入下一轮，Enter 发送（Shift+Enter 换行）"></textarea>
@@ -100,10 +114,12 @@ export function mountSession(root, ctx) {
     workbench: root.querySelector("#sess-workbench"),
     boundary: root.querySelector("#boundary"),
     state: root.querySelector("#sess-state"),
+    agent: root.querySelector("#sess-agent"),
     meta: root.querySelector("#sess-meta"),
     hintLine: root.querySelector("#sess-hint-line"),
     model: root.querySelector("#sess-model"),
-    modelMeta: root.querySelector("#sess-model-meta"),
+    modelLabel: root.querySelector("#sess-model-label"),
+    more: root.querySelector("#sess-more"),
     syncBack: root.querySelector("#btn-syncback"),
     stop: root.querySelector("#btn-stop"),
     pty: root.querySelector("#sess-pty"),
@@ -117,6 +133,18 @@ export function mountSession(root, ctx) {
     statOut: root.querySelector("#stat-out"),
     statAudit: root.querySelector("#stat-audit"),
   };
+
+  if (typeof els.more?.addEventListener === "function") {
+    els.more.addEventListener("toggle", () => {
+      if (!els.more?.open) return;
+      const close = (ev) => {
+        if (els.more?.contains?.(ev.target)) return;
+        els.more.open = false;
+        document.removeEventListener("pointerdown", close, true);
+      };
+      document.addEventListener("pointerdown", close, true);
+    });
+  }
 
   let tail = new OutputTail();
   let streamDisplay = createStreamDisplay();
@@ -163,10 +191,8 @@ export function mountSession(root, ctx) {
       else if (!snapshot) els.ptyStatus.textContent = "";
       else if (!running)
         els.ptyStatus.textContent =
-          "当前不可交互：请确认会话为 running；已结束请停止后新开。";
-      else
-        els.ptyStatus.textContent =
-          "点终端区域无效；在输入框打字后点「发送」或按 Enter。";
+          "当前不可交互：会话需为运行中；结束后请停止并新开。";
+      else els.ptyStatus.textContent = "在输入框发送下一轮（点终端无效）";
     }
   }
 
@@ -226,8 +252,8 @@ export function mountSession(root, ctx) {
   const emptyWizard = root.querySelector("#sess-empty-wizard");
   if (emptyWizard && typeof emptyWizard.addEventListener === "function") {
     emptyWizard.addEventListener("click", () => {
-      if (ctx.state.health?.available === false) {
-        ctx.showBlock?.(ctx.state.health.reason);
+      if (!healthAllowsStart(ctx.state.health)) {
+        ctx.showBlock?.(healthBlockReason(ctx.state.health));
         return;
       }
       ctx.navigate?.("wizard", { fresh: true });
@@ -354,13 +380,14 @@ export function mountSession(root, ctx) {
     }
     const alternates = accounts.filter((a) => a.id !== want);
     const canSwitch = running && alternates.length > 0;
-    if (els.modelMeta) {
-      els.modelMeta.textContent = running
-        ? canSwitch
-          ? SWITCH_MODEL_META
-          : `${SWITCH_MODEL_META} 当前无其他同 profile / 同主机账号可切换。`
-        : "";
-    }
+    // 规则说明改悬停显示，避免工作台顶栏长文占位
+    const switchTip = running
+      ? canSwitch
+        ? SWITCH_MODEL_META
+        : `${SWITCH_MODEL_META} 当前无其他同 profile / 同主机账号可切换。`
+      : "";
+    if (els.model) els.model.title = switchTip;
+    if (els.modelLabel) els.modelLabel.title = switchTip;
     els.model.disabled = running && !canSwitch;
     if (running && !canSwitch) {
       // 无备选：只保留当前项，避免误选不可切换账号
@@ -389,19 +416,51 @@ export function mountSession(root, ctx) {
         els.state.textContent = "无会话";
         els.state.className = "status-pill";
       }
+      if (els.agent) els.agent.textContent = "";
       if (els.meta) els.meta.textContent = "";
       if (els.stop) els.stop.disabled = true;
       return;
     }
     showWorkbench();
     ensureTerm();
-    els.state.textContent = s.state;
-    els.state.className = `status-pill ${s.state}`;
+    els.state.textContent = sessionStateLabel(s.state);
+    els.state.className = `status-pill ${s.state || ""}`;
     const toolN = (s.mcpIds || []).length;
     const isClone = s.mountMode === "clone";
     const source = s.sourceWorkspace || "";
-    els.meta.textContent = `${s.agentId || ""} · ${isClone && source ? `原:${source} · 副本:${s.workspace || ""}` : s.workspace || ""} · 文件:${isClone ? "安全副本" : "直接编辑"} · 工具:${toolN}`;
-    els.hintLine.textContent = `● 隔离运行中 · ${s.sessionId || ""}`;
+    const workspace = s.workspace || "";
+    if (els.agent) {
+      els.agent.textContent = `${s.agentId || "—"} · 文件:${isClone ? "安全副本" : "直接编辑"} · 工具:${toolN}`;
+    }
+    if (els.meta) {
+      const bits = [];
+      if (isClone && source) {
+        bits.push(
+          `<span class="boundary-path" title="${escapeAttr(source)}">原 ${escapeHtml(shortPath(source))}</span>`,
+        );
+        if (workspace) {
+          bits.push(
+            `<span class="boundary-path" title="${escapeAttr(workspace)}">副本 ${escapeHtml(shortPath(workspace))}</span>`,
+          );
+        }
+      } else if (workspace) {
+        bits.push(
+          `<span class="boundary-path" title="${escapeAttr(workspace)}">${escapeHtml(shortPath(workspace))}</span>`,
+        );
+      }
+      els.meta.innerHTML = bits.join('<span class="boundary-path-sep"> · </span>');
+    }
+    if (s.state === "running" || s.state === "provisioning") {
+      els.hintLine.textContent = `● 隔离运行中 · ${s.sessionId || ""}`;
+    } else if (s.state === "stopping") {
+      els.hintLine.textContent = `● 正在停止 · ${s.sessionId || ""}`;
+    } else if (s.state === "stopped") {
+      els.hintLine.textContent = `○ 已停止 · ${s.sessionId || ""}`;
+    } else if (s.state === "failed") {
+      els.hintLine.textContent = `○ 失败 · ${s.sessionId || ""}`;
+    } else {
+      els.hintLine.textContent = `· ${s.sessionId || ""}`;
+    }
     const active =
       ["provisioning", "running", "stopping"].includes(s.state) ||
       (s.state === "failed" && !s.cleanupComplete);
@@ -510,12 +569,12 @@ export function mountSession(root, ctx) {
       els.statOut.textContent = String(outCount);
       const row = screenOf(ctx.state.sessionId);
       if (row) row.outCount = outCount;
-      markTutorialStep(3);
+      markTutorialStep(4);
       tail.append(ev.seq, ev.output.text || "");
       appendPty(ev.output.text || "");
     } else if (ev.type === "pty" && (ev.pty || ev.output)) {
       const t = (ev.pty || ev.output).text || "";
-      markTutorialStep(3);
+      markTutorialStep(4);
       appendPty(t);
     } else if (ev.type === "audit" && ev.audit) {
       auditCount += 1;
@@ -565,6 +624,7 @@ export function mountSession(root, ctx) {
             decision,
             uiDemo: uiDemo && !api.isMock(),
           });
+          markTutorialStep(6);
           hidePermissionModal(modalRoot);
           setAwaiting(false);
           const tag = uiDemo ? "演示扩权" : "扩权";
@@ -619,6 +679,7 @@ export function mountSession(root, ctx) {
 
   if (els.syncBack) {
     els.syncBack.onclick = async () => {
+      closeMore();
       if (!ctx.state.sessionId) return;
       const snap = ctx.state.lastSnapshot;
       const dest = snap?.sourceWorkspace || "";
@@ -645,10 +706,11 @@ export function mountSession(root, ctx) {
         showToast(
           api.isMock()
             ? `已导回原文件夹（模拟）${destHint}`
-            : `已导回原文件夹${destHint}（已在访达中显示）`,
+            : `已导回原文件夹${destHint}`,
           "ok",
           { durationMs: 6000 },
         );
+        markTutorialStep(5);
         if (els.hint) {
           els.hint.classList.remove("hidden");
           els.hint.textContent =
@@ -732,10 +794,11 @@ export function mountSession(root, ctx) {
             showToast(
               api.isMock()
                 ? `已导回原文件夹（模拟）${src ? `：${src}` : ""}`
-                : `已导回原文件夹${src ? `：${src}` : ""}（已在访达中显示）`,
+                : `已导回原文件夹${src ? `：${src}` : ""}`,
               "ok",
               { durationMs: 6000 },
             );
+            markTutorialStep(5);
           }
         }
       }
@@ -791,9 +854,14 @@ export function mountSession(root, ctx) {
     };
   }
 
+  const closeMore = () => {
+    if (els.more) els.more.open = false;
+  };
+
   const toHome = root.querySelector("#btn-to-home");
   if (toHome) {
     toHome.onclick = () => {
+      closeMore();
       ctx.navigate("home");
     };
   }
@@ -801,6 +869,7 @@ export function mountSession(root, ctx) {
   const permBtn = root.querySelector("#btn-perm");
   if (permBtn) {
     permBtn.onclick = () => {
+      closeMore();
       hidePermissionModal(modalRoot);
       mountPermissionOverviewModal(modalRoot, {
         sessionId: ctx.state.sessionId || "",

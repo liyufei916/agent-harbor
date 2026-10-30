@@ -13,7 +13,7 @@
 | Claude Code 版本、安装方式及必要只读运行路径 | A | 待检测；不得复制完整用户 HOME/登录配置 |
 | demo-model 的真实提供方、协议、HTTPS origin 与允许路径 | B | profileId 固定 `demo-model`；无默认供应商；必须登记 `HARBOR_DEMO_MODEL_ORIGIN`（HTTPS origin）和 `HARBOR_CLAUDE_MODEL`，使用 Anthropic `/v1/messages` 验证；真实账号待联调 |
 | demo-mcp 的真实服务、认证方式、origin、路径、只读工具名 | B/C | profileId 固定 `demo-mcp`；移除占位 origin；必须登记 `HARBOR_DEMO_MCP_ORIGIN` 及 `HARBOR_DEMO_MCP_TOOLS`；仅 Bearer、2025-03-26、`/mcp`，真实服务与账号待选 |
-| 专用非敏感工作区与一条稳定演示任务 | C/A | **已准备**：目录 `demos/workspace/`（见 [demos/README.md](../demos/README.md)、`./demos/verify-workspace.sh`）；任务文案见 demos 固定脚本。明确会直接改原文件，MCP 操作只读。mock 仍用 `/demo/project`，live/I2 选本目录绝对路径 |
+| 专用非敏感工作区与一条稳定演示任务 | C/A | **已准备**：`demos/workspace/`（`verify-workspace.sh`；`EXPAND-TASK`/`BLOCK-TASK`；hello/导回样例）。mock 仍用 `/demo/project`，live/I2 选本目录绝对路径 |
 | 依赖安装、绑定生成、Go/前端独立测试和 Wails 开发命令 | B | **已可执行**（见根 README）：`go test ./internal/...`、`wails3 generate bindings ./...`、`frontend` 下 `npm run build`、`wails3 dev` / `wails3 build`；另有 GitHub Actions CI |
 
 这些未决项阻碍真实端到端验收，但不阻碍基于契约、固定 profileId 和替身进行独立模块开发。实际服务不兼容时保留失败证据，调整受支持组合，不偷偷更改“所有 Agent/MCP 已支持”的产品口径。
@@ -55,6 +55,35 @@
 |---|---|
 | CI | `darwin:package` 后上传 `AgentHarbor-macos.zip`（14 天）；可移植 Seatbelt profile 断言步骤 |
 | Release | `.github/workflows/release.yml`：`v*` 标签或手动触发 → GitHub Releases 挂 zip + sha256 |
+
+### 二期隔离后端（2026-10-30）
+
+| 项 | 约定 |
+|---|---|
+| 选型 | **Docker 容器**为 P2 主路径；**microVM 延后预研**，不挡二期 |
+| 默认 | 桌面仍 P1 Seatbelt；设置隔离后端选 **Docker** 后才用 P2 |
+| 分支 | `feat/p2-docker-runtime`；计划见 [P2-DOCKER.md](P2-DOCKER.md) |
+| 硬约束 | 不挂 `docker.sock` 进 Agent 容器；无 daemon → fail-closed；Gate/UI 契约不变 |
+
+### P2 容器引擎主路径 B→C（2026-10-30；用户确认）
+
+**产品选择**：不要求用户安装 Docker Desktop。主路径为 **Harbor 托管轻量引擎**；系统已有 Docker 仅作高级兼容。
+
+| 项 | 约定 |
+|---|---|
+| 主路径 | **B→C**：安装/首启部署轻量引擎 → 用户无感「没有 Docker」 |
+| 引擎 | **Colima + docker CLI**（macOS arm64 优先）；版本钉扎，随 Harbor 升级策略另表 |
+| 落盘 | CLI/lima：`~/Library/Application Support/AgentHarbor/engine/`；**Colima 数据**另置 `~/Library/Caches/AgentHarbor/colima/`（避开 Application Support 路径导致 Lima `ssh.sock` 超 UNIX_PATH_MAX=104）；不写入系统 `/usr/local` 强依赖 |
+| 控制面 | 仅 Harbor 宿主机进程调用 `Ensure/Start/Stop/Health`；**不对 Agent 暴露**管理面与 sock |
+| Runtime | 现有 P2 `internal/runtime` Docker 实现不变语义；经 `DOCKER_HOST`（或等价）指向托管 daemon |
+| 镜像 | 仍构建/使用 `agent-harbor/runtime:dev`（三 CLI 预装，一会话一容器） |
+| Desktop | **非主路径**；探测到本机可用 Docker 时可「使用已有 Docker」，文案降为高级选项 |
+| 默认隔离 | 仍为 **Seatbelt**；启用 Docker 失败 → fail-closed，禁止无隔离直跑 |
+| 不做 | 安装包内嵌 Docker Desktop；把 `docker.sock` 挂进 Guest；跳过引擎假装已隔离 |
+| 包体 | 优先「首启按需下载钉扎产物 + SHA256」；`HARBOR_ENGINE_AUTO_DOWNLOAD=0` 可关；随包附带为可选优化 |
+| 钉扎版本（初值） | colima `v0.8.1` · lima `v1.0.6` · docker CLI `27.5.1`（见 `internal/engine/versions.go`） |
+| 里程碑 | M2b 启停+建镜像（用 PATH/`engine/bin`）；M2c 钉扎下载；M3 设置接来源；M4 默认无感路径（见 P2-DOCKER） |
+| Colima 配置 | profile=`agent-harbor`；`COLIMA_HOME=~/Library/Caches/AgentHarbor/colima`；启动 `--activate=false`（不抢用户全局 context）；轻量默认 2CPU/2GiB/20GiB |
 
 ## 2026-10-24 开发环境观测
 

@@ -2,6 +2,15 @@
 
 负责人：C，A/B 配合排查。不存放真实凭据或用户项目。任务拆分见 [TASK-SPLIT-ABC.md](../docs/archive/TASK-SPLIT-ABC.md)。
 
+**目录怎么放**
+
+| 路径 | 放什么 |
+|---|---|
+| `workspace/` | live 工作区；`EXPAND-TASK.txt` / `BLOCK-TASK.txt`（MCP 话术） |
+| `screenshots/` | mock 亮点图 |
+| `evidence/` | 现行脱敏冒烟/打包摘要（勿堆 Docker 日志） |
+| 根下 `*.md` / `verify-workspace.sh` | 口播、首跑、验收清单与自检 |
+
 | 模式 | 顶栏徽章 | 怎么开 | 能否记 I1–I11 |
 |---|---|---|---|
 | mock / D4 | **模拟模式** | `frontend` 下 `npm run dev` → http://127.0.0.1:5173/ | **否** |
@@ -18,7 +27,7 @@ go run ./scripts/cmd/agent-task-evidence -agents=codex,dsh
 ```
 
 
-**MCP 边界**：默认远程 HTTP + Token；stdio 为可选「宿主侧 · 更高信任」；OAuth 需自备 Client，属高级轨。不承诺「市面每一个 MCP 开箱即用」。矩阵见 [mcp-compat-matrix.md](mcp-compat-matrix.md)。失败 Top→改进对照见 [failure-top-improvements.md](failure-top-improvements.md)。
+**MCP 边界**：默认远程 HTTP + Token；stdio 为可选「宿主侧 · 更高信任」；OAuth 需自备 Client，属高级轨。不承诺「市面每一个 MCP 开箱即用」。矩阵见 [mcp-compat-matrix.md](mcp-compat-matrix.md)。工程进度见 [ENG-STATUS](../docs/ENG-STATUS.md)。
 
 ### 桌面一打开就「无法安全启动」？
 
@@ -34,6 +43,8 @@ go run ./scripts/cmd/agent-task-evidence -agents=codex,dsh
 | 要演示… | 请用 |
 |---|---|
 | 全量 PAGE / 扩权 / 双会话 | **浏览器 mock**（下节）或 live（Health 绿后） |
+| 扩权 Modal | **重建桌面 + 新会话**；粘贴 `EXPAND-TASK.txt`（Agent 调 `harbor_demo_ask`），或点「请求扩权」 |
+| 阻拦演示 | 粘贴 `BLOCK-TASK.txt` → 记录→阻拦（**无**三问弹窗） |
 | I1–I11 | live + 已登记 env；失败如实记 DOC-3 |
 
 设置里切场景 `isolation` 可在 **mock** 下复现阻断页。
@@ -49,10 +60,10 @@ go run ./scripts/cmd/agent-task-evidence -agents=codex,dsh
 | 0:00 | 指侧栏四入口与顶栏徽章 | 工作台不强占侧栏；凭据只在本机 |
 | 0:20 | 「模型」→ 添加（名+地址+Key，可点 DeepSeek 填地址） | 列表出现一行；Key 提交后清空 |
 | 0:40 | 「工具」→ Token 或 OAuth 轨加一条 | 列表 ● 已连接；无 Key 回显 |
-| 1:00 | HOME → 新会话：工作区（可点演示路径 B）→ Agent → 模型 → 工具可跳过 → 开始 | 默认 clone；进工作台 |
+| 1:00 | HOME → 新会话：工作区（mock 可点「演示路径 B」开第二路；**live 无此按钮**）→ Agent → 模型 → 工具可跳过 → 开始 | 默认 clone；进工作台 |
 | 1:20 | 扩权 Modal 弹出（mock 自动）→ 三选一 | 边界琥珀；标会话；无「全网」；状态仍 running |
 | 1:40 | 指 PTY：再输入一行 Enter | 同会话多轮入口（mock 回显） |
-| 2:00 | 再开一条不同路径；同路径应 WORKSPACE_BUSY；第三条 SESSION_LIMIT | HOME 显示 运行中 x/2 |
+| 2:00 | 再开一条不同路径；同路径应 WORKSPACE_BUSY；第 6 条 SESSION_LIMIT | HOME 显示 运行中 x/5 |
 | 2:20 | 设置里切「认证失败」看模型 ▲；或 `?scenario=isolation` 看阻断页 | 失败路径有产品文案 |
 | 2:40 | 收尾 | **mock ≠ I1–I11**；live 见下节 |
 
@@ -72,7 +83,7 @@ go run ./scripts/cmd/agent-task-evidence -agents=codex,dsh
 | 1:30 | 模型已连则跳过；否则添加 Origin+Key | 仅账号引用；Key 清空 |
 | 3:00 | 工作区 `demos/workspace` 绝对路径；开始 | provisioning→running |
 | 4:00 | 工作台对话区 | Claude：Gate + stream-json；Codex：app-server delta 流式；均可键盘多轮 |
-| 5:30 | 工作台「请求扩权」（或可选 302） | `permission_needed` Modal；三选一；主路径不依赖 302 |
+| 5:30 | 「请求扩权」或粘贴 `workspace/EXPAND-TASK.txt` | `permission_needed` Modal；三选一；主路径不依赖 302 |
 | 7:00 | 选 once/project；指审计与权限一览弹窗 | 无「全网」；弹窗/侧栏/活动行内可撤销 |
 | 8:00 | 停止 → 再开一轮 | 第二轮能进工作台（I10 方向） |
 | 9:30 | 收尾：mock≠I；子进程仅白名单 exec | 诚实边界 |
@@ -83,7 +94,7 @@ go run ./scripts/cmd/agent-task-evidence -agents=codex,dsh
 
 ## 60 秒：导回成功态（评审补镜）
 
-前置：clone 会话、任务已让 Agent 在副本写下可见文件（如 `SUMMARY.md`）。完整填空见 [syncback-evidence.md](syncback-evidence.md)。
+前置：clone 会话、任务已让 Agent 在副本写下可见文件（如 `SYNCBACK_DEMO.md`）。完整步骤见 [B6-SUCCESS-DEMO.md](B6-SUCCESS-DEMO.md)。
 
 | 秒 | 做什么 | 应看到 |
 |---|---|---|

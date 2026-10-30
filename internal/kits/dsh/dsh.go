@@ -86,6 +86,9 @@ func kitError(code string) *contracts.AppError {
 
 // 独立安装根只能包含此运行时，不能使用用户 HOME 或全局 node_modules 作为安装根。
 func (k *Kit) paths() (string, string, string, error) {
+	if kits.DockerGuest() {
+		return dockerPaths()
+	}
 	node, err := exec.LookPath(k.node)
 	if err != nil {
 		return "", "", "", kitError("AGENT_UNSUPPORTED")
@@ -138,6 +141,9 @@ func (k *Kit) Detect(ctx context.Context) (kits.KitInfo, error) {
 	info := kits.KitInfo{Agent: contracts.AgentInfo{ID: "dsh", Name: "DeepSeek dsh", ModelProfileID: "dsh-model", Reason: "未安装固定版本或受限检测未通过。"}}
 	if ctx.Err() != nil {
 		return info, kitError("CANCELLED")
+	}
+	if kits.DockerGuest() {
+		return k.detectDockerGuest(ctx, info)
 	}
 	node, root, script, err := k.paths()
 	if err != nil {

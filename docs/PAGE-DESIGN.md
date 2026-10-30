@@ -7,7 +7,7 @@
 | 产品 | Agent Harbor |
 | 可浏览原型 | `../prototype/index.html` |
 | 关联 | [SYSTEM-DESIGN](SYSTEM-DESIGN.md) v2、[CONTRACT](CONTRACT.md) v1.2、`DESIGN.md` |
-| 范围 | **含** OAuth / clone / PTY / 双会话≤2；与历史两天裁剪冲突时 **以本文为准** |
+| 范围 | **含** OAuth / clone / PTY / 多会话≤5；与历史两天裁剪冲突时 **以本文为准** |
 | 交付形态 | **桌面应用**（Wails）；浏览器仅 mock 预览同套页面，见 [frontend/README](../frontend/README.md) |
 
 ---
@@ -78,7 +78,7 @@ Agent Harbor
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ Agent Harbor  [徽章]     [当前会话 ▾]  [使用说明]        │
+│ Agent Harbor  [徽章]     [当前会话 ▾]  [使用教程]        │
 ├────────┬────────────────────────────────────────────────┤
 │ HOME   │  内容区（随路由切换）                            │
 │ 模型   │                                                │
@@ -92,8 +92,8 @@ Agent Harbor
 
 | 顶栏 | 说明 |
 |---|---|
-| 徽章 | 真实绑定 / 模拟模式；桌面真连不展示开发期 UNIMPLEMENTED 横幅 |
-| 使用说明 | 右上角打开应用内操作说明弹窗（与 README 产品要点对齐） |
+| 徽章 | 仅浏览器 mock 显示「模拟模式」；桌面真连不展示绑定徽章；隔离后端用 Seatbelt/Docker 标记 |
+| 使用教程 | 右上角打开上手步骤；弹窗内可打开完整「使用说明」 |
 
 侧栏**收缩**后：
 
@@ -134,16 +134,17 @@ Agent Harbor
 │  3. 工具在本机配置一次，沙箱里不用填密 │
 │                                      │
 │  隔离能力检测（逐条至完成）           │
-│  · 系统环境 / 探测区 / Seatbelt …    │
-│  · 越权拒绝 / 安全闸口               │
+│  · Seatbelt：系统环境 / 探测区 / …   │
+│  · Docker：CLI / daemon / 网络 / …   │
 │  ● 隔离能力可用 → [ 进入 HOME ]      │
+│  ○ 失败 → [ 改隔离 / 引擎设置 ]      │
 └──────────────────────────────────────┘
 ```
 
 | 元素 | 规则 |
 |---|---|
-| 检测过程 | 与设置「重新检测隔离」、阻断页「重新检测」**同一套七项**；一次 `GetRuntimeHealth`，界面分阶段上屏 |
-| 检测失败 | 主按钮不可用；可「重新检测」；禁止「仍要继续」/跳过 |
+| 检测过程 | 与设置「重新检测隔离」、阻断页「重新检测」**同一套七项**；文案随当前隔离后端（Seatbelt / Docker）切换；一次 `GetRuntimeHealth`，界面分阶段上屏 |
+| 检测失败 | 主按钮不可用；可「重新检测」与「改隔离 / 引擎设置」；禁止「仍要继续」/跳过 |
 | 再次引导 | 设置「下次启动重新显示引导」清标记后，冷启动再跑本屏（含逐条检测） |
 | 跳过 | 不提供跳过检测 |
 
@@ -158,10 +159,10 @@ Agent Harbor
 | 规则 | V1 |
 |---|---|
 | 会话记录条数 | 不限（含已停止） |
-| 同时 `running`（含 `awaiting_permission`） | **最多 2 条** |
+| 同时 `running`（含扩权等待中，无独立 `awaiting_permission` 态） | **最多 5 条** |
 | 相同 Agent 壳 + **不同工作区** | **允许**同时 running |
 | 相同工作区（路径规范化后相同）+ 任一 Agent | **禁止**第二个 running |
-| 达上限再开新会话 | 「新会话」可进向导，点「开始运行」时拦截：「已有 2 个会话在运行，请先停止其中一个」 |
+| 达上限再开新会话 | 「新会话」可进向导，点「开始运行」时拦截：「已有 5 个会话在运行，请先停止其中一个」 |
 | 同工作区冲突 | Step1 选中或开始时提示：「该文件夹已有运行中的会话」，禁止开始；可提供「打开已有会话」 |
 
 工作区路径比较：解析为绝对路径后再比（`~`、符号链接按解析后路径）。
@@ -170,7 +171,7 @@ Agent Harbor
 
 ```
 ┌─ HOME ──────────────────────────────────────────────┐
-│  我的会话 · 运行中 2/2                 [ + 新会话 ]  │
+│  我的会话 · 运行中 2/5                 [ + 新会话 ]  │
 │                                                      │
 │  ┌────────────────────────────────────────────────┐ │
 │  │ Claude Code · DeepSeek · ~/work/foo  ● 运行中   │ │
@@ -197,7 +198,7 @@ Agent Harbor
 | 状态点 | state 映射 |
 | 工具摘要 | 已挂载 MCP，最多 3 个 |
 | 挂载 | `clone` / `direct` |
-| 运行中计数 | 顶栏 `运行中 x/2` |
+| 运行中计数 | 顶栏 `运行中 x/5` |
 
 操作：
 
@@ -370,6 +371,8 @@ Agent Harbor
 ```
 │  工具                                      [ + 添加 ] │
 │  MCP：远程 HTTP（浏览器 / Token）或宿主 stdio。         │
+│  预置：☑ 本机时间  ☑ filesystem  ☑ Context7            │
+│                        [ 添加所选 ]                     │
 │  与「模型」不同：这里不负责 Claude/GPT。               │
 │                                                        │
 │  GitHub     浏览器登录 · ● 已连接      [ 编辑 ][ 删除 ]│
@@ -379,6 +382,7 @@ Agent Harbor
 
 | 操作 | 含义 |
 |---|---|
+| **预置勾选 → 添加所选** | `ListMcpPresets` / `AddMcpPreset`：本机时间、演示 filesystem、Context7（后者须 Token） |
 | **编辑** | 打开与「添加」同构表单；可改名称/地址/认证方式；浏览器路径可再点「打开浏览器登录」，API Key 路径可贴新 Token（即原「重新登录 / 轮换密钥」） |
 | **删除** | 二次确认后从列表与钥匙串移除 |
 
@@ -441,7 +445,7 @@ Agent Harbor
 
 | 元素 | 规则 |
 |---|---|
-| 顶栏 | **+ 添加**：空白表单，自由填写 |
+| 顶栏 | **+ 添加**：打开添加弹窗，自由填写 |
 | 行 | 仅已添加项；每行 **编辑**、**删除** |
 | 主文案 | 用户起的**名称** + 地址主机名（不显示 Key） |
 | 状态 | **默认不标「已配置」**（在列表里即已添加）。仅当出站失败时标 **▲ 无效** |
@@ -450,7 +454,9 @@ Agent Harbor
 
 可选：添加表单上方提供「填入 DeepSeek / Anthropic 默认地址」**快捷芯片**（一键填默认 URL，仍可改），**不是**必选下拉锁死服务。
 
-#### 5.7.2 添加 / 编辑表单
+#### 5.7.2 添加 / 编辑弹窗
+
+与工具页同层 `modal-root`；Esc /「取消」关闭。
 
 ```
 │  添加模型 / 编辑模型                                   │
@@ -516,7 +522,7 @@ Agent Harbor
 
 | Tab | 内容 |
 |---|---|
-| **用量** | 会话摘要 + Gate 采集的 input/output token（有则按人工单价粗算）+ 单价快照（模型下拉选自已添加账号；可改可删；CNY/USD 勿混加）+ 近期终态 |
+| **用量** | 会话摘要 + Gate 采集的 input/output token（有则按人工单价粗算）+ 单价快照（模型下拉选自已添加账号；可改可删；CNY/USD 勿混加）+ 近期终态（**每页 10 行**分页） |
 | **阻拦** | Gate/策略直接拒绝的 audit（`denied` / `failed`），未进扩权弹窗 |
 | **扩权** | 用户对 `permission_needed` 的 deny/once/project（含界面演示标注） |
 | **诊断** | 隔离/凭据库/安全档位/记住主机/阻拦条数只读聚合 |
@@ -534,6 +540,8 @@ Agent Harbor
 ┌─ 设置 ─────────────────────────────────────────────┐
 │  默认偏向安全。改完即保存，无需点「应用」。              │
 │                                                      │
+│  ▸ 隔离后端（P2：Seatbelt / Docker；改后须重启）       │
+│  ▸ 容器引擎（仅 Docker：Colima / 本机 Docker）         │
 │  ▸ Agent（检测与安装；未安装可「复制安装命令」）         │
 │  ▸ 会话默认                                          │
 │  ▸ 网络安全                                          │
@@ -545,6 +553,30 @@ Agent Harbor
 
 保存策略：**改即存**（本地偏好）。成功无打断；失败 toast「未能保存，请重试」。
 有 `running` 会话时：多数项仍可改，但旁注「对下次新会话生效」；仅「结束与清理」里与停止流程相关的项对**下一次停止**生效。
+
+#### 5.8.1b 隔离后端与容器引擎（P2）
+
+```
+│  隔离后端（P2）                                       │
+│  二选一：Seatbelt（P1 默认）或 Docker（P2）。          │
+│  Colima / 本机 Docker 只是 Docker 后端的引擎。          │
+│  后端 [ Seatbelt（P1 · 默认） ▾ ]                     │
+│       · Seatbelt（P1 · 默认）                         │
+│       · Docker（P2）                                  │
+│  （偏好 ≠ 生效）[ 重启应用使生效 ]                     │
+│                                                      │
+│  容器引擎来源（后端=Docker 时显示）                    │
+│  ( ) Harbor 托管 Colima（无 Desktop 时推荐）          │
+│  ( ) 本机 Docker（高级）                              │
+│  [ 一键安装并启用 ]  进度条 · 可停止/取消               │
+```
+
+| 配置项 | 规则 |
+|---|---|
+| 隔离后端 | `UIPrefs.isolationBackend`=`seatbelt`\|`docker`；**改后须重启**；`HARBOR_RUNTIME` 优先于偏好 |
+| 一键重启 | `RestartApp`；有进行中会话先确认；标题栏在待重启时也可点「重启应用」 |
+| 引擎 | 仅 Docker 后端展示；托管 Colima 可钉扎下载；本机 Docker 只检测连接、不下载托管组件 |
+| 失败 | fail-closed；阻断页主按钮「改隔离 / 引擎设置」聚焦本区 |
 
 #### 5.8.2 Agent（检测与安装）
 
@@ -723,7 +755,7 @@ V1 禁止：自定义 binary 路径、Base URL + API Key 当作「添加 Agent�
 | 停止时询问 | HOME / 工作台点「停止」时的确认流 |
 | 技术详情 | 权限一览是否显示 Gate 等字段 |
 
-**不进设置、保持独立页的能力**：模型添加/编辑/删除；工具添加/编辑/删除与浏览器·API Key 双轨；并发 ≤2 / 同工作区禁双开（产品硬规则，非用户可关）。
+**不进设置、保持独立页的能力**：模型添加/编辑/删除；工具添加/编辑/删除与浏览器·API Key 双轨；并发 ≤5 / 同工作区禁双开（产品硬规则，非用户可关）。
 
 ---
 
@@ -765,9 +797,11 @@ V1 禁止：自定义 binary 路径、Base URL + API Key 当作「添加 Agent�
 
 ### 5.10 隔离不可用（阻断页）
 
-全页替代内容区；侧栏仍可见但「新会话」禁用。
+全页替代内容区；侧栏被遮罩时以阻断卡上的按钮为准（无「仍要继续」）。
 
-文案示例：「这台电脑当前无法建立隔离环境。Agent Harbor 不会在无隔离时启动 Agent。」+ **七项逐条检测列表** +「重新检测」（动画与引导/设置相同）。
+文案示例：「这台电脑当前无法建立隔离环境。Agent Harbor 不会在无隔离时启动 Agent。」+ **七项逐条检测列表**。
+
+**恢复路径（必有）**：主按钮 **「改隔离 / 引擎设置」** → 设置页聚焦「隔离后端」；Docker 未就绪时提示可改「本机 Docker」或退回 **Seatbelt**，并重启。次按钮「重新检测」（动画与引导/设置相同；Docker 七项文案）。已装 Docker Desktop 且仍选托管 Colima 时，设置页可一键切到本机 Docker。
 
 ---
 
@@ -799,7 +833,7 @@ V1 禁止：自定义 binary 路径、Base URL + API Key 当作「添加 Agent�
 
 - V1：macOS 桌面窗体；遵循系统标题栏与通知。
 - 扩权优先 App 内模态；App 在后台时用系统通知点击回前台。
-- 不做多窗多会话复杂布局；**并行 `running` 上限 2**（见 §5.2），焦点会话用顶栏切换。
+- 不做多窗多会话复杂布局；**并行 `running` 上限 5**（见 §5.2），焦点会话用顶栏切换。
 
 ---
 
@@ -816,9 +850,9 @@ V1 禁止：自定义 binary 路径、Base URL + API Key 当作「添加 Agent�
 | 新会话 | `ListAgents` `SelectWorkspace` `ListAccounts` `Connect*` `CreateSession`（`mountMode`=direct\|clone；mcpIds 0..8） | — |
 | 工作台 | `GetSession` `StopSession` `SyncBackWorkspace` `SwitchModel` `GetPermissionOverview` `WritePty`/`ResizePty` `ResolvePermission` | `state` `output` `pty` `audit` `error` `permission_needed` |
 | 模型 | `ConnectModel`（可带 origin）`ListAccounts` `RemoveAccount` | — |
-| 工具 | `ConnectMcp`（HTTP Token **或** `transport=stdio`）**或** `StartMcpOAuth`/`CancelMcpOAuth`；`ListAccounts` `RemoveAccount` | — |
+| 工具 | `ListMcpPresets`/`AddMcpPreset`（一键预置）+ `ConnectMcp`（HTTP Token **或** `transport=stdio`）**或** `StartMcpOAuth`/`CancelMcpOAuth`；`ListAccounts` `RemoveAccount` | — |
 | 记录 | 无新 API；前端 `usage-analytics`（audit / permission / session_outcome） | 订阅工作台同源事件写入 |
-| 设置 | `ListAgents` `GetRuntimeHealth` 记住主机与 Overview 同源 API；Prefs | — |
+| 设置 | `ListAgents` `GetRuntimeHealth` `Get/EnsureContainerEngine` `RestartApp`；记住主机与 Overview 同源 API；Prefs（含 `isolationBackend`） | — |
 | 扩权 | `ResolvePermission` + 事件 `permission_needed` | `permission_needed` |
 
 状态展示必须以 Orchestrator 事件为准，页面不本地猜「是否已隔离」。UI 只经 `frontend/src/api.js`，不直连 Gate / Secrets / Runtime。

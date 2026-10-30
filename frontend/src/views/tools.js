@@ -4,6 +4,8 @@
  * OAuth：pending 轮询 ListAccounts + 可取消 / 「我已完成登录」
  */
 import * as api from "../api.js";
+import { openFormModal } from "../form-modal.js";
+import { markTutorialStep } from "../tutorial-progress.js";
 
 export function mountTools(root, ctx, opts = {}) {
   let mode = "token"; // oauth | token | stdio
@@ -16,6 +18,44 @@ export function mountTools(root, ctx, opts = {}) {
   /** @type {Set<string>} */
   let oauthSeenIds = new Set();
   let oauthHint = "";
+  /** @type {Array<{id:string,name:string,description:string,kind:string,needsApiKey:boolean,origin?:string}>} */
+  let presets = [];
+  let presetStatus = "";
+  /** 正在添加的预置 id（防连点） */
+  let addingPresetId = "";
+  /** 预置 MCP 默认折叠；用户展开后 paint 保留 */
+  let presetsOpen = false;
+  /** @type {{ body: HTMLElement, setTitle: Function, close: Function } | null} */
+  let formModal = null;
+
+  function closeFormModal() {
+    if (formModal) {
+      const m = formModal;
+      formModal = null;
+      m.close();
+    }
+  }
+
+  function ensureFormModal(title) {
+    if (formModal?.body) {
+      formModal.setTitle(title);
+      return formModal.body;
+    }
+    formModal = openFormModal({
+      title,
+      onClose: () => {
+        formModal = null;
+        if (pendingId) {
+          api.cancelMcpOAuth(pendingId);
+          clearPendingWatch();
+          pendingId = "";
+          oauthHint = "";
+        }
+        editing = null;
+      },
+    });
+    return formModal?.body || null;
+  }
 
   function clearReturn() {
     if (ctx.state.returnAfterAccount?.kind === "mcp") {
@@ -41,22 +81,59 @@ export function mountTools(root, ctx, opts = {}) {
   }
 
   async function load() {
-    const res = await api.listAccounts("mcp");
+    const [res, presetRes] = await Promise.all([
+      api.listAccounts("mcp"),
+      api.listMcpPresets().catch(() => ({ presets: [] })),
+    ]);
     ctx.state.mcpAccounts = res.accounts || [];
     if (ctx.state.mcpAccounts[0]) ctx.state.mcpAccount = ctx.state.mcpAccounts[0];
+    presets = presetRes?.presets || [];
     paint();
+  }
+
+  function paintPresets() {
+    if (!presets.length) return "";
+    const connectedNames = new Set(
+      (ctx.state.mcpAccounts || []).map((a) => a.name).filter(Boolean),
+    );
+    return `
+      <section class="card" id="mcp-presets" style="margin-bottom:16px">
+        <details id="mcp-presets-details" ${presetsOpen ? "open" : ""}>
+          <summary class="mcp-presets-summary">
+            <strong>预置 MCP</strong>
+            <span class="meta">（${presets.length} 项 · 点击展开）</span>
+          </summary>
+          <p class="meta">勾选即添加；标「须 Token」的会先弹出填写框。添加后可在「新会话」挂载。</p>
+          <div id="preset-checks">
+            ${presets
+              .map((p) => {
+                const already = connectedNames.has(p.name);
+                const busy = addingPresetId === p.id;
+                return `
+              <label class="check-row" style="align-items:flex-start">
+                <input type="checkbox" data-preset-check="${p.id}" ${already ? "checked" : ""} ${already || !!addingPresetId ? "disabled" : ""}/>
+                <span>
+                  <strong>${p.name}</strong>${p.needsApiKey ? ` <span class="meta">· 须 Token</span>` : ""}${already ? ` <span class="meta ok">· 已在列表</span>` : ""}${busy ? ` <span class="meta">· 添加中…</span>` : ""}
+                  <p class="meta" style="margin:2px 0 0">${p.description}</p>
+                </span>
+              </label>`;
+              })
+              .join("")}
+          </div>
+          ${presetStatus ? `<p class="meta" id="preset-status">${presetStatus}</p>` : ""}
+        </details>
+      </section>`;
   }
 
   function paint() {
     const list = ctx.state.mcpAccounts || [];
     root.innerHTML = `
-      <div class="page-head row" style="justify-content:space-between">
+      <div class="page-head row page-head-spread">
         <div>
           <h2>工具</h2>
-          <p class="sub">给 Agent 一双手（MCP）。可跨 Claude/Codex/dsh 挂载。模型可在「模型」页勾选多 Agent 共用。</p>
-          <p class="meta warn">MCP：<strong>远程 HTTP</strong>（Token / OAuth）或<strong>宿主 stdio</strong>（本机进程，经回环桥；密钥不进沙箱）。须预装 Agent CLI；隔离仅 <strong>macOS Darwin 25 · arm64 · 非 root</strong>。</p>
+          <p class="sub">给 Agent 一双手（MCP）。支持远程 HTTP 与宿主 stdio；密钥不进沙箱。</p>
         </div>
-        <button type="button" class="btn primary" id="btn-add-mcp">+ 添加</button>
+        <button type="button" class="btn primary" id="btn-add-mcp">+ 自定义添加</button>
       </div>
       ${
         returning
@@ -64,20 +141,42 @@ export function mountTools(root, ctx, opts = {}) {
              <button type="button" class="btn" id="t-back-wizard">直接返回</button></p>`
           : ""
       }
+      ${paintPresets()}
       <div id="mcp-list" class="session-list"></div>
       ${listStatus ? `<p class="meta" id="mcp-list-status">${listStatus}</p>` : ""}
       ${
         list.length === 0 && editing !== "new"
-          ? `<div class="empty-state"><p>还没有工具。可添加远程 HTTP MCP（Token/OAuth），或宿主 stdio（本机命令，Harbor 在宿主机拉起）。</p>
-             <div class="actions"><button type="button" class="btn primary" id="empty-add-mcp">+ 添加第一个</button></div></div>`
+          ? `<div class="empty-state"><p>还没有工具。可展开上方「预置 MCP」勾选即添加，或自定义远程 HTTP / 宿主 stdio。</p>
+             <div class="actions"><button type="button" class="btn primary" id="empty-add-mcp">+ 自定义添加</button></div></div>`
           : ""
       }
-      <div id="mcp-form" class="${editing ? "" : "hidden"}"></div>
     `;
     const listEl = root.querySelector("#mcp-list");
+    root.querySelector("#mcp-presets-details")?.addEventListener("toggle", (ev) => {
+      presetsOpen = !!ev.currentTarget?.open;
+    });
+    root.querySelectorAll("[data-preset-check]").forEach((el) => {
+      el.onchange = () => {
+        const id = el.getAttribute("data-preset-check") || "";
+        if (!id) return;
+        // 已添加项为 disabled+checked；此处仅处理「勾选即添加」
+        if (!el.checked) {
+          el.checked = false;
+          return;
+        }
+        const preset = presets.find((p) => p.id === id);
+        if (!preset) {
+          el.checked = false;
+          return;
+        }
+        // 先取消勾选，成功添加后再由列表态显示已勾选
+        el.checked = false;
+        void addOnePreset(preset);
+      };
+    });
     list.forEach((a) => {
       const row = document.createElement("article");
-      row.className = "card session-card";
+      row.className = "list-row session-card";
       const confirming = pendingDelete === a.id;
       const toolsHint =
         Array.isArray(a.tools) && a.tools.length
@@ -86,7 +185,7 @@ export function mountTools(root, ctx, opts = {}) {
             ? " · 无工具列表（请编辑重连）"
             : "";
       row.innerHTML = `
-        <div class="row" style="justify-content:space-between">
+        <div class="row page-head-spread">
           <div>
             <strong>${a.name}</strong>
             <span class="meta">${a.transport === "stdio" ? "stdio" : a.authMode || "token"} · ${a.transport === "stdio" ? a.command || "host" : a.host || a.profileId}${toolsHint} · ${a.offlineHint ? "○ 桥未就绪" : "● 已连接"}</span>
@@ -115,7 +214,6 @@ export function mountTools(root, ctx, opts = {}) {
       pendingDelete = "";
       listStatus = "";
       mode = "token";
-      paint();
       paintForm();
     };
     root.querySelector("#btn-add-mcp").onclick = startAdd;
@@ -129,8 +227,8 @@ export function mountTools(root, ctx, opts = {}) {
         editing = btn.getAttribute("data-edit");
         pendingDelete = "";
         listStatus = "";
-        mode = "token";
-        paint();
+        const acc = (ctx.state.mcpAccounts || []).find((a) => a.id === editing);
+        mode = acc?.transport === "stdio" ? "stdio" : "token";
         paintForm();
       };
     });
@@ -161,11 +259,90 @@ export function mountTools(root, ctx, opts = {}) {
           return;
         }
         listStatus = "";
-        if (editing === id) editing = null;
+        if (editing === id) {
+          editing = null;
+          closeFormModal();
+        }
         await load();
       };
     });
     if (editing) paintForm();
+  }
+
+  /** @returns {Promise<string|null>} Token；取消为 null；无需 Token 为空串 */
+  function askPresetKey(preset) {
+    return new Promise((resolve) => {
+      if (!preset?.needsApiKey) {
+        resolve("");
+        return;
+      }
+      let settled = false;
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
+      closeFormModal();
+      const modal = openFormModal({
+        title: `预置 MCP · ${preset.name}`,
+        onClose: () => finish(null),
+      });
+      if (!modal?.body) {
+        finish(null);
+        return;
+      }
+      modal.body.innerHTML = `
+        <p class="meta">「${preset.name}」需要 Token 才能连接。</p>
+        <label class="field">Token
+          <input type="password" id="preset-key-input" autocomplete="off" placeholder="粘贴 Token"/>
+        </label>
+        <div class="actions">
+          <button type="button" class="btn" id="preset-keys-cancel">取消</button>
+          <button type="button" class="btn primary" id="preset-keys-ok">添加</button>
+        </div>
+        <p class="meta" id="preset-keys-status" role="status"></p>`;
+      const input = modal.body.querySelector("#preset-key-input");
+      modal.body.querySelector("#preset-keys-cancel").onclick = () => modal.close();
+      modal.body.querySelector("#preset-keys-ok").onclick = () => {
+        const v = input?.value?.trim() || "";
+        const st = modal.body.querySelector("#preset-keys-status");
+        if (!v) {
+          st.innerHTML = `<span class="bad">请填写 Token</span>`;
+          return;
+        }
+        finish(v);
+        modal.close();
+      };
+      input?.focus();
+    });
+  }
+
+  async function addOnePreset(preset) {
+    if (!preset?.id || addingPresetId) return;
+    const key = await askPresetKey(preset);
+    if (key === null) {
+      presetStatus = "";
+      paint();
+      return;
+    }
+    addingPresetId = preset.id;
+    presetStatus = `<span class="meta">正在添加「${preset.name}」…</span>`;
+    paint();
+    const res = await api.addMcpPreset({
+      presetId: preset.id,
+      apiKey: key,
+    });
+    addingPresetId = "";
+    if (res?.error) {
+      presetStatus = `<span class="bad">「${preset.name}」添加失败：${res.error.message}</span>`;
+      paint();
+      return;
+    }
+    presetStatus = `<span class="ok">已添加：${preset.name}</span>`;
+    markTutorialStep(2);
+    ctx.onAccountsChanged?.();
+    if (resumeWizard()) return;
+    await load();
   }
 
   function newOAuthAccounts(accounts) {
@@ -179,9 +356,11 @@ export function mountTools(root, ctx, opts = {}) {
     pendingId = "";
     oauthHint = "";
     editing = null;
+    closeFormModal();
     ctx.state.mcpAccounts = accounts || [];
     if (added[0]) ctx.state.mcpAccount = added[0];
     else if (ctx.state.mcpAccounts[0]) ctx.state.mcpAccount = ctx.state.mcpAccounts[0];
+    markTutorialStep(2);
     ctx.onAccountsChanged?.();
     if (resumeWizard()) return;
     await load();
@@ -202,7 +381,9 @@ export function mountTools(root, ctx, opts = {}) {
   }
 
   function paintForm() {
-    const form = root.querySelector("#mcp-form");
+    const isEdit = editing !== "new";
+    const form = ensureFormModal(isEdit ? "编辑 MCP" : "添加 MCP");
+    if (!form) return;
     const acc =
       editing === "new"
         ? { name: "演示 MCP", host: "", profileId: "custom", basePath: "" }
@@ -212,11 +393,7 @@ export function mountTools(root, ctx, opts = {}) {
       (acc.host
         ? "https://" + acc.host + (acc.basePath || "")
         : "");
-    const isEdit = editing !== "new";
-    form.classList.remove("hidden");
     form.innerHTML = `
-      <section class="card">
-        <h3>${isEdit ? "编辑 MCP" : "添加 MCP"}</h3>
         <label class="field">显示名<input id="t-name" value="${acc.name || ""}" maxlength="100"/></label>
         <p class="meta">接入方式</p>
         <label class="radio"><input type="radio" name="auth" value="oauth" ${mode === "oauth" ? "checked" : ""} ${isEdit ? "disabled" : ""}/> 远程 · 浏览器登录 / SSO${isEdit ? "（编辑请用 Token/stdio 重连）" : ""}</label>
@@ -270,9 +447,8 @@ export function mountTools(root, ctx, opts = {}) {
         <div class="actions">
           <button type="button" class="btn" id="t-cancel">取消</button>
           <button type="button" class="btn primary ${mode === "oauth" ? "hidden" : ""}" id="t-save">保存</button>
-          <span class="meta" id="t-status"></span>
         </div>
-      </section>`;
+        <p class="meta" id="t-status" role="status"></p>`;
     form.querySelectorAll('input[name="auth"]').forEach((el) => {
       el.onchange = () => {
         if (el.disabled) return;
@@ -288,6 +464,7 @@ export function mountTools(root, ctx, opts = {}) {
         oauthHint = "";
       }
       editing = null;
+      closeFormModal();
       if (returning) {
         clearReturn();
         ctx.navigate("wizard");
@@ -383,6 +560,8 @@ export function mountTools(root, ctx, opts = {}) {
           const envEl = form.querySelector("#t-env");
           if (envEl) envEl.value = "";
           editing = null;
+          closeFormModal();
+          markTutorialStep(2);
           ctx.onAccountsChanged?.();
           if (resumeWizard()) return;
           await load();
@@ -466,6 +645,7 @@ export function mountTools(root, ctx, opts = {}) {
   return {
     destroy() {
       clearPendingWatch();
+      closeFormModal();
     },
   };
 }

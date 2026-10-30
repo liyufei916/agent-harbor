@@ -10,9 +10,12 @@
 /tmp/
 /_agent-harbor-probe/
 
-# Go/Wails 生成产物；build 中的图标与配置仍可提交
+# Go/Wails 生成产物；build 中的图标与 darwin/docker 配置仍可提交
 /bin/
 /build/bin/
+# 多端脚手架生成物：易导致覆盖率报告出现大量 0.0% 噪音行
+/build/android/
+/build/ios/
 /frontend/node_modules/
 # dist 构建产物忽略，但保留可提交占位文件供 go:embed / CI 编译
 /frontend/dist/**
@@ -28,6 +31,15 @@
 __pycache__/
 *.pyc
 
-# 演示工作区运行产物（保留 README；Agent 可覆盖 hello.txt）
+# 演示工作区：只提交说明与演示脚本；运行产物 / Agent 垃圾不入库
 /demos/workspace/**
 !/demos/workspace/README.md
+!/demos/workspace/hello.txt
+!/demos/workspace/ONLY_IN_SOURCE.txt
+!/demos/workspace/SYNCBACK_DEMO.md
+!/demos/workspace/EXPAND-TASK.txt
+!/demos/workspace/BLOCK-TASK.txt
+
+# 本地冒烟临时目录 / 下划线草稿不入库
+/demos/evidence/_*/
+/demos/evidence/_*

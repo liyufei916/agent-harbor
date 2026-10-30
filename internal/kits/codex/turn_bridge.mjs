@@ -75,9 +75,11 @@ function mapItem(item) {
 // --native：ChatGPT.app 等 Mach-O。直接 exec 该二进制；npm 脚本仍由当前 node 解释。
 const native = process.argv.includes("--native");
 const serverCmd = native ? codexScript : process.execPath;
+// 关闭 plugins：Gate 仅放行 harbor.gate，默认同步 openai/plugins 会卡死 git fetch。
+const disablePlugins = ["--disable", "plugins", "--disable", "plugin_discovery_prefetch"];
 const serverArgs = native
-  ? ["app-server", "--listen", "stdio://"]
-  : [codexScript, "app-server", "--listen", "stdio://"];
+  ? [...disablePlugins, "app-server", "--listen", "stdio://"]
+  : [codexScript, ...disablePlugins, "app-server", "--listen", "stdio://"];
 const child = spawn(serverCmd, serverArgs, {
   cwd,
   env: process.env,
@@ -88,7 +90,21 @@ child.on("error", (err) => {
   process.stderr.write(`harbor-turn: app-server spawn failed: ${err.message}\n`);
   process.exit(1);
 });
-child.stderr.on("data", (chunk) => process.stderr.write(chunk));
+child.stderr.on("data", (chunk) => {
+  // Codex rmcp 连宿主 stdio MCP 时偶发 502 噪声；桥接已吞二次 initialize，仍过滤残余 stderr。
+  const text = String(chunk);
+  const kept = text
+    .split(/\r?\n/)
+    .filter((line) => {
+      const s = line.trim();
+      if (!s) return false;
+      if (/rmcp::transport::worker/i.test(s)) return false;
+      if (/Transport channel closed/i.test(s) && /502|broken pipe/i.test(s)) return false;
+      return true;
+    })
+    .join("\n");
+  if (kept) process.stderr.write(kept.endsWith("\n") ? kept : kept + "\n");
+});
 child.on("exit", (code, signal) => {
   process.exit(signal ? 1 : code ?? 1);
 });

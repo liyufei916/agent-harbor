@@ -149,6 +149,23 @@ type AccountResponse struct {
     Account *AccountInfo `json:"account"`
     Error *AppError `json:"error"`
 }
+type McpPresetInfo struct {
+    ID string `json:"id"`
+    Name string `json:"name"`
+    Description string `json:"description"`
+    Kind string `json:"kind"` // stdio | http
+    NeedsAPIKey bool `json:"needsApiKey"`
+    Origin string `json:"origin,omitempty"`
+}
+type McpPresetsResponse struct {
+    Presets []McpPresetInfo `json:"presets"`
+    Error *AppError `json:"error"`
+}
+type AddMcpPresetInput struct {
+    PresetID string `json:"presetId"`
+    Name string `json:"name,omitempty"`
+    APIKey string `json:"apiKey,omitempty"`
+}
 type AccountsResponse struct {
     Accounts []AccountInfo `json:"accounts"`
     Error *AppError `json:"error"`
@@ -208,11 +225,28 @@ type UIPrefs struct {
     Theme string `json:"theme,omitempty"` // system | light | dark；空=system
     AskClearOnStop bool `json:"askClearOnStop"`
     ClearOnStopDefault string `json:"clearOnStopDefault,omitempty"` // keep | clear；空=keep
+    SecurityTier string `json:"securityTier,omitempty"` // strict | standard | relaxed
+    IsolationBackend string `json:"isolationBackend,omitempty"` // seatbelt | docker；改后需重启；HARBOR_RUNTIME 优先
+    EngineSource string `json:"engineSource,omitempty"` // harbor-colima | system-docker；空=harbor-colima
 }
 type UIPrefsResponse struct {
     Prefs *UIPrefs `json:"prefs"`
     Error *AppError `json:"error"`
 }
+// ContainerEngineHealthResponse：P2 容器引擎状态（Colima / 本机 Docker）。
+type ContainerEngineHealthResponse struct {
+    Ready bool `json:"ready"`
+    Source string `json:"source,omitempty"`
+    Message string `json:"message,omitempty"`
+    DockerHost string `json:"dockerHost,omitempty"`
+    DockerDesktopInstalled bool `json:"dockerDesktopInstalled"`
+    ComponentsInstalled bool `json:"componentsInstalled"`
+    Installing bool `json:"installing"`
+    ProgressPercent int `json:"progressPercent"`
+    ProgressLabel string `json:"progressLabel,omitempty"`
+    Error *AppError `json:"error"`
+}
+// 一键安装进度另推 harbor:engine-progress（EngineProgressPayload: percent/label/done/error）。
 type EmptyResponse struct {
     Error *AppError `json:"error"`
 }
@@ -223,6 +257,8 @@ type DesktopAPI interface {
     SelectWorkspace() WorkspaceResponse
     ConnectModel(ConnectInput) AccountResponse
     ConnectMcp(ConnectInput) AccountResponse
+    ListMcpPresets() McpPresetsResponse           // 工具页一键预置目录（无密钥）
+    AddMcpPreset(AddMcpPresetInput) AccountResponse // stdio 立即连；Context7 须 Token
     ListAccounts(kind string) AccountsResponse // kind: model | mcp | ""=全部
     RemoveAccount(accountID string) EmptyResponse
     CreateSession(SessionSpec) SessionResponse
@@ -233,6 +269,9 @@ type DesktopAPI interface {
     DestroySession(sessionID string) SessionResponse
     SyncBackWorkspace(sessionID string) SessionResponse // clone → 原目录合并写回
     GetRuntimeHealth() RuntimeHealthResponse
+    GetContainerEngineHealth() ContainerEngineHealthResponse
+    EnsureContainerEngine() ContainerEngineHealthResponse
+    StopContainerEngine() ContainerEngineHealthResponse // 取消安装 + 停 Harbor Colima
     GetPermissionOverview(sessionID string) PermissionOverviewResponse
     ListRememberedHosts(workspace string) RememberedHostsResponse
     RevokeRememberedHost(RevokeHostInput) EmptyResponse
@@ -246,6 +285,15 @@ type DesktopAPI interface {
     WritePty(PtyInput) EmptyResponse
     ResizePty(PtyInput) EmptyResponse
     SaveTextFile(SaveTextFileInput) SaveFileResponse // 系统另存为；可 reveal
+    RestartApp(RestartAppInput) RestartAppResponse   // 一键重启：拉起新进程后退出
+}
+type RestartAppInput struct {
+    Force bool `json:"force,omitempty"` // true=有进行中会话也重启
+}
+type RestartAppResponse struct {
+    Restarting bool `json:"restarting"`
+    BusySessions int `json:"busySessions,omitempty"`
+    Error *AppError `json:"error"`
 }
 
 // Event 经 harbor:event；下列载荷恰有一项非 nil。
@@ -420,10 +468,12 @@ type Runtime interface {
 | ListAgents | 返回实际检测的列表；不依赖 Gate 可用 | CLI 未装属于 available=false；检测内部故障才返回 error |
 | SelectWorkspace | 系统目录面板，绝对路径 | 取消：cancelled=true、path=""、error=null |
 | ConnectModel | 10s 内测上游，成功才存账号 | **固定 profile**：Origin 空，ProfileID∈已登记；**自定义**：Origin 必填 HTTPS（可带 BasePath），ProfileID 空或 `custom`；禁止 query/fragment；失败清候选，account=null |
-| ConnectMcp | Token / **stdio** 探测并保存；自定义 Origin 见下 | **HTTP**：Origin HTTPS…；**stdio**：`transport=stdio` + 绝对路径 command（宿主桥）；成功须 `tools/list` 非空写入 `AccountInfo.tools`；OAuth 轨走 StartMcpOAuth |
+| ConnectMcp | Token / **stdio** 探测并保存；自定义 Origin 见下 | **HTTP**：Origin HTTPS…；**stdio**：`transport=stdio` + 绝对路径 command（宿主桥）；成功宜写入 `AccountInfo.tools`；**工具发现失败/空列表仍可保存**（`OfflineHint` 提示「可继续但工具受限」）；OAuth 轨走 StartMcpOAuth |
+| ListMcpPresets | 返回首批预置目录（无密钥） | 固定：`harbor-time` / `harbor-filesystem` / `harbor-demo-boundary`（可选）/ `context7` |
+| AddMcpPreset | 一键添加预置并 Connect | stdio：物化脚本+python3；filesystem 锁 demos/workspace 或样例目录；`context7` 须 `apiKey`，Origin=`https://mcp.context7.com` |
 | ListAccounts | 返回已保存账号元信息（无 Key） | kind 过滤；空列表 `[]` |
 | RemoveAccount | 删除账号与密钥 | 会话仍引用该账号 → `SESSION_BUSY`；未知 → `ACCOUNT_NOT_FOUND` |
-| CreateSession | 占会话槽，返回 provisioning | running+preparing 总数 **≤2**，否则 `SESSION_LIMIT`；同规范化工作区已有非终态 → `WORKSPACE_BUSY`；mountMode∈direct\|clone；mcpIds 0..8 |
+| CreateSession | 占会话槽，返回 provisioning | running+preparing 总数 **≤5**，否则 `SESSION_LIMIT`；同规范化工作区已有非终态 → `WORKSPACE_BUSY`；mountMode∈direct\|clone；mcpIds 0..8 |
 | SwitchModel | 仅影响之后模型出站 | 仅 running 可切换；未知会话/账号 → 对应错误；必须为相同 profile 与 Host 的模型账号，不兼容 → INVALID_ARGUMENT；不改工作区/Agent |
 | StartMcpOAuth / CancelMcpOAuth | 打开浏览器完成 MCP 登录 | 回调成功后出现在 ListAccounts；取消清 pending；优先 DCR，否则 env/`agent-harbor`；可设 `HARBOR_MCP_OAUTH_REDIRECT_PORT` 固定回调端口；响应带回 `redirectUri`/`clientId`/`clientSource` 供 UI 自助 |
 | WritePty / ResizePty | 向焦点会话 PTY 写输入/改尺寸 | 无 PTY 或未 running → `INVALID_ARGUMENT` |
@@ -432,21 +482,27 @@ type Runtime interface {
 | StartSession | 原 session_id 回到 provisioning | 仅 `stopped`/`failed` 且 cleanupComplete=true；否则 `INVALID_ARGUMENT` 或 `CLEANUP_FAILED`；并发与同工作区规则同 CreateSession；未知 → `SESSION_NOT_FOUND`。不新建会话。进程起来后等待下一轮输入，不再自动送入创建时的任务 |
 | ListSessions | 本应用生命周期内会话摘要 | 含终态直至 Destroy；空 `[]` |
 | DestroySession | 移除终态会话记录 | 非 stopped/failed 或 cleanupComplete=false → `INVALID_ARGUMENT`；未知 → `SESSION_NOT_FOUND`；并删除停止后保留的 clone 副本 |
-| SyncBackWorkspace | 将 clone 副本合并写回 `sourceWorkspace` | 仅 `mountMode=clone`；覆盖同名常规文件，不删原目录多余项；成功后桌面在访达中显示源目录；无副本/direct → `INVALID_ARGUMENT`；未知 → `SESSION_NOT_FOUND` |
+| SyncBackWorkspace | 将 clone 副本合并写回 `sourceWorkspace` | 仅 `mountMode=clone`；覆盖同名常规文件，不删原目录多余项；成功后 toast 提示路径（不自动打开访达）；无副本/direct → `INVALID_ARGUMENT`；未知 → `SESSION_NOT_FOUND` |
 | GetRuntimeHealth | 隔离/Runtime 探测 | available=false 时 reason 必填；可选 `vaultNotice` 提示凭据介质告警；不因此自动放行无隔离启动 |
+| GetContainerEngineHealth | P2 容器引擎探测 | ready=false 时 message 必填；不启停引擎；禁密钥 |
+| EnsureContainerEngine | 用户一键安装：下载/启动引擎并尽量建镜像 | 失败 fail-closed；成功可写 `DOCKER_HOST`；不因切后端自动触发 |
+| StopContainerEngine | 取消进行中安装；停止 Harbor Colima | 不关闭本机 Docker Desktop；可推送 progress done |
 | GetPermissionOverview | 只读边界摘要 | 无 Key/Sentinel/完整 Gate URL；sessionId 空则返回「默认/全局」允许摘要（无工作区时 workspace=""） |
 | ListRememberedHosts | 已记住主机 | workspace 空=全部；与设置「管理网站」同源 |
 | RevokeRememberedHost | 撤销 project/session 记住项 | 未知 host 成功幂等（error=null） |
 | ResolvePermission | 处理扩权挂起 | decision∈deny\|once\|project；无挂起 → `INVALID_ARGUMENT`；**禁止**全网允许 |
 | PromptPermission | 主动挂起出站扩权（ask） | 仅 running；目标为主机名；异步发 `permission_needed`，等 Resolve；**不依赖**上游 302 |
+
+扩权演示（live）：工作台「请求扩权」，或粘贴 `demos/workspace/EXPAND-TASK.txt` 让 Agent 调 MCP **`harbor_demo_ask`**（Gate 在任意挂载的 `tools/list` 注入该工具名，并对 `tools/call` **先于白名单**拦截 → `RequestPermission`）。阻拦演示：`BLOCK-TASK.txt`（未授权工具名 → audit denied，**无**三选一弹窗）。
 | SaveTextFile | 系统另存为写入文本 | 建议名+内容；可选 reveal 在访达显示；取消 → cancelled；**不得**用于密钥 |
+| RestartApp | 拉起同路径新进程后退出本进程 | Force=false 且有 running/provisioning/stopping → `SESSION_BUSY` + busySessions；成功 `restarting=true`；经退出门清理 |
 | GetUIPrefs / SetUIPrefs | 读写本机 UI 偏好 | **不得**存 Key；缺文件返回默认值 |
 
 AgentID 仅允许已验证项；Task 限 1–32768 UTF-8 字节。ConnectInput 的 Name/APIKey 必填；Name≤100 Unicode；APIKey≤16384 字节。固定 profile 路径下 ProfileID 必填。重连创建新账号 ID。活动会话仍引用某账号时 `RemoveAccount` → `SESSION_BUSY`。`ConnectModel`/`ConnectMcp` 经 `WithConnection`：与并发 Connect、以及 `provisioning` 中的 Create 互斥；**已有 running 会话不拦截新增账号**（新账号仅进本机列表，不自动挂到当前会话）。
 
-工具白名单：**固定 MCP profile** 用登记 `Tools`；**自定义 MCP** 用连接探测写入的 `AccountInfo.tools`（UI/策略种子）；**会话内 `tools/call` 仍按挂载白名单动态校验**。自定义 MCP 账号缺 `tools`（旧版连接未落盘）时 `CreateSession` → `INVALID_ARGUMENT`（Policy `ErrMissingMCP`），须在「工具」删除后重新连接。Policy 失败勿一律映为 `WORKSPACE_DENIED`。
+工具白名单：**固定 MCP profile** 用登记 `Tools`；**自定义 MCP** 用连接探测写入的 `AccountInfo.tools`（UI/策略种子）；**会话内 `tools/call` 仍按挂载白名单动态校验**。自定义 MCP 账号 `tools` 为空时仍可 `CreateSession`（挂载空白名单 → 可继续但工具受限；call 全拒）。Policy 失败勿一律映为 `WORKSPACE_DENIED`。
 
-远程 HTTP MCP **initialize**：客户端优先提出 `2025-03-26`；上游返回的 `protocolVersion` 须属于接受列表 `2025-06-18` / `2025-03-26` / `2024-11-05`（见 [mcp-compat-matrix](../demos/mcp-compat-matrix.md)）。
+远程 HTTP MCP **initialize**：客户端优先提出 `2025-03-26`；钉扎接受 `2025-06-18` / `2025-03-26` / `2024-11-05`；**空版本**或形如 `YYYY-MM-DD` 的其它修订走宽松协商（见 [mcp-compat-matrix](../demos/mcp-compat-matrix.md)）。现代客户端的 `server/discover` era 探针：stdio 桥本地回 JSON-RPC Method not found（HTTP 200）；Gate 对上游 5xx/不可达同样软回落。dsh 多挂载时 `failOnStartupError=false`。
 
 SessionSnapshot.state：`provisioning`|`running`|`stopping`|`stopped`|`failed`（扩权等待 **不** 新增 state；用 `permission_needed` 事件表示挂起，会话保持 `running`）。cleanupComplete 语义同 v1。AccountInfo.kind 仅 model/mcp。
 
@@ -480,7 +536,7 @@ Go 绑定统一 `error` 字段；未实现的新方法返回 `UNIMPLEMENTED`。�
 | AGENT_EXIT_FAILED | 非零退出，无已知更具体错误 | false |
 | CANCELLED | 用户取消连接等操作；正常停止不算失败 | false |
 | CLEANUP_FAILED / INTERNAL_ERROR | 清理或未知内部故障 | false |
-| SESSION_LIMIT | Create 时活动会话数已达上限（2） | false |
+| SESSION_LIMIT | Create 时活动会话数已达上限（5） | false |
 | WORKSPACE_BUSY | 同工作区已有非终态会话 | false |
 | UNIMPLEMENTED | DesktopAPI 新方法尚未接线 | false |
 
@@ -536,7 +592,7 @@ policy 的固定 profile 来自 B 管理的后端配置，不从前端或 Agent 
 - **v1.1**：健康/列表/扩权/多账号/Prefs 等。
 - **v1.2**：恢复并定义 OAuth、`clone`、`SwitchModel`、PTY（`WritePty`/`ResizePty` + 事件 `pty`）。形状未实现时可 `UNIMPLEMENTED`，**不得缺方法名**。
 
-当前实现注记：Claude/dsh 仍为严格单进程；Codex 会话为受控子进程（`AllowDescendants`）。已支持 clone 安全副本（拒绝符号链接及特殊文件），原目录仍作为并发互斥键；副本可 `SyncBackWorkspace` 导回，随 `DestroySession` 清理。WritePty 多轮：Claude 使用 `--input-format stream-json`；桌面 dsh 经 `dsh.NewConversation` 固定受信会话驱动保留同一 Agent；Codex 经 `app-server` + turn bridge 同 thread 多轮。macOS Terminal 模式 `Resize` 在 `terminal!=nil` 时走 `pty.Setsize`。完整真实验收见 [DEV-A](DEV-A.md) / [ENG-STATUS](ENG-STATUS.md) / [CODEX-INTEGRATION](CODEX-INTEGRATION.md)。
+当前实现注记：Claude/dsh 仍为严格单进程；Codex 会话为受控子进程（`AllowDescendants`）。已支持 clone 安全副本（拒绝符号链接及特殊文件），原目录仍作为并发互斥键；副本可 `SyncBackWorkspace` 导回，随 `DestroySession` 清理。WritePty 多轮：Claude 使用 `--input-format stream-json`；桌面 dsh 经 `dsh.NewConversation` 固定受信会话驱动保留同一 Agent；Codex 经 `app-server` + turn bridge 同 thread 多轮。macOS Terminal 模式 `Resize` 在 `terminal!=nil` 时走 `pty.Setsize`。**P2 Docker**：`isolationLevel=docker`；会话网不用 `--internal`；Gate 经 `harbor.gate`（Env+ConfigFiles 改写）；Claude CLI 用 wireModel、Gate 改写账号模型；Terminal 为宿主 PTY + `docker exec -it`（与 Interactive/EncodeInput 互斥）；Agent 主路径仍为 Interactive JSONL。UIPrefs `isolationBackend` + `RestartApp` / 引擎 Ensure。见 [P2-DOCKER](P2-DOCKER.md)。完整真实验收见 [DEV-A](DEV-A.md) / [ENG-STATUS](ENG-STATUS.md) / [CODEX-INTEGRATION](CODEX-INTEGRATION.md)。
 
 公开 Event 须满足 `contracts.Event.Validate`。本文是并行实现的唯一方法/字段来源；变更先改本文与 `internal/contracts`，再 sync mock/bindings。
 

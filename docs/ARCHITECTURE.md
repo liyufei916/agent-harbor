@@ -111,7 +111,7 @@
   provisioning ──失败──► failed（可重试 / 必须修复隔离）
     │ Runtime 就绪 + Gate 就绪 + Kit 注入完成
     ▼
-  running ◄──► awaiting_permission（扩权弹窗未决；出站挂起）
+  running（扩权未决时仍为此态：permission_needed 事件 + 模态）
     │ switchModel(model_account_id)  // 仍保持 running
     │ stop / 用户结束
     ▼
@@ -127,8 +127,7 @@
 | 状态 | UI 表现 | Gate / Runtime |
 |---|---|---|
 | provisioning | 「正在准备安全环境…」 | 建沙箱、起代理 |
-| running | 主工作台可用 | 按当前 Policy 放行；可 `switchModel` |
-| awaiting_permission | 模态挡操作（标明 session） | 该请求挂起 |
+| running | 主工作台可用；扩权时模态挡操作（**不**另增 `awaiting_permission` 快照态） | 按当前 Policy 放行；可 `switchModel`；挂起请求等 `ResolvePermission` |
 | failed | 明确错误，**无「仍在宿主机运行」** | 已回滚 |
 | destroyed | 会话卡片消失或标已销毁 | 盘不可恢复 |
 
@@ -138,7 +137,7 @@
 
 | 规则 | 值 |
 |---|---|
-| 同时 running 上限 | **2** |
+| 同时 running 上限 | **5** |
 | 同工作区双开 | **禁止**（绝对路径规范化后冲突即拒） |
 | 同壳不同工作区 | **允许** |
 | 隔离 | 每会话独立 `session_id`、Sentinel、Policy、Runtime、审计；Gate 按会话路由 |
@@ -154,7 +153,7 @@
 用户点「开始」
   → Orchestrator 校验：
        隔离 OK？工作区存在？Agent 可用？model_account 已连接？
-       running 数 < 2？该工作区无其它 running？
+       running 数 < 5？该工作区无其它 running？
   → Policy 快照：{ workspace, mount_mode, allow_domains[], mcp_ids[], agent, model_account_id }
   → Runtime.create(policy.fs)
   → Gate.start(session_id, policy.network, policy.mcp, model_account_id, …)

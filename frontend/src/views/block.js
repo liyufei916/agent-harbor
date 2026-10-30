@@ -1,6 +1,7 @@
 /**
  * PAGE-DESIGN §5.10：隔离不可用阻断层
  * 全页说明；无「仍要继续」；与侧栏红灯一致；重新检测走逐条动画。
+ * 恢复路径：主按钮进入设置「隔离后端 / 引擎」，避免卡在托管检测失败无法改本机 Docker。
  */
 import {
   checksFromHealth,
@@ -10,11 +11,16 @@ import {
 
 export function mountBlock(
   root,
-  { reason, health, getHealth, onAvailable, onSettings },
+  { reason, health, getHealth, onAvailable, onSettings, preferredLevel },
 ) {
   const initial = checksFromHealth(
     health || { available: false, reason: reason || "ISOLATION_UNAVAILABLE" },
+    preferredLevel,
   );
+  const dockerPreferred = preferredLevel === "docker";
+  const recoveryHint = dockerPreferred
+    ? "Docker 隔离未就绪时，请到设置改「本机 Docker」或退回 Seatbelt，再重启应用。不会无隔离开跑。"
+    : "可到设置检查隔离后端（Seatbelt / Docker）；修好后点「重新检测」。不会无隔离开跑。";
 
   root.innerHTML = `
     <div class="block-card block-card-wide" role="alertdialog" aria-labelledby="block-title" aria-describedby="block-desc">
@@ -24,9 +30,10 @@ export function mountBlock(
       <p class="meta bad" id="block-reason">${escapeHtml(
         reason || health?.reason || "ISOLATION_UNAVAILABLE",
       )}</p>
+      <p class="meta" id="block-recovery">${escapeHtml(recoveryHint)}</p>
       <div class="actions">
-        <button type="button" class="btn primary" id="btn-block-recheck">重新检测</button>
-        <button type="button" class="btn" id="btn-block-settings">前往设置</button>
+        <button type="button" class="btn primary" id="btn-block-settings">改隔离 / 引擎设置</button>
+        <button type="button" class="btn" id="btn-block-recheck">重新检测</button>
       </div>
     </div>
   `;
@@ -41,6 +48,7 @@ export function mountBlock(
     recheck.textContent = "检测中…";
     try {
       const h = await runIsolationProbe({
+        preferredLevel,
         getHealth:
           getHealth ||
           (async () => ({
@@ -63,7 +71,8 @@ export function mountBlock(
       recheck.textContent = "重新检测";
     }
   };
-  root.querySelector("#btn-block-settings").onclick = () => onSettings?.();
+  root.querySelector("#btn-block-settings").onclick = () =>
+    onSettings?.({ focusIsolation: true });
 }
 
 function escapeHtml(s) {

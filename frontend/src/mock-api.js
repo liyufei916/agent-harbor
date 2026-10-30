@@ -2,7 +2,7 @@
  * 浏览器独立 mock transport（CONTRACT.md v1.2）
  * 固定数据：claude / mock-model+demo-model / mock-mcp+demo-mcp / /demo/project
  * 场景：normal | auth | busy | isolation | cleanup
- * 多会话：running+preparing ≤2；同工作区禁双开；PTY/OAuth 可演示
+ * 多会话：running+preparing ≤5；同工作区禁双开；PTY/OAuth 可演示
  */
 
 const FIXED = {
@@ -42,6 +42,8 @@ let uiPrefs = {
   clearOnStopDefault: "keep",
   theme: "system",
   securityTier: "standard",
+  isolationBackend: "seatbelt",
+  engineSource: "harbor-colima",
 };
 
 function hostKey(host, workspace) {
@@ -198,11 +200,126 @@ export async function getRuntimeHealth() {
       error: null,
     };
   }
+  const backend = String(uiPrefs?.isolationBackend || "").toLowerCase();
+  if (backend === "docker" || backend === "p2" || backend === "container") {
+    return {
+      available: true,
+      reason: "Docker（mock · harbor.gate · 镜像内 Agent）",
+      isolationLevel: "docker",
+      error: null,
+    };
+  }
   return {
     available: true,
     reason: "",
     isolationLevel: "mock-seatbelt",
     error: null,
+  };
+}
+
+let mockEngineReady = false;
+let mockEngineInstalling = false;
+let mockEngineProgress = 0;
+let mockEngineProgressLabel = "";
+const engineProgressListeners = new Set();
+
+function emitEngineProgress(payload) {
+  for (const cb of engineProgressListeners) {
+    try {
+      cb(payload);
+    } catch {}
+  }
+}
+
+export function onEngineProgress(callback) {
+  engineProgressListeners.add(callback);
+  return () => engineProgressListeners.delete(callback);
+}
+
+export async function getContainerEngineHealth() {
+  const source =
+    String(uiPrefs?.engineSource || "").toLowerCase() === "system-docker"
+      ? "system-docker"
+      : "harbor-colima";
+  const base = {
+    source,
+    dockerDesktopInstalled: false,
+    componentsInstalled: mockEngineReady,
+    installing: mockEngineInstalling,
+    progressPercent: mockEngineProgress,
+    progressLabel: mockEngineProgressLabel,
+    dockerHost: mockEngineReady ? "unix:///tmp/mock-harbor.sock" : "",
+    error: null,
+  };
+  if (mockEngineReady) {
+    return {
+      ...base,
+      ready: true,
+      message: source === "system-docker" ? "本机 Docker 可用（mock）" : "Harbor Colima 可用（mock）",
+    };
+  }
+  return {
+    ...base,
+    ready: false,
+    message: "未检测到 Docker Desktop（mock）。可一键安装 Harbor 托管引擎。",
+  };
+}
+
+let mockEngineStopRequested = false;
+
+export async function ensureContainerEngine() {
+  mockEngineInstalling = true;
+  mockEngineStopRequested = false;
+  const steps = [
+    [8, "下载 colima…"],
+    [35, "下载 limactl…"],
+    [60, "下载 docker…"],
+    [78, "启动 Colima…"],
+    [92, "等待 Docker daemon…"],
+    [100, "安装完成"],
+  ];
+  for (const [pct, label] of steps) {
+    if (mockEngineStopRequested) {
+      mockEngineInstalling = false;
+      mockEngineReady = false;
+      mockEngineProgress = 0;
+      mockEngineProgressLabel = "安装已取消";
+      emitEngineProgress({
+        percent: 0,
+        label: "安装已取消",
+        done: true,
+        error: "安装已取消",
+      });
+      return getContainerEngineHealth();
+    }
+    mockEngineProgress = pct;
+    mockEngineProgressLabel = label;
+    emitEngineProgress({ percent: pct, label, done: false });
+    await new Promise((r) => setTimeout(r, 120));
+  }
+  mockEngineReady = true;
+  mockEngineInstalling = false;
+  mockEngineProgress = 100;
+  mockEngineProgressLabel = "安装完成";
+  emitEngineProgress({ percent: 100, label: "安装完成", done: true });
+  return getContainerEngineHealth();
+}
+
+export async function stopContainerEngine() {
+  mockEngineStopRequested = true;
+  mockEngineInstalling = false;
+  mockEngineReady = false;
+  mockEngineProgress = 0;
+  mockEngineProgressLabel = "已停止";
+  emitEngineProgress({
+    percent: 0,
+    label: "已取消安装并停止引擎（mock）",
+    done: true,
+  });
+  return {
+    ...(await getContainerEngineHealth()),
+    ready: false,
+    message: "已取消安装并停止引擎（mock）",
   };
 }
 
@@ -381,6 +498,20 @@ export async function saveTextFile(input) {
   };
 }
 
+export async function restartApp(input) {
+  const busy = [...sessions.values()].filter((s) =>
+    ["running", "provisioning", "stopping"].includes(s.state),
+  ).length;
+  if (!input?.force && busy > 0) {
+    return {
+      restarting: false,
+      busySessions: busy,
+      error: err("SESSION_BUSY", "有进行中的会话；确认后将停止并重启应用。", true),
+    };
+  }
+  return { restarting: true, error: null };
+}
+
 export async function resolvePermission(input) {
   if (!input?.sessionId || !input?.target || !input?.decision) {
     return { error: err("INVALID_ARGUMENT", "扩权参数不完整（模拟）") };
@@ -452,6 +583,23 @@ export async function setUIPrefs(prefs) {
     const t = prefs.theme;
     next.theme =
       t === "light" || t === "dark" || t === "system" ? t : "system";
+  }
+  if (prefs?.isolationBackend !== undefined) {
+    const b = prefs.isolationBackend;
+    next.isolationBackend =
+      b === "docker" || b === "p2" || b === "container" ? "docker" : "seatbelt";
+  }
+  if (prefs?.engineSource !== undefined) {
+    const s = String(prefs.engineSource || "").toLowerCase();
+    next.engineSource =
+      s === "system-docker" || s === "system" || s === "desktop"
+        ? "system-docker"
+        : "harbor-colima";
+  }
+  if (prefs?.securityTier !== undefined) {
+    const t = prefs.securityTier;
+    next.securityTier =
+      t === "strict" || t === "relaxed" || t === "standard" ? t : "standard";
   }
   uiPrefs = next;
   try {
@@ -652,6 +800,61 @@ export async function resizePty(input) {
   return { error: null };
 }
 
+const MCP_PRESETS = [
+  {
+    id: "harbor-time",
+    name: "本机时间",
+    description: "只读：返回当前本地时间（宿主 stdio，无密钥）。",
+    kind: "stdio",
+    needsApiKey: false,
+  },
+  {
+    id: "harbor-filesystem",
+    name: "演示工作区文件（只读）",
+    description: "只读列举/读取 demos/workspace（路径锁死，宿主 stdio）。",
+    kind: "stdio",
+    needsApiKey: false,
+  },
+  {
+    id: "context7",
+    name: "Context7 文档",
+    description: "远程只读文档检索；须自备 Token（HTTPS）。",
+    kind: "http",
+    needsApiKey: true,
+    origin: "https://mcp.context7.com",
+  },
+];
+
+export async function listMcpPresets() {
+  return { presets: MCP_PRESETS.map((p) => ({ ...p })), error: null };
+}
+
+export async function addMcpPreset(input) {
+  const preset = MCP_PRESETS.find((p) => p.id === input?.presetId);
+  if (!preset) {
+    return { account: null, error: err("INVALID_ARGUMENT", "请指定预置 MCP。") };
+  }
+  if (preset.needsApiKey && !input?.apiKey) {
+    return { account: null, error: err("INVALID_ARGUMENT", "Context7 须填写 Token。") };
+  }
+  if (preset.kind === "stdio") {
+    return connectMcp({
+      name: input?.name || preset.name,
+      profileId: "custom",
+      transport: "stdio",
+      command: "/usr/bin/true",
+      args: [],
+      apiKey: "stdio",
+    });
+  }
+  return connectMcp({
+    name: input?.name || preset.name,
+    profileId: "custom",
+    apiKey: input.apiKey,
+    origin: preset.origin,
+  });
+}
+
 export async function connectMcp(input) {
   if (scenario === "auth") {
     return {
@@ -787,12 +990,12 @@ export async function createSession(spec) {
   }
 
   const active = activeSessions();
-  if (active.length >= 2) {
+  if (active.length >= 5) {
     return {
       session: null,
       error: err(
         "SESSION_LIMIT",
-        "已有 2 个会话在运行，请先停止其中一个（模拟）",
+        "已有 5 个会话在运行，请先停止其中一个（模拟）",
       ),
     };
   }
@@ -974,7 +1177,7 @@ export async function startSession(sessionId) {
       };
     }
   }
-  if (active >= 2) {
+  if (active >= 5) {
     return {
       session: null,
       error: err("SESSION_LIMIT", "已达到同时运行的会话上限"),
@@ -1048,12 +1251,21 @@ export function resetMock() {
   mcpAccounts.clear();
   seedRememberedHosts();
   scenario = "normal";
+  mockEngineReady = false;
+  mockEngineInstalling = false;
+  mockEngineStopRequested = false;
+  mockEngineProgress = 0;
+  mockEngineProgressLabel = "";
+  engineProgressListeners.clear();
   uiPrefs = {
     sidebarCollapsed: false,
     autoCollapseWorkbench: true,
     askClearOnStop: true,
     clearOnStopDefault: "keep",
     theme: "system",
+    securityTier: "standard",
+    isolationBackend: "seatbelt",
+    engineSource: "harbor-colima",
   };
 }
 

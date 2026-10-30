@@ -120,6 +120,29 @@ type AccountResponse struct {
 	Error   *AppError    `json:"error"`
 }
 
+// McpPresetInfo 是工具页可一键添加的预置 MCP（无密钥）。
+type McpPresetInfo struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Kind        string `json:"kind"` // stdio | http
+	NeedsAPIKey bool   `json:"needsApiKey"`
+	Origin      string `json:"origin,omitempty"`
+}
+
+// McpPresetsResponse 是 ListMcpPresets 的统一返回。
+type McpPresetsResponse struct {
+	Presets []McpPresetInfo `json:"presets"`
+	Error   *AppError       `json:"error"`
+}
+
+// AddMcpPresetInput 一键添加预置 MCP；NeedsAPIKey 的预置须带 APIKey。
+type AddMcpPresetInput struct {
+	PresetID string `json:"presetId"`
+	Name     string `json:"name,omitempty"`
+	APIKey   string `json:"apiKey,omitempty"`
+}
+
 // AccountsResponse 是 ListAccounts 的统一返回。
 type AccountsResponse struct {
 	Accounts []AccountInfo `json:"accounts"`
@@ -204,6 +227,38 @@ type UIPrefs struct {
 	ClearOnStopDefault    string `json:"clearOnStopDefault,omitempty"` // keep | clear；空=keep
 	// SecurityTier：strict | standard | relaxed；空=standard。创建会话时种子 ExtraHosts。
 	SecurityTier string `json:"securityTier,omitempty"`
+	// IsolationBackend：seatbelt | docker；空=seatbelt（P1）。需重启应用后生效；HARBOR_RUNTIME 环境变量优先。
+	IsolationBackend string `json:"isolationBackend,omitempty"`
+	// EngineSource：harbor-colima | system-docker；仅 isolationBackend=docker 时有意义；空=harbor-colima。
+	EngineSource string `json:"engineSource,omitempty"`
+}
+
+// ContainerEngineHealthResponse 是 P2 容器引擎（Colima/本机 Docker）探测结果。
+type ContainerEngineHealthResponse struct {
+	Ready      bool   `json:"ready"`
+	Source     string `json:"source,omitempty"`     // harbor-colima | system-docker
+	Message    string `json:"message,omitempty"`    // 固定模板，禁密钥
+	DockerHost string `json:"dockerHost,omitempty"` // unix://…；可空
+	// DockerDesktopInstalled：本机是否装有 Docker Desktop.app（仅探测，不启停）。
+	DockerDesktopInstalled bool `json:"dockerDesktopInstalled"`
+	// ComponentsInstalled：Harbor 钉扎 CLI（colima/docker/limactl）是否已落盘。
+	ComponentsInstalled bool `json:"componentsInstalled"`
+	// Installing / Progress*：一键安装进行中快照（亦可经 harbor:engine-progress 推送）。
+	Installing      bool      `json:"installing"`
+	ProgressPercent int       `json:"progressPercent"`
+	ProgressLabel   string    `json:"progressLabel,omitempty"`
+	Error           *AppError `json:"error"`
+}
+
+// EngineProgressEventName 是一键安装进度推送通道（与会话 harbor:event 分离）。
+const EngineProgressEventName = "harbor:engine-progress"
+
+// EngineProgressPayload 是安装进度事件载荷。
+type EngineProgressPayload struct {
+	Percent int    `json:"percent"`
+	Label   string `json:"label"`
+	Done    bool   `json:"done"`
+	Error   string `json:"error,omitempty"`
 }
 
 // UIPrefsResponse 包装偏好。
@@ -237,6 +292,8 @@ type DesktopAPI interface {
 	SelectWorkspace() WorkspaceResponse
 	ConnectModel(ConnectInput) AccountResponse
 	ConnectMcp(ConnectInput) AccountResponse
+	ListMcpPresets() McpPresetsResponse
+	AddMcpPreset(AddMcpPresetInput) AccountResponse
 	ListAccounts(kind string) AccountsResponse
 	RemoveAccount(accountID string) EmptyResponse
 	CreateSession(SessionSpec) SessionResponse
@@ -247,6 +304,12 @@ type DesktopAPI interface {
 	// SyncBackWorkspace 将 clone 副本合并写回 SourceWorkspace；direct 会话返回 INVALID_ARGUMENT。
 	SyncBackWorkspace(sessionID string) SessionResponse
 	GetRuntimeHealth() RuntimeHealthResponse
+	// GetContainerEngineHealth 探测 P2 容器引擎（不启停）。
+	GetContainerEngineHealth() ContainerEngineHealthResponse
+	// EnsureContainerEngine 下载/启动托管引擎并尽量构建 runtime 镜像（仅用户显式一键安装时调用）。
+	EnsureContainerEngine() ContainerEngineHealthResponse
+	// StopContainerEngine 取消进行中的安装，并停止 Harbor 托管 Colima（不关本机 Docker Desktop）。
+	StopContainerEngine() ContainerEngineHealthResponse
 	GetPermissionOverview(sessionID string) PermissionOverviewResponse
 	ListRememberedHosts(workspace string) RememberedHostsResponse
 	RevokeRememberedHost(RevokeHostInput) EmptyResponse
@@ -261,6 +324,20 @@ type DesktopAPI interface {
 	WritePty(PtyInput) EmptyResponse
 	ResizePty(PtyInput) EmptyResponse
 	SaveTextFile(SaveTextFileInput) SaveFileResponse
+	// RestartApp 拉起新进程后退出；Force 跳过进行中会话检查。
+	RestartApp(RestartAppInput) RestartAppResponse
+}
+
+// RestartAppInput 一键重启应用（隔离后端切换等）。
+type RestartAppInput struct {
+	Force bool `json:"force,omitempty"`
+}
+
+// RestartAppResponse 重启结果。
+type RestartAppResponse struct {
+	Restarting   bool      `json:"restarting"`
+	BusySessions int       `json:"busySessions,omitempty"`
+	Error        *AppError `json:"error"`
 }
 
 // SwitchModelInput 切换会话当前模型（影响之后出站）。

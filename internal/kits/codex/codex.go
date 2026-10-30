@@ -192,6 +192,9 @@ func packageRootForScript(script string) string {
 // 必须 node + codex.js，与 Claude Kit 同模式；ReadOnly 须覆盖整个 npm 包根（含 optional 原生二进制）。
 // ChatGPT.app 等原生 codex 若支持 app-server，同样经 node 跑 turn_bridge，再由桥直接拉起该二进制。
 func (k *Kit) resolveLaunch(ctx context.Context) (launchSpec, error) {
+	if kits.DockerGuest() {
+		return dockerLaunch(), nil
+	}
 	script, err := k.resolveScript()
 	if err != nil {
 		return launchSpec{}, err
@@ -241,6 +244,9 @@ func (k *Kit) Detect(ctx context.Context) (kits.KitInfo, error) {
 	info := kits.KitInfo{Agent: contracts.AgentInfo{ID: "codex", Name: "OpenAI Codex", ModelProfileID: "codex-model", Reason: "未安装或受限检测未通过。"}, ReadOnlyPaths: []string{}, NeedsChildProcesses: true, NeedsDescendants: true}
 	if ctx.Err() != nil {
 		return info, kitError("CANCELLED")
+	}
+	if kits.DockerGuest() {
+		return k.detectDockerGuest(ctx, info)
 	}
 	launch, err := k.resolveLaunch(ctx)
 	if err != nil {
@@ -341,7 +347,8 @@ func (k *Kit) Build(ctx context.Context, input kits.KitInput) (runtime.LaunchSpe
 	var b strings.Builder
 	// Harbor 外层 Seatbelt 已隔离；Codex 再套 workspace-write 会嵌套 sandbox-exec → EPERM，
 	// apply_patch 也会报 read-only sandbox。danger-full-access + bypass 旗标专供「外部已沙箱」。
-	fmt.Fprintf(&b, "model = %s\nmodel_provider = \"harbor\"\napproval_policy = \"never\"\nsandbox_mode = \"danger-full-access\"\n\n[model_providers.harbor]\nname = \"Agent Harbor\"\nbase_url = %s\nwire_api = \"responses\"\nenv_key = \"OPENAI_API_KEY\"\n", model, providerURL)
+	// plugins=false：Docker/Gate 出站仅 harbor.gate；Codex 默认同步 openai/plugins 会挂死在 git fetch。
+	fmt.Fprintf(&b, "model = %s\nmodel_provider = \"harbor\"\napproval_policy = \"never\"\nsandbox_mode = \"danger-full-access\"\n\n[features]\nplugins = false\nplugin_discovery_prefetch = false\nremote_plugin = false\nrecommended_plugins = false\n\n[model_providers.harbor]\nname = \"Agent Harbor\"\nbase_url = %s\nwire_api = \"responses\"\nenv_key = \"OPENAI_API_KEY\"\n", model, providerURL)
 	for i, endpoint := range mcpURLs {
 		name := kits.MCPName(i)
 		fmt.Fprintf(&b, "\n[mcp_servers.%s]\nurl = %s\nhttp_headers = { Authorization = %s }\n", name, strconv.Quote(endpoint), sentinel)

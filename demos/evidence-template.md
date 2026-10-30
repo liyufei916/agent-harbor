@@ -52,7 +52,7 @@ MCP host：mcp.context7.com ×2
 
 ## 导回成功态
 
-填空与 60 秒脚本：[syncback-evidence.md](syncback-evidence.md)。
+填空与 60 秒脚本：[B6-SUCCESS-DEMO.md](B6-SUCCESS-DEMO.md)。
 
 ## I8 停止
 

@@ -16,6 +16,7 @@ var assets embed.FS
 
 func init() {
 	application.RegisterEvent[contracts.Event](contracts.HarborEventName)
+	application.RegisterEvent[contracts.EngineProgressPayload](contracts.EngineProgressEventName)
 }
 
 func main() {

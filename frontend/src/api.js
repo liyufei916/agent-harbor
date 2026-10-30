@@ -27,12 +27,35 @@ async function call(method, ...args) {
   try {
     if (typeof transport[method] !== "function") {
       if (method === "getRuntimeHealth") {
+        // 缺绑定不得伪装 available：provisional 占位一律 fail-closed。
         return {
-          available: true,
-          reason: "live 健康检查占位可用",
+          available: false,
+          reason: "桌面未绑定 GetRuntimeHealth，隔离未验证（占位不可用）",
           isolationLevel: "",
           provisional: true,
-          error: null,
+          error: {
+            code: "UNIMPLEMENTED",
+            message: "当前桌面未绑定 GetRuntimeHealth，请重新生成 Wails 绑定后重启。",
+            retryable: false,
+          },
+        };
+      }
+      if (
+        method === "getContainerEngineHealth" ||
+        method === "ensureContainerEngine" ||
+        method === "stopContainerEngine"
+      ) {
+        return {
+          ready: false,
+          source: "harbor-colima",
+          message: "当前桌面未绑定容器引擎 API，请重新生成 Wails 绑定后重启。",
+          dockerHost: "",
+          provisional: true,
+          error: {
+            code: "UNIMPLEMENTED",
+            message: "当前桌面未绑定容器引擎 API，请重新生成绑定并重启应用。",
+            retryable: false,
+          },
         };
       }
       if (method === "listSessions") {
@@ -40,6 +63,31 @@ async function call(method, ...args) {
       }
       if (method === "listAccounts") {
         return { accounts: [], provisional: true, error: null };
+      }
+      if (method === "listMcpPresets") {
+        return { presets: [], provisional: true, error: null };
+      }
+      if (method === "addMcpPreset") {
+        return {
+          account: null,
+          error: {
+            code: "UNIMPLEMENTED",
+            message: "当前桌面未绑定预置 MCP，请重新生成 Wails 绑定后重启。",
+            retryable: false,
+          },
+          provisional: true,
+        };
+      }
+      if (method === "restartApp") {
+        return {
+          restarting: false,
+          error: {
+            code: "UNIMPLEMENTED",
+            message: "当前桌面未绑定 RestartApp，请重新生成绑定并重启应用。",
+            retryable: false,
+          },
+          provisional: true,
+        };
       }
       if (
         method === "getUIPrefs" ||
@@ -100,6 +148,19 @@ async function call(method, ...args) {
         available: false,
         reason: wrapTransportError(e).message,
         isolationLevel: "",
+        error: wrapTransportError(e),
+      };
+    }
+    if (
+      method === "getContainerEngineHealth" ||
+      method === "ensureContainerEngine" ||
+      method === "stopContainerEngine"
+    ) {
+      return {
+        ready: false,
+        source: "",
+        message: wrapTransportError(e).message,
+        dockerHost: "",
         error: wrapTransportError(e),
       };
     }
@@ -176,6 +237,24 @@ export function listAgents() {
 export function getRuntimeHealth() {
   return call("getRuntimeHealth");
 }
+export function getContainerEngineHealth() {
+  return call("getContainerEngineHealth");
+}
+export function ensureContainerEngine() {
+  return call("ensureContainerEngine");
+}
+export function stopContainerEngine() {
+  return call("stopContainerEngine");
+}
+export function restartApp(input) {
+  return call("restartApp", input || {});
+}
+export function onEngineProgress(callback) {
+  if (typeof transport.onEngineProgress === "function") {
+    return transport.onEngineProgress(callback);
+  }
+  return () => {};
+}
 export function listSessions() {
   return call("listSessions");
 }
@@ -238,6 +317,12 @@ export function connectModel(input) {
 }
 export function connectMcp(input) {
   return call("connectMcp", input);
+}
+export function listMcpPresets() {
+  return call("listMcpPresets");
+}
+export function addMcpPreset(input) {
+  return call("addMcpPreset", input);
 }
 export async function createSession(spec) {
   if (!events.beginCreate())

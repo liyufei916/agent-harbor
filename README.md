@@ -18,15 +18,18 @@
 
 | 亮点 | 说明 |
 |---|---|
-| **密钥不进沙箱** | Key 只在本机录入与保存；执行面经 Gate 出站，Agent 环境只有 Sentinel |
-| **macOS Seatbelt 隔离** | 工作区授权 + 进程降权；引导/设置/阻断页**逐条**展示隔离检测；不可用时阻断开跑（无「仍要继续」） |
+| **密钥不进沙箱** | Key 只在本机录入；macOS **Keychain** fail-closed 保存；执行面经 Gate 出站，Agent 环境只有 Sentinel |
+| **Seatbelt 或 Docker 隔离** | 默认 macOS Seatbelt；设置可选 **Docker**（一会话一容器、镜像内 CLI、`harbor.gate`）；改后端须重启 |
+| **首次引导 + 逐条检测** | 一屏引导与隔离七项检测；不可用时**阻断页**禁开跑（无「仍要继续」）；侧栏状态灯与阻断一致 |
+| **托管引擎（可选）** | 无 Docker Desktop 时 Harbor 托管 Colima；或选用本机 Docker；设置一键安装 / 启用 |
 | **安全副本 / 一键导回** | 默认 `clone` 在副本改文件；工作台 **导回原文件夹** 合并写回；也可选直接编辑 |
 | **Harbor Gate 出站** | 模型 / MCP 只走白名单主机；扩权三选一（拒绝 / 仅本次 / 本项目），**无全网放行** |
-| **主动扩权 ask** | 工作台「请求扩权」走 `PromptPermission`（不依赖上游 302）；点选后可记本项目主机并撤销 |
-| **多会话 ≤2** | HOME 会话中心；同工作区禁双开；停止后可 **再次开始**（同一条会话重新拉起，不新建、不重跑初始任务）；返回 HOME 再进入仍保留已展示的输入输出 |
-| **工作台对话** | 边界条 + 过滤协议 JSON 的可读输出 + 下方输入发下一轮；Claude / Codex / dsh 同会话多轮 |
-| **多 Agent** | Claude Code / DeepSeek dsh / OpenAI Codex；向导**第一步即检 CLI**；同一模型可勾选多 Agent（须上游协议匹配） |
-| **MCP 双轨 + 边界表** | 远程 HTTP（Token / OAuth）或宿主 stdio；会话内 `tools/call` 白名单动态校验；协议接受邻近修订版；矩阵见 [mcp-compat-matrix](demos/mcp-compat-matrix.md) |
+| **主动扩权 + 可撤销** | 「请求扩权」或工作区 `EXPAND-TASK.txt`（Agent 调 `harbor_demo_ask`）；**权限一览**可撤销本项目主机；**无全网** |
+| **多会话 ≤5** | HOME 会话中心；同工作区禁双开；停止后可 **再次开始**（同一条会话重新拉起，不新建、不重跑初始任务）；返回 HOME 再进入仍保留已展示的输入输出 |
+| **工作台对话** | 边界条 + 过滤协议 JSON 的可读输出 + 下方输入发下一轮；Claude / Codex / dsh 同会话多轮；可**切换同 profile 模型** |
+| **模型自由添加** | 「模型」页自填 Origin + Key（提交后清空）；可勾选多 Agent 共用（须上游协议匹配）；亦支持预置 profile |
+| **多 Agent** | Claude Code / DeepSeek dsh / OpenAI Codex；向导**第一步即检**本机或镜像内 CLI |
+| **MCP 预置 + 双轨** | 工具页勾选预置（时间 / filesystem / Context7）；远程 HTTP（Token / OAuth）或宿主 stdio；白名单见 [mcp-compat-matrix](demos/mcp-compat-matrix.md) |
 | **本机「记录」** | 用量 / 阻拦 / 扩权 / 诊断；Gate 可采 input/output token 粗算费用；参考单价可改可删（CNY/USD 勿混）；导出脱敏 JSON（另存为 + 访达显示） |
 | **可校验分发** | Releases / CI 提供 `AgentHarbor-macos.zip` + **SHA256**；MIT 许可；首次打开需 Gatekeeper 放行（未公证时常见） |
 
@@ -98,7 +101,7 @@ wails3 task darwin:package   # macOS .app
 
 分工：A 契约/编排/Runtime/Kit（[DEV-A](docs/DEV-A.md)）；B Gate/Policy/Secrets 与 Wails v3（[DEV-B](docs/DEV-B.md)）；C 全量 PAGE 壳与 mock（[DEV-C](docs/DEV-C.md)，D4 已过）。
 
-徽章显示 main 最新一次全部检查通过后发布的 Go 整体语句覆盖率（`go test -coverprofile=coverage.out ./...` 的 `total`），包含构建辅助包；环境不支持的隔离测试会跳过。CI 自动将 SVG 与完整统计发布到独立的 [`coverage-badge` 分支](https://github.com/liyufei916/agent-harbor/tree/coverage-badge)，PR 不发布；图片缓存可能导致短暂延迟。每次 CI 还会上传 `AgentHarbor-macos.zip`（`darwin:package` 产物，保留 14 天），并单独断言可移植 Seatbelt profile 契约（deny-default / 禁止 system.sb / 出站 loopback）。桌面统一 Wails v3.0.0-beta.34。
+徽章显示 main 最新一次全部检查通过后发布的 Go 整体语句覆盖率（`go test -coverprofile=coverage.out` 对业务包的 `total`；**排除** `build/android` / `build/ios` 生成物）。环境不支持的隔离测试会跳过。CI 自动将 SVG、完整统计与**生成该徽章的 commit SHA** 发布到独立的 [`coverage-badge` 分支](https://github.com/liyufei916/agent-harbor/tree/coverage-badge)，PR 不发布；图片缓存可能导致短暂延迟。每次 CI 还会上传 `AgentHarbor-macos.zip`（`darwin:package` 产物，保留 14 天），并单独断言可移植 Seatbelt profile 契约（deny-default / 禁止 system.sb / 出站 loopback）。桌面统一 Wails v3.0.0-beta.34。
 
 ### 更多构建与探测命令
 
@@ -204,20 +207,20 @@ HARBOR_NO_COMMIT=1 ./scripts/github-push.sh
 
 | 入口 | 作用 |
 |---|---|
-| HOME | 会话中心；运行中 x/2；新会话 / 打开工作台 / 停止 / 销毁 |
+| HOME | 会话中心；运行中 x/5；新会话 / 打开工作台 / 停止 / 销毁 |
 | 新会话 Wizard | 四步：工作区（含 **CLI 先检**）→ Agent → 模型 → 工具（可跳过）；挂载默认安全副本（clone） |
 | 工作台 | 边界条 + 「请求扩权」ask + 当前模型切换 + 对话区（过滤协议 JSON）+ 摘要；顶栏切换焦点会话 |
 | 模型 | 自定义 Origin+Key（可多选 Agent），或预置 profile（`demo-model` / `dsh-model` / `codex-model`）；Key 提交后清空 |
 | 工具 | MCP **双轨**：浏览器 OAuth/SSO **或** Token；编辑 / 删除；stdio 标更高信任 |
 | 记录 | 用量（token/单价粗算）/ 阻拦 / 扩权 / 诊断；脱敏 JSON **另存为**并访达显示（本机不外传） |
 | 设置 | Agent 检测、默认挂载、结束与清理、侧栏偏好、记住的网站、关于（重检时展开逐条，完成后收起） |
-| 顶栏 | 模式徽章；会话切换；**使用说明**弹窗（应用内操作文档） |
+| 顶栏 | 模式徽章；会话切换；**使用教程**（内链使用说明） |
 | Onboarding | 一屏三句 + **逐条隔离检测**（可「下次启动重新显示引导」再跑） |
 | 系统打断 | 扩权 Modal；隔离不可用**阻断页**（逐条重检；无「仍要继续」） |
 
 **会话与并发**
 
-- 同时 running（含 provisioning）**≤ 2**；达上限 `SESSION_LIMIT`。
+- 同时 running（含 provisioning）**≤ 5**；达上限 `SESSION_LIMIT`。
 - **同工作区禁止双开** → `WORKSPACE_BUSY`；换目录或打开已有会话。
 - 销毁二次确认：清隔离运行数据，本机密钥保留。
 
@@ -230,9 +233,10 @@ HARBOR_NO_COMMIT=1 ./scripts/github-push.sh
 **隔离与状态灯**
 
 - 侧栏状态灯：隔离就绪 / 不可用（红灯与阻断页一致）；不可用时禁新会话。
-- 隔离检测七项（共用 UI）：系统环境 → 临时探测区 → Seatbelt 规则 → 沙箱可启动 → 工作区可读 → 越权拒绝 → 安全闸口。实现见 `frontend/src/isolation-checks.js`（一次 `GetRuntimeHealth`，界面分阶段上屏）。
+- 隔离检测七项（共用 UI，文案随后端）：**Seatbelt** 为系统环境 → … → 安全闸口；**Docker** 为 CLI → daemon → Harbor 网络 → 镜像 → Gate → 别名拉黑 → 安全闸口。见 `frontend/src/isolation-checks.js`。
+- 设置「隔离后端」Seatbelt / Docker；Docker 时配引擎；偏好与生效不一致时标题栏「待重启」+ 一键重启。
 - 设置「进入工作台时自动收缩侧栏」默认开：进工作台临时收窄，离开恢复默认；本次停留内手动展开则不再自动收。
-- **一期**工作区 + 进程降权；**二期**容器 Runtime。详见 [IMPLEMENTATION](docs/IMPLEMENTATION.md) / [DESIGN](docs/DESIGN.md) §7.4 / §7.6。
+- **一期** Seatbelt；**二期** Docker Runtime（见 [P2-DOCKER](docs/P2-DOCKER.md)）。
 
 **怎么验收 UI（不计 I）**
 

@@ -7,7 +7,7 @@ const HINTS = {
   PERMISSION_DENIED: "本机钥匙串或文件权限异常；修复后重启应用。",
   INVALID_ARGUMENT: "核对会话仍在、目标主机合法，且未对已结束的扩权重复点选。",
   SESSION_NOT_FOUND: "会话已销毁或不存在；回 HOME 重新打开或新建。",
-  SESSION_LIMIT: "同时运行中最多 2 个；先停止一条再开。",
+  SESSION_LIMIT: "同时运行中最多 5 个；先停止一条再开。",
   WORKSPACE_BUSY: "同工作区已有会话；打开已有会话或换目录。",
   WORKSPACE_DENIED: "工作区路径不可用或挂载被拒；改选目录或检查隔离。",
   ISOLATION_UNAVAILABLE: "隔离未就绪；到设置「重新检测隔离」，勿跳过。",

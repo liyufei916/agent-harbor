@@ -190,6 +190,16 @@ test("stream-display dsh 无流式时展示 final 全文", () => {
   assert.match(out, /本轮结束/);
 });
 
+test("stream-display 折叠 Codex rmcp MCP 502 噪声", () => {
+  const d = createStreamDisplay();
+  const noise =
+    '2026-10-30T11:53:02.557165Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when UnexpectedServer Response("HTTP 502: write |1: broken pipe\\n")\n';
+  const out = d.push(noise + noise + noise);
+  assert.match(out, /MCP 连接曾中断/);
+  assert.equal((out.match(/MCP 连接曾中断/g) || []).length, 1);
+  assert.doesNotMatch(out, /rmcp::transport/);
+});
+
 test("stream-display dsh error 行", () => {
   const d = createStreamDisplay();
   const out = d.push(

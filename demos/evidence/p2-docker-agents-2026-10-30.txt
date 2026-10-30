@@ -1,0 +1,33 @@
+=== agent-task-evidence start Fri Oct 30 20:52:49 CST 2026 ===
+# HARBOR_RUNTIME=docker
+# fixes: Codex features.plugins=false; task 不再写 demos/workspace 相对路径
+# github.com/liyufei916/agent-harbor/scripts/cmd/agent-task-evidence
+ld: warning: object file (/private/var/folders/f_/264pvpbx2z502b8bn581lsxw0000gn/T/go-link-888685949/go.o) was built for newer 'macOS' version (13.0) than being linked (11.0)
+ld: warning: object file (/private/var/folders/f_/264pvpbx2z502b8bn581lsxw0000gn/T/go-link-888685949/000027.o) was built for newer 'macOS' version (26.0) than being linked (11.0)
+ld: warning: object file (/private/var/folders/f_/264pvpbx2z502b8bn581lsxw0000gn/T/go-link-888685949/000028.o) was built for newer 'macOS' version (26.0) than being linked (11.0)
+ld: warning: object file (/private/var/folders/f_/264pvpbx2z502b8bn581lsxw0000gn/T/go-link-888685949/000029.o) was built for newer 'macOS' version (26.0) than being linked (11.0)
+ld: warning: object file (/private/var/folders/f_/264pvpbx2z502b8bn581lsxw0000gn/T/go-link-888685949/000030.o) was built for newer 'macOS' version (26.0) than being linked (11.0)
+ld: warning: object file (/private/var/folders/f_/264pvpbx2z502b8bn581lsxw0000gn/T/go-link-888685949/000031.o) was built for newer 'macOS' version (26.0) than being linked (11.0)
+ld: warning: object file (/private/var/folders/f_/264pvpbx2z502b8bn581lsxw0000gn/T/go-link-888685949/000032.o) was built for newer 'macOS' version (26.0) than being linked (11.0)
+ld: warning: object file (/private/var/folders/f_/264pvpbx2z502b8bn581lsxw0000gn/T/go-link-888685949/000033.o) was built for newer 'macOS' version (26.0) than being linked (11.0)
+ld: warning: object file (/private/var/folders/f_/264pvpbx2z502b8bn581lsxw0000gn/T/go-link-888685949/000034.o) was built for newer 'macOS' version (26.0) than being linked (11.0)
+ld: warning: object file (/private/var/folders/f_/264pvpbx2z502b8bn581lsxw0000gn/T/go-link-888685949/000035.o) was built for newer 'macOS' version (26.0) than being linked (11.0)
+ld: warning: object file (/private/var/folders/f_/264pvpbx2z502b8bn581lsxw0000gn/T/go-link-888685949/000036.o) was built for newer 'macOS' version (26.0) than being linked (11.0)
+ld: warning: object file (/private/var/folders/f_/264pvpbx2z502b8bn581lsxw0000gn/T/go-link-888685949/000037.o) was built for newer 'macOS' version (26.0) than being linked (11.0)
+ld: warning: object file (/private/var/folders/f_/264pvpbx2z502b8bn581lsxw0000gn/T/go-link-888685949/000038.o) was built for newer 'macOS' version (26.0) than being linked (11.0)
+ld: warning: object file (/private/var/folders/f_/264pvpbx2z502b8bn581lsxw0000gn/T/go-link-888685949/000039.o) was built for newer 'macOS' version (26.0) than being linked (11.0)
+ld: warning: object file (/private/var/folders/f_/264pvpbx2z502b8bn581lsxw0000gn/T/go-link-888685949/000040.o) was built for newer 'macOS' version (26.0) than being linked (11.0)
+ld: warning: object file (/private/var/folders/f_/264pvpbx2z502b8bn581lsxw0000gn/T/go-link-888685949/000041.o) was built for newer 'macOS' version (26.0) than being linked (11.0)
+ld: warning: object file (/private/var/folders/f_/264pvpbx2z502b8bn581lsxw0000gn/T/go-link-888685949/000042.o) was built for newer 'macOS' version (26.0) than being linked (11.0)
+ld: warning: object file (/private/var/folders/f_/264pvpbx2z502b8bn581lsxw0000gn/T/go-link-888685949/000043.o) was built for newer 'macOS' version (26.0) than being linked (11.0)
+ld: warning: object file (/private/var/folders/f_/264pvpbx2z502b8bn581lsxw0000gn/T/go-link-888685949/000044.o) was built for newer 'macOS' version (26.0) than being linked (11.0)
+health available=true isolation="docker"
+agent claude available=true reason=""
+agent codex available=true reason=""
+agent dsh available=true reason=""
+===== AGENT TASK EVIDENCE =====
+claude: 通过: session=ea1a6c34… model=model_10… marker=harbor-agent-claude-64773 srcSummary=true SyncBack=ok
+codex: 通过: session=d5fe2a1c… model=model_67… marker=harbor-agent-codex-64778 srcSummary=true SyncBack=ok
+dsh: 通过: session=3efa2c5d… model=model_10… marker=harbor-agent-dsh-64815 srcSummary=true SyncBack=ok
+EXIT:0
+=== end Fri Oct 30 20:53:41 CST 2026 ===

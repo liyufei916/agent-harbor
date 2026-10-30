@@ -40,20 +40,23 @@ func TestBuildOptionalAndMultipleMCP(t *testing.T) {
 	}
 }
 
-func TestBuildRejectsCustomMCPWithoutTools(t *testing.T) {
+func TestBuildAllowsCustomMCPWithoutTools(t *testing.T) {
 	b := NewBuilder(map[string]FixedProfile{
 		ProfileDemoModel: {Kind: "model", Host: "model.test", Origin: "https://model.test"},
 	})
-	_, err := b.Build(context.Background(), PolicyRequest{
+	snap, err := b.Build(context.Background(), PolicyRequest{
 		Workspace: t.TempDir(),
 		AgentID:   "claude",
 		Model:     contracts.AccountInfo{ID: "model", Kind: "model", ProfileID: ProfileDemoModel, Host: "model.test"},
 		MCPs: []contracts.AccountInfo{{
 			ID: "ctx7", Kind: "mcp", ProfileID: ProfileCustom, Host: "mcp.context7.com",
-			// Tools 故意为空：旧版连接探测未落盘
+			// Tools 空：可继续但工具受限（空白名单）
 		}},
 	})
-	if err != ErrMissingMCP {
-		t.Fatalf("want ErrMissingMCP, got %v", err)
+	if err != nil {
+		t.Fatalf("want allow empty tools, got %v", err)
+	}
+	if len(snap.MCPMounts) != 1 || len(snap.MCPMounts[0].Tools) != 0 {
+		t.Fatalf("want empty tools mount, got %+v", snap.MCPMounts)
 	}
 }

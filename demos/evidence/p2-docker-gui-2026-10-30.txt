@@ -1,0 +1,43 @@
+# P2 桌面 GUI Docker 后端 live 证据
+# 日期：2026-10-30
+# 分支：feat/p2-docker-runtime
+# 前提：ui-state.json 已由设置页点选 isolationBackend=docker · engineSource=system-docker
+# 启动：open bin/AgentHarbor.app（无 HARBOR_RUNTIME）
+# 截图：demos/screenshots/17-desktop-docker-health.png
+#   - 顶栏 Docker 徽章（非「模拟模式」）
+#   - 侧栏「隔离就绪」绿灯
+# API 复核（同一 UIPrefs 落盘路径，无 HARBOR_RUNTIME）：
+#   go run ./scripts/cmd/p2-uiprefs-health
+
+HARBOR_RUNTIME=<unset> DOCKER_HOST=""
+GetUIPrefs:
+{
+  "sidebarCollapsed": false,
+  "autoCollapseWorkbench": true,
+  "theme": "dark",
+  "askClearOnStop": false,
+  "clearOnStopDefault": "keep",
+  "securityTier": "strict",
+  "isolationBackend": "docker",
+  "engineSource": "system-docker"
+}
+GetRuntimeHealth:
+{
+  "available": true,
+  "reason": "P2 Docker（harbor.gate 代理 · 镜像内 Agent）",
+  "isolationLevel": "docker",
+  "error": null
+}
+GetContainerEngineHealth:
+{
+  "ready": true,
+  "source": "system-docker",
+  "message": "本机 Docker 可用",
+  "dockerDesktopInstalled": true,
+  "componentsInstalled": true,
+  "installing": false,
+  "progressPercent": 0,
+  "error": null
+}
+PASS: UIPrefs path → isolationLevel=docker (no HARBOR_RUNTIME)
+PASS: 桌面 live 截图顶栏 Docker + 侧栏隔离就绪（无模拟模式）

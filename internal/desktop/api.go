@@ -5,12 +5,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
+	goruntime "runtime"
 	"strings"
 	"time"
 
 	"github.com/liyufei916/agent-harbor/internal/contracts"
 	"github.com/liyufei916/agent-harbor/internal/orchestrator"
+	"github.com/liyufei916/agent-harbor/internal/runtime"
 	"github.com/liyufei916/agent-harbor/internal/secrets"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -208,16 +209,13 @@ func (d *DesktopAPI) DestroySession(sessionID string) contracts.SessionResponse 
 	return contracts.SessionResponse{Session: &snap}
 }
 
-// SyncBackWorkspace 将 clone 副本合并写回原工作区；成功后在访达中显示源目录。
+// SyncBackWorkspace 将 clone 副本合并写回原工作区（不自动打开访达，避免打断工作流）。
 func (d *DesktopAPI) SyncBackWorkspace(sessionID string) contracts.SessionResponse {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	snap, err := d.app.sessionRef().SyncBack(ctx, sessionID)
 	if err != nil {
 		return contracts.SessionResponse{Error: mapError(err)}
-	}
-	if src := strings.TrimSpace(snap.SourceWorkspace); src != "" {
-		revealInFileManager(src)
 	}
 	return contracts.SessionResponse{Session: &snap}
 }
@@ -234,8 +232,10 @@ func (d *DesktopAPI) GetRuntimeHealth() contracts.RuntimeHealthResponse {
 			Error:       contracts.NewAppError(contracts.ErrOrchestratorUnavailable, "编排服务尚未就绪", false),
 		}
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// Docker Health may inspect daemon + network + image (nested timeouts up to ~20s).
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 	defer cancel()
+	d.app.applyEngineDockerHost(ctx)
 	if err := rt.Health(ctx); err != nil {
 		ae := mapError(err)
 		reason := ae.Message
@@ -249,10 +249,16 @@ func (d *DesktopAPI) GetRuntimeHealth() contracts.RuntimeHealthResponse {
 			Error:       ae,
 		}
 	}
+	level := "seatbelt"
+	reason := ""
+	if runtime.DockerEnabled() {
+		level = "docker"
+		reason = "P2 Docker（harbor.gate 代理 · 镜像内 Agent）"
+	}
 	return contracts.RuntimeHealthResponse{
 		Available:      true,
-		Reason:         "",
-		IsolationLevel: "seatbelt",
+		Reason:         reason,
+		IsolationLevel: level,
 		VaultNotice:    vaultNote,
 		Error:          nil,
 	}
@@ -394,7 +400,11 @@ func (d *DesktopAPI) GetUIPrefs() contracts.UIPrefsResponse {
 
 // SetUIPrefs 写入本机 UI 偏好。
 func (d *DesktopAPI) SetUIPrefs(prefs contracts.UIPrefs) contracts.UIPrefsResponse {
+	prev := d.app.getPrefs()
 	saved := d.app.setPrefs(prefs)
+	if normalizeEngineSource(prev.EngineSource) != normalizeEngineSource(saved.EngineSource) {
+		d.app.resetEngine()
+	}
 	return contracts.UIPrefsResponse{Prefs: &saved}
 }
 
@@ -516,7 +526,7 @@ func revealInFileManager(path string) {
 		return
 	}
 	var cmd *exec.Cmd
-	switch runtime.GOOS {
+	switch goruntime.GOOS {
 	case "darwin":
 		cmd = exec.Command("open", "-R", path)
 	case "windows":

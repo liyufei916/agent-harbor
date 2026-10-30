@@ -38,6 +38,16 @@
 
 运行 `go test -race -v ./internal/runtime`；编排加真实 Runtime 的集成运行 `go test -race ./internal/orchestrator`。测试使用 Go 测试二进制 helper 和仅供测试的 cgo 原生 spawn 探针，要求 macOS Darwin 25 arm64 / 非 root；原生探针项要求 CGO_ENABLED=1。默认拒绝 profile 已验证文件与精确网络边界、fork/posix_spawn 拒绝、输出排空、取消及清理超时重试。该模式禁止创建子进程，不承诺 Bash 等外部工具能力。真实 Claude 离线检查用 `HARBOR_TEST_CLAUDE=1 go test -race -v ./internal/kits/claude -run TestInstalledCLI`；不访问真实模型/MCP，也不读取用户凭据。完整验收限制见 [开发记录](../docs/DEV-A.md)。
 
+## P2 Docker 边界冒烟
+
+需本机 Docker daemon 与已构建 `agent-harbor/runtime:dev`：
+
+```bash
+bash scripts/docker-p2-smoke.sh
+```
+
+断言：无 `docker.sock`、`harbor.gate` 可达宿主、uid=65534、镜像内 node 存在。说明见 [P2-DOCKER.md](../docs/P2-DOCKER.md)。
+
 
 Health 还会验证 profile 未意外放开文件访问：授权 fixture 必须可读，工作区外 fixture 必须以普通权限拒绝退出；规则编译失败、崩溃和超时都记为隔离不可用。
 

@@ -72,7 +72,7 @@ func TestBuildIsolatedDSHProfile(t *testing.T) {
 				t.Fatalf("启用了非授权能力 %s", row.Name)
 			}
 		}
-		if row.ID == "connection" && (row.Config["failOnStartupError"] != true || row.Config["url"] != input.MCPURL) {
+		if row.ID == "connection" && (row.Config["failOnStartupError"] != false || row.Config["url"] != input.MCPURL) {
 			t.Fatal("MCP 非必需或路径不符")
 		}
 		if row.ID == "llm-deepseek" && row.Config["baseURL"] != input.ModelBaseURL {

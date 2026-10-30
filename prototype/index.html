@@ -486,7 +486,7 @@
         <div class="row spread">
           <div>
             <h1>HOME</h1>
-            <p class="sub">运行中 2/2 · 同工作区禁止双开 · 同壳不同仓可并行</p>
+            <p class="sub">运行中 2/5 · 同工作区禁止双开 · 同壳不同仓可并行</p>
           </div>
           <button class="btn" type="button" data-go="wizard">+ 新会话</button>
         </div>
@@ -598,7 +598,7 @@
             <label><input type="checkbox" /> GitHub MCP <span class="meta" style="margin-left:auto">● 已连接</span></label>
             <label><input type="checkbox" /> Slack <span class="meta" style="margin-left:auto">○ 未添加</span></label>
           </div>
-          <p class="meta" style="margin-bottom:12px">开始前校验：运行中 &lt; 2 · 同工作区未占用（当前示意已 2/2，真实会拦截）</p>
+          <p class="meta" style="margin-bottom:12px">开始前校验：运行中 &lt; 5 · 同工作区未占用（示意；真实达上限会拦截）</p>
           <div class="row" style="justify-content:flex-end; gap:8px;">
             <button class="btn ghost" type="button" id="wiz-back-4">上一步</button>
             <button class="btn ghost" type="button" data-go="workbench">跳过并开始</button>
@@ -1092,7 +1092,7 @@
     document.getElementById("wiz-back-3").onclick = () => setWizardStep(2);
     document.getElementById("wiz-back-4").onclick = () => setWizardStep(3);
     document.getElementById("wiz-start").onclick = () => {
-      alert("示意：当前运行中已达 2/2，真实产品会拦截并提示先停止一个会话。");
+      alert("示意：当前运行中已达上限，真实产品会拦截并提示先停止一个会话。");
     };
     function toastRedetect() {
       alert("已更新检测结果（原型示意）");

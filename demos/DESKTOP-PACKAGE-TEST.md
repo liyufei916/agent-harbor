@@ -163,7 +163,7 @@ wails3 task darwin:package
 
 | # | 步骤 | 期望 | 结果 |
 |---|---|---|---|
-| 7.7.1 | 工作台「请求扩权」或可选 302（见 [permission-live-test.md](permission-live-test.md)） | 回显提示 + **弹窗**；三选一：**拒绝 / 仅本次 / 本项目始终允许**；**无「全网」** | ☐ |
+| 7.7.1 | 「请求扩权」或粘贴 `workspace/EXPAND-TASK.txt`（见 [permission-live-test.md](permission-live-test.md)） | **弹窗**；三选一；**无「全网」** | ☐ |
 | 7.7.2 | 若误选「本项目始终允许」 | 可在权限一览弹窗 / 侧栏已记住 / 最近活动行内 / 设置「已记住的网站」**撤销** | ☐ |
 
 ### 7.8 交互与安全边界抽测

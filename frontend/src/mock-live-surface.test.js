@@ -11,6 +11,8 @@ const LIVE_SURFACE = [
   "selectWorkspace",
   "connectModel",
   "connectMcp",
+  "listMcpPresets",
+  "addMcpPreset",
   "createSession",
   "getSession",
   "stopSession",
@@ -21,6 +23,9 @@ const LIVE_SURFACE = [
   "destroySession",
   "syncBackWorkspace",
   "getRuntimeHealth",
+  "getContainerEngineHealth",
+  "ensureContainerEngine",
+  "stopContainerEngine",
   "getPermissionOverview",
   "listRememberedHosts",
   "revokeRememberedHost",
@@ -34,7 +39,9 @@ const LIVE_SURFACE = [
   "writePty",
   "resizePty",
   "saveTextFile",
+  "restartApp",
   "onEvent",
+  "onEngineProgress",
 ];
 
 test("mock-api 导出覆盖 live transport 全部方法", () => {

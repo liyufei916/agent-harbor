@@ -30,6 +30,8 @@ export function createLiveTransport() {
     selectWorkspace: () => api.SelectWorkspace(),
     connectModel: (input) => api.ConnectModel(input),
     connectMcp: (input) => api.ConnectMcp(input),
+    listMcpPresets: bind("ListMcpPresets"),
+    addMcpPreset: bind("AddMcpPreset"),
     createSession: (spec) => api.CreateSession(spec),
     getSession: (id) => api.GetSession(id),
     stopSession: (id) => api.StopSession(id),
@@ -40,6 +42,9 @@ export function createLiveTransport() {
     destroySession: bind("DestroySession"),
     syncBackWorkspace: bind("SyncBackWorkspace"),
     getRuntimeHealth: bind("GetRuntimeHealth"),
+    getContainerEngineHealth: bind("GetContainerEngineHealth"),
+    ensureContainerEngine: bind("EnsureContainerEngine"),
+    stopContainerEngine: bind("StopContainerEngine"),
     getPermissionOverview: bind("GetPermissionOverview"),
     listRememberedHosts: bind("ListRememberedHosts"),
     revokeRememberedHost: bind("RevokeRememberedHost"),
@@ -53,8 +58,17 @@ export function createLiveTransport() {
     writePty: bind("WritePty"),
     resizePty: bind("ResizePty"),
     saveTextFile: bind("SaveTextFile"),
+    restartApp: bind("RestartApp"),
     onEvent(callback) {
       return Events.On("harbor:event", (ev) => callback(unwrapEvent(ev)));
+    },
+    onEngineProgress(callback) {
+      if (typeof Events.On !== "function") {
+        return () => {};
+      }
+      return Events.On("harbor:engine-progress", (ev) =>
+        callback(unwrapEvent(ev)),
+      );
     },
   };
 }

@@ -158,10 +158,7 @@ func (b *Builder) Build(_ context.Context, req PolicyRequest) (PolicySnapshot, e
 					return PolicySnapshot{}, ErrUnknownProfile
 				}
 			}
-			if len(account.Tools) == 0 {
-				// 旧版连接未落盘 tools/list；须在「工具」页删除后重新保存 MCP。
-				return PolicySnapshot{}, ErrMissingMCP
-			}
+			// 空 tools：允许开会话但挂载空白名单（可继续但工具受限）；call 仍拒。
 			custom.Tools = append([]string(nil), account.Tools...)
 			prof = custom
 		} else {

@@ -495,27 +495,30 @@ func TestNonInteractiveSessionRejectsAdditionalRound(t *testing.T) {
 	}
 }
 
-func TestAllowsTwoDifferentWorkspacesAndCapsThird(t *testing.T) {
+func TestAllowsFiveDifferentWorkspacesAndCapsSixth(t *testing.T) {
 	f := newFixture()
 	o := setup(t, f, Timeouts{}, nil)
-	second := spec()
-	second.Workspace = "/test/other-workspace"
-	third := spec()
-	third.Workspace = "/test/third-workspace"
-	one := create(t, o)
-	two, err := o.Create(context.Background(), second)
-	if err != nil {
-		t.Fatal(err)
+	var ids []string
+	for i := 0; i < MaxActiveSessions; i++ {
+		in := spec()
+		in.Workspace = "/test/workspace-" + strconv.Itoa(i+1)
+		s, err := o.Create(context.Background(), in)
+		if err != nil {
+			t.Fatalf("第 %d 个会话应获准: %v", i+1, err)
+		}
+		ids = append(ids, s.SessionID)
 	}
-	if _, err := o.Create(context.Background(), third); err == nil {
-		t.Fatal("第三个并发会话不应获准")
+	overflow := spec()
+	overflow.Workspace = "/test/workspace-overflow"
+	if _, err := o.Create(context.Background(), overflow); err == nil {
+		t.Fatal("第 6 个并发会话不应获准")
 	} else {
 		assertCode(t, err, "SESSION_LIMIT")
 	}
-	_, _ = o.Stop(context.Background(), one.SessionID)
-	_, _ = o.Stop(context.Background(), two.SessionID)
-	await(t, o, one.SessionID, func(s contracts.SessionSnapshot) bool { return s.CleanupComplete })
-	await(t, o, two.SessionID, func(s contracts.SessionSnapshot) bool { return s.CleanupComplete })
+	for _, id := range ids {
+		_, _ = o.Stop(context.Background(), id)
+		await(t, o, id, func(s contracts.SessionSnapshot) bool { return s.CleanupComplete })
+	}
 }
 
 func TestCloneSnapshotKeepsOriginalWorkspaceLocked(t *testing.T) {

@@ -1,0 +1,77 @@
+# P2 Harbor Colima Ensure/Health 证据（§B · Desktop 已安装但未用）
+# 日期：2026-10-30
+# 分支：feat/p2-docker-runtime
+# 修复1：engine/share → lima/share（limactl 经 bin 符号链接找 guestagent）
+# 修复2：COLIMA_HOME → ~/Library/Caches/AgentHarbor/colima（避开 UNIX_PATH_MAX）
+# Desktop sock（未用）：unix:///Users/he.s/.docker/run/docker.sock
+# Colima DOCKER_HOST：unix:///Users/he.s/Library/Caches/AgentHarbor/colima/agent-harbor/docker.sock
+
+=== Start ===
+time="2026-10-30T21:09:54+08:00" level=info msg="deleting colima [profile=agent-harbor]"
+time="2026-10-30T21:09:55+08:00" level=warning msg="Ignoring non-existent instance \"colima-agent-harbor\""
+time="2026-10-30T21:09:55+08:00" level=info msg=done
+time="2026-10-30T21:09:55+08:00" level=info msg="starting colima [profile=agent-harbor]"
+time="2026-10-30T21:09:55+08:00" level=info msg="runtime: docker"
+time="2026-10-30T21:09:56+08:00" level=info msg="creating and starting ..." context=vm
+time="2026-10-30T21:09:56+08:00" level=info msg="Terminal is not available, proceeding without opening an editor"
+time="2026-10-30T21:09:56+08:00" level=warning msg="local username \"he.s\" is not a valid Linux username (must match \"^[a-z_][a-z0-9_-]*$\"); using \"lima\" instead"
+time="2026-10-30T21:09:57+08:00" level=info msg="Starting the instance \"colima-agent-harbor\" with VM driver \"vz\""
+time="2026-10-30T21:09:57+08:00" level=info msg="Attempting to download the image" arch=aarch64 digest= location=/Users/he.s/Library/Caches/colima/caches/a24f6ef16e82e4b6293939e225f66e0d31056ee4b5c75f531bb58847c7741810
+time="2026-10-30T21:09:57+08:00" level=info msg="Downloaded the image from \"/Users/he.s/Library/Caches/colima/caches/a24f6ef16e82e4b6293939e225f66e0d31056ee4b5c75f531bb58847c7741810\""
+time="2026-10-30T21:09:57+08:00" level=info msg="Converting \"/Users/he.s/Library/Caches/AgentHarbor/colima/_lima/colima-agent-harbor/basedisk\" (qcow2) to a raw disk \"/Users/he.s/Library/Caches/AgentHarbor/colima/_lima/colima-agent-harbor/diffdisk\""
+time="2026-10-30T21:09:58+08:00" level=info msg="Expanding to 20GiB"
+time="2026-10-30T21:09:59+08:00" level=info msg="[hostagent] hostagent socket created at /Users/he.s/Library/Caches/AgentHarbor/colima/_lima/colima-agent-harbor/ha.sock"
+time="2026-10-30T21:09:59+08:00" level=info msg="[hostagent] Starting VZ (hint: to watch the boot progress, see \"/Users/he.s/Library/Caches/AgentHarbor/colima/_lima/colima-agent-harbor/serial*.log\")"
+time="2026-10-30T21:09:59+08:00" level=info msg="SSH Local Port: 55566"
+time="2026-10-30T21:09:59+08:00" level=info msg="[hostagent] Waiting for the essential requirement 1 of 2: \"ssh\""
+time="2026-10-30T21:09:59+08:00" level=info msg="[hostagent] [VZ] - vm state change: running"
+time="2026-10-30T21:10:09+08:00" level=info msg="[hostagent] Waiting for the essential requirement 1 of 2: \"ssh\""
+time="2026-10-30T21:10:09+08:00" level=info msg="[hostagent] The essential requirement 1 of 2 is satisfied"
+time="2026-10-30T21:10:09+08:00" level=info msg="[hostagent] Waiting for the essential requirement 2 of 2: \"user session is ready for ssh\""
+time="2026-10-30T21:10:09+08:00" level=info msg="[hostagent] The essential requirement 2 of 2 is satisfied"
+time="2026-10-30T21:10:09+08:00" level=info msg="[hostagent] Waiting for the guest agent to be running"
+time="2026-10-30T21:10:09+08:00" level=info msg="[hostagent] Forwarding \"/var/run/docker.sock\" (guest) to \"/Users/he.s/Library/Caches/AgentHarbor/colima/agent-harbor/docker.sock\" (host)"
+time="2026-10-30T21:10:09+08:00" level=info msg="[hostagent] Guest agent is running"
+time="2026-10-30T21:10:09+08:00" level=info msg="[hostagent] Waiting for the final requirement 1 of 1: \"boot scripts must have finished\""
+time="2026-10-30T21:10:09+08:00" level=info msg="[hostagent] Not forwarding TCP 127.0.0.54:53"
+time="2026-10-30T21:10:09+08:00" level=info msg="[hostagent] Not forwarding TCP 127.0.0.53:53"
+time="2026-10-30T21:10:09+08:00" level=info msg="[hostagent] Not forwarding TCP [::]:22"
+time="2026-10-30T21:10:09+08:00" level=info msg="[hostagent] The final requirement 1 of 1 is satisfied"
+time="2026-10-30T21:10:09+08:00" level=info msg="READY. Run `limactl shell colima-agent-harbor` to open the shell."
+installing: 386 OK
+installing: amd64 OK
+{
+  "supported": [
+    "linux/arm64",
+    "linux/amd64",
+    "linux/386"
+  ],
+  "emulators": [
+    "python3.12",
+    "qemu-i386",
+    "qemu-x86_64"
+  ]
+}
+time="2026-10-30T21:10:09+08:00" level=info msg="provisioning ..." context=docker
+colima-agent-harbor
+Successfully created context "colima-agent-harbor"
+time="2026-10-30T21:10:10+08:00" level=info msg="starting ..." context=docker
+time="2026-10-30T21:10:10+08:00" level=info msg=done
+start_exit:0
+
+=== Health via Colima DOCKER_HOST (NOT Desktop) ===
+DOCKER_HOST=unix:///Users/he.s/Library/Caches/AgentHarbor/colima/agent-harbor/docker.sock
+socket exists: yes
+Server=27.4.0 OS=Ubuntu 24.04.1 LTS Name=colima-agent-harbor
+
+=== Desktop contrast (unused) ===
+DesktopServer=29.9.2 OS=Docker Desktop Name=docker-desktop
+Docker.app: 已安装但未用
+
+=== Go engine.Colima Ensure/Start/Health ===
+Ensure OK home= unix:///Users/he.s/Library/Caches/AgentHarbor/colima/agent-harbor/docker.sock
+Start OK
+Health ready=true source=harbor-colima dockerHost=unix:///Users/he.s/Library/Caches/AgentHarbor/colima/agent-harbor/docker.sock msg="Harbor Colima 可用" err=<nil>
+process DOCKER_HOST= unix:///Users/he.s/Library/Caches/AgentHarbor/colima/agent-harbor/docker.sock
+PASS: Colima Ensure+Health via non-Desktop DOCKER_HOST
+=== DONE Fri Oct 30 21:10:31 CST 2026 ===

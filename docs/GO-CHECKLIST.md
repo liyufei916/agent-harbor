@@ -30,7 +30,7 @@
 |---|---|---|---|
 | 1 | 默认挂载 direct vs clone | 向导默认 **`clone`（安全副本）**；可选改 `direct`（强警告） | PAGE §5.3；ARCHITECTURE §10 |
 | 2 | 内嵌 PTY vs 外置终端 | **内嵌 PTY**（工作台）；不做唤起外部终端连沙箱 | PAGE §5.4；CONTRACT API-09 |
-| 3 | 是否只做 microVM | **本分支不挡主路径**：继续 Seatbelt / 严格进程隔离；microVM 仍 backlog（P1-A-07） | TASK-SPLIT；DEV-A |
+| 3 | 是否只做 microVM | **P2 已定 Docker**；Seatbelt 仍为默认主路径；microVM 后置。见 [P2-DOCKER](P2-DOCKER.md) / DECISIONS | TASK-SPLIT；DEV-A |
 | 4 | 本地 stdio MCP | **宿主侧已做**：`mcpstdio` 回环桥（不拆 Gateway 为 UpstreamTransport；沙箱仍只见 HTTP Gateway） | CONTRACT / ARCHITECTURE §6；工具页 |
 | 5 | 品牌情绪文案 | **不挡开发**；沿用现有「密钥留在本机 · Agent 隔离运行」；对外口号可后改 | PAGE §3 |
 
@@ -65,7 +65,8 @@
 | 子进程/Bash（P1-A-04） | A 门禁 | 门禁保留 | Codex 显式声明后受控白名单；Claude/dsh 严格单进程 |
 | 安装签名/更新（P1-B-06） | B | **backlog（非 eng-open）** | 公证需 Apple 账号，见 `scripts/notarize-prep.md` |
 | 外观浅色主题 | C | **eng 已关闭** | `UIPrefs.theme` system/light/dark 已接线落盘 |
-| microVM（P1-A-07） | A | **backlog（非 eng-open）** | P2 预研；本分支 Seatbelt 主路径 |
+| Docker Runtime（P2） | A | **Runtime 0–16 完成；引擎 B→C** | 托管 Colima 主路径（见 DECISIONS）；Desktop 非必须；[P2-DOCKER](P2-DOCKER.md) |
+| microVM（P1-A-07） | A | **backlog（后于 Docker）** | 不挡容器二期 |
 | 官方 MCP SDK | B | **backlog（非 eng-open）** | 现用标准 `net/http` 转发 |
 | DESIGN 对外口号 | 产品 | 产品项 | 不挡开发文案 |
 
@@ -102,7 +103,7 @@
 | 架构路径（Gate/stdio/Runtime） | [ARCHITECTURE](ARCHITECTURE.md)、[DESIGN](DESIGN.md) 相关开放问题、模块 README |
 | 产品页能力 / 边界文案 | [PAGE-DESIGN](PAGE-DESIGN.md)、[README](../README.md)、`frontend/src/usage-guide.js`、[demos/README](../demos/README.md) |
 | 装配 / OAuth / 发布 | [DEV-B](DEV-B.md)、[DECISIONS](DECISIONS.md)、Release/CI 说明 |
-| 验收证据 | [ACCEPTANCE](ACCEPTANCE.md)、`demos/*evidence*` |
+| 验收证据 | [ACCEPTANCE](ACCEPTANCE.md)、[demos/evidence/](../demos/evidence/)、[evidence-template](../demos/evidence-template.md) |
 | 目录新增包 | [DIRECTORY-STRUCTURE](DIRECTORY-STRUCTURE.md)、[internal/README](../internal/README.md) |
 
 ---

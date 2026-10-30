@@ -16,6 +16,7 @@
 | [ACCEPTANCE.md](ACCEPTANCE.md) | I1–I11 与证据格式 |
 | [GO-CHECKLIST.md](GO-CHECKLIST.md) | 开工检查 + 文档同步纪律 |
 | [ENG-STATUS.md](ENG-STATUS.md) | eng 已齐 vs live/公证/P2 backlog |
+| [P2-DOCKER.md](P2-DOCKER.md) | 二期 Docker Runtime 选型与切片 |
 
 ## 角色日志
 
@@ -30,6 +31,8 @@
 | [DSH-INTEGRATION.md](DSH-INTEGRATION.md) / [CODEX-INTEGRATION.md](CODEX-INTEGRATION.md) | Kit 真实接入 |
 | [demos/I1-I2-LIVE.md](../demos/I1-I2-LIVE.md) | 真实验收操作清单（关 I1/I2） |
 | [demos/B6-SUCCESS-DEMO.md](../demos/B6-SUCCESS-DEMO.md) | 60 秒任务成功 + 导回演示 |
+| [demos/workspace/EXPAND-TASK.txt](../demos/workspace/EXPAND-TASK.txt) | live 扩权 Modal（MCP `harbor_demo_ask`） |
+| [demos/permission-live-test.md](../demos/permission-live-test.md) | 扩权主路径验收清单 |
 | [DESIGN.md](DESIGN.md) | 威胁模型与长期范围 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 控制/执行面契约 |
 | [IMPLEMENTATION.md](IMPLEMENTATION.md) | P1→P2 路线图 |

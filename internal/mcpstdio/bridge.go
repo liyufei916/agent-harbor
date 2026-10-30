@@ -32,15 +32,16 @@ type Bridge struct {
 	Origin string
 	Tools  []string
 
-	mu      sync.Mutex
-	cmd     *exec.Cmd
-	stdin   io.WriteCloser
-	stdout  *bufio.Reader
-	ln      net.Listener
-	server  *http.Server
-	nextID  int
-	pending map[string]chan json.RawMessage
-	closed  bool
+	mu         sync.Mutex
+	cmd        *exec.Cmd
+	stdin      io.WriteCloser
+	stdout     *bufio.Reader
+	ln         net.Listener
+	server     *http.Server
+	nextID     int
+	pending    map[string]chan json.RawMessage
+	initResult json.RawMessage // Start 已 initialize；Codex/Claude 再发时回缓存，避免二次 init 弄死 stdio 子进程
+	closed     bool
 }
 
 // Start 启动 stdio 进程、完成 initialize + tools/list，并监听 127.0.0.1:0/mcp。
@@ -99,14 +100,16 @@ func Start(ctx context.Context, spec Spec) (*Bridge, error) {
 
 	initCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()
-	if _, err := b.call(initCtx, "initialize", map[string]any{
+	initRaw, err := b.call(initCtx, "initialize", map[string]any{
 		"protocolVersion": "2024-11-05",
 		"capabilities":    map[string]any{},
 		"clientInfo":      map[string]string{"name": "agent-harbor", "version": "1"},
-	}); err != nil {
+	})
+	if err != nil {
 		_ = b.Close()
 		return nil, fmt.Errorf("mcpstdio initialize: %w", err)
 	}
+	b.initResult = initRaw
 	_ = b.notify(initCtx, "notifications/initialized", map[string]any{})
 	raw, err := b.call(initCtx, "tools/list", map[string]any{})
 	if err != nil {
@@ -152,13 +155,40 @@ func (b *Bridge) handleHTTP(w http.ResponseWriter, r *http.Request) {
 		_ = json.Unmarshal(envelope.Params, &params)
 	}
 	if envelope.ID == nil || string(envelope.ID) == "null" {
+		// 已在 Start 完成 initialized；上游客户端（如 Codex rmcp）再通知时吞掉，勿写子进程。
+		if envelope.Method == "notifications/initialized" || envelope.Method == "initialized" {
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
 		_ = b.notify(ctx, envelope.Method, params)
 		w.WriteHeader(http.StatusAccepted)
 		return
 	}
+	if envelope.Method == "initialize" && len(b.initResult) > 0 {
+		out, _ := json.Marshal(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      json.RawMessage(envelope.ID),
+			"result":  json.RawMessage(b.initResult),
+		})
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(out)
+		return
+	}
+	// 现代 MCP SDK 会先 POST server/discover 做 era 协商；经典 stdio 子进程不认此方法。
+	// 若原样转发，子进程常以 5xx/断管回应，SDK 会把 HTTP 5xx 判为协商失败并退出。
+	// 回 JSON-RPC Method not found（HTTP 200）可让客户端回落到 legacy initialize。
+	if envelope.Method == "server/discover" {
+		writeJSONRPCMethodNotFound(w, envelope.ID)
+		return
+	}
 	result, err := b.call(ctx, envelope.Method, params)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		msg := "stdio mcp: " + err.Error()
+		low := strings.ToLower(err.Error())
+		if strings.Contains(low, "broken pipe") || strings.Contains(low, "file already closed") {
+			msg = "stdio mcp process closed"
+		}
+		http.Error(w, msg, http.StatusBadGateway)
 		return
 	}
 	out, _ := json.Marshal(map[string]any{
@@ -320,6 +350,16 @@ func readFramed(r *bufio.Reader) ([]byte, error) {
 		return nil, err
 	}
 	return buf, nil
+}
+
+func writeJSONRPCMethodNotFound(w http.ResponseWriter, id json.RawMessage) {
+	out, _ := json.Marshal(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      json.RawMessage(id),
+		"error":   map[string]any{"code": -32601, "message": "Method not found"},
+	})
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(out)
 }
 
 func parseToolNames(raw json.RawMessage) []string {

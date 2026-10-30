@@ -205,9 +205,17 @@ function formatEvent(obj, state) {
   return "";
 }
 
+/** Codex rmcp 连 MCP 失败时打到 stderr 的噪声（常因宿主 stdio 二次 initialize）。 */
+function isCodexMcpTransportNoise(line) {
+  const s = String(line || "");
+  if (/rmcp::transport::worker/i.test(s)) return true;
+  if (/Transport channel closed/i.test(s) && /502|broken pipe/i.test(s)) return true;
+  return false;
+}
+
 export function createStreamDisplay() {
   let buf = "";
-  const state = { streaming: false };
+  const state = { streaming: false, mcpNoiseHinted: false };
   return {
     push(chunk) {
       if (!chunk) return "";
@@ -229,6 +237,13 @@ export function createStreamDisplay() {
             continue;
           }
         }
+        if (isCodexMcpTransportNoise(trimmed)) {
+          if (!state.mcpNoiseHinted) {
+            state.mcpNoiseHinted = true;
+            out += `△ MCP 连接曾中断（多见于宿主 stdio）；本轮可继续。若工具不可用，请到「工具」页检查后重开。\r\n`;
+          }
+          continue;
+        }
         out += `${line}\r\n`;
       }
       return out;
@@ -236,6 +251,7 @@ export function createStreamDisplay() {
     reset() {
       buf = "";
       state.streaming = false;
+      state.mcpNoiseHinted = false;
     },
   };
 }

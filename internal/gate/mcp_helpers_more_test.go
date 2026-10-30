@@ -2,12 +2,16 @@ package gate
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/liyufei916/agent-harbor/internal/contracts"
 	"github.com/liyufei916/agent-harbor/internal/policy"
+	"github.com/liyufei916/agent-harbor/internal/secrets"
 )
 
 func TestMCPPayloadHelpers(t *testing.T) {
@@ -66,6 +70,113 @@ func TestMCPHeadersAndMountSelection(t *testing.T) {
 	}
 	if _, ok := g.mountForPath(rt, "/mcp/9"); ok {
 		t.Fatal("unknown mount accepted")
+	}
+}
+
+func TestInjectHarborDemoAskTool(t *testing.T) {
+	in := []byte(`{"jsonrpc":"2.0","id":1,"result":{"tools":[{"name":"other"}]}}`)
+	out := injectHarborDemoAskTool(in)
+	if !bytes.Contains(out, []byte(`"harbor_demo_ask"`)) || !bytes.Contains(out, []byte(`"other"`)) {
+		t.Fatalf("%s", out)
+	}
+	// idempotent
+	out2 := injectHarborDemoAskTool(out)
+	if bytes.Count(out2, []byte(`"harbor_demo_ask"`)) != 1 {
+		t.Fatalf("duplicated: %s", out2)
+	}
+}
+
+func TestParseDemoAskAndValidHost(t *testing.T) {
+	id, host, ok := parseDemoAskCall([]byte(`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"harbor_demo_ask","arguments":{"host":"Demo-Ask.Example"}}}`))
+	if !ok || host != "demo-ask.example" || string(id) != "7" {
+		t.Fatalf("id=%s host=%q ok=%v", id, host, ok)
+	}
+	if !validDemoAskHost("demo-ask.example") || validDemoAskHost("localhost") || validDemoAskHost("http://x.com") || validDemoAskHost("a") {
+		t.Fatal("validDemoAskHost mismatch")
+	}
+	rec := httptest.NewRecorder()
+	writeJSONRPCToolText(rec, json.RawMessage("1"), true, "ok")
+	if rec.Code != 200 || !bytes.Contains(rec.Body.Bytes(), []byte(`"ok"`)) {
+		t.Fatalf("%s", rec.Body.Bytes())
+	}
+}
+
+func TestDemoAskBypassesToolAllowlist(t *testing.T) {
+	// 白名单没有 harbor_demo_ask 时，仍须走扩权回调，而不是 403 tool not allowed。
+	asked := make(chan string, 1)
+	up := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Fatal("demo ask must not hit upstream")
+	}))
+	t.Cleanup(up.Close)
+	ctx := context.Background()
+	store := secrets.NewStore()
+	modelID := putMountAccount(t, store, "model", "mk")
+	mcpID := putMountAccount(t, store, "mcp", "tok")
+	h := New(store, policy.NewBuilder(nil))
+	bind, err := h.Start(ctx, GateSpec{
+		SessionID:      "demo-ask-allowlist",
+		ModelAccountID: modelID,
+		Policy: policy.PolicySnapshot{
+			Model: policy.EndpointRule{Origin: up.URL, Paths: []string{"/"}},
+			MCPMounts: []policy.MCPMount{{
+				AccountID: mcpID,
+				Endpoint:  policy.EndpointRule{Origin: up.URL, Paths: []string{"/mcp"}},
+				Tools:     []string{"other_only"},
+			}},
+		},
+		RequestPermission: func(_ context.Context, need contracts.PermissionNeeded) (string, error) {
+			asked <- need.Target
+			return "deny", nil
+		},
+	}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { h.Revoke(ctx, "demo-ask-allowlist") })
+	mcpURL := bind.MCPURL
+	if mcpURL == "" && len(bind.MCPURLs) > 0 {
+		mcpURL = bind.MCPURLs[0]
+	}
+	body := []byte(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"harbor_demo_ask","arguments":{"host":"demo-ask.example"}}}`)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, mcpURL, bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+bind.Sentinel)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != 200 || !bytes.Contains(raw, []byte("outbound denied")) {
+		t.Fatalf("status=%d body=%s", resp.StatusCode, raw)
+	}
+	select {
+	case got := <-asked:
+		if got != "demo-ask.example" {
+			t.Fatalf("target %q", got)
+		}
+	default:
+		t.Fatal("RequestPermission not called")
+	}
+}
+
+func TestWriteDiscoverLegacyFallback(t *testing.T) {
+	rec := httptest.NewRecorder()
+	writeDiscoverLegacyFallback(rec, []byte(`{"jsonrpc":"2.0","id":"server-discover-probe-1","method":"server/discover"}`))
+	if rec.Code != 200 {
+		t.Fatalf("status %d", rec.Code)
+	}
+	var out struct {
+		ID    string `json:"id"`
+		Error *struct {
+			Code int `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || out.ID != "server-discover-probe-1" || out.Error == nil || out.Error.Code != -32601 {
+		t.Fatalf("body %s err %v", rec.Body.Bytes(), err)
 	}
 }
 

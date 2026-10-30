@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/liyufei916/agent-harbor/internal/contracts"
+	"github.com/liyufei916/agent-harbor/internal/engine"
 	"github.com/liyufei916/agent-harbor/internal/gate"
 	"github.com/liyufei916/agent-harbor/internal/mcpstdio"
 	"github.com/liyufei916/agent-harbor/internal/policy"
@@ -44,16 +45,21 @@ type App struct {
 	conn    *gate.Connections
 	dataDir string
 
-	mu           sync.Mutex
-	sessions     SessionService
-	agents       AgentDetector
-	rt           runtime.Runtime
-	prefs        contracts.UIPrefs
-	hosts        map[string]contracts.RememberedHost // key: workspace\x00host
-	oauth        map[string]*oauthPending
-	stdioBridges map[string]*mcpstdio.Bridge
-	stdioFailed  map[string]string // accountID → 脱敏失败原因（桥未就绪）
-	ready        bool
+	mu               sync.Mutex
+	sessions         SessionService
+	agents           AgentDetector
+	rt               runtime.Runtime
+	eng              engine.Engine
+	engInstalling    bool
+	engProgress      int
+	engProgressLabel string
+	engInstallCancel context.CancelFunc
+	prefs            contracts.UIPrefs
+	hosts            map[string]contracts.RememberedHost // key: workspace\x00host
+	oauth            map[string]*oauthPending
+	stdioBridges     map[string]*mcpstdio.Bridge
+	stdioFailed      map[string]string // accountID → 脱敏失败原因（桥未就绪）
+	ready            bool
 }
 
 // NewApp 创建纯内存控制面（单测默认）。桌面进程请用 NewDesktopApp。

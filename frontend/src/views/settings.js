@@ -3,22 +3,34 @@
  */
 import * as api from "../api.js";
 import { AGENT_INSTALL, copyText } from "../agent-install.js";
+import { allEnvHintsHTML } from "../agent-env-hints.js";
+import { requestAppRestart } from "../restart-app.js";
 import { showToast } from "../toast.js";
 import {
   freshCheckItems,
   paintCheckList,
   runIsolationProbe,
 } from "../isolation-checks.js";
-export function mountSettings(root, ctx) {
+export function mountSettings(root, ctx, opts = {}) {
+  const focusIsolation = !!opts.focusIsolation;
   root.innerHTML = `
     <h2>设置</h2>
     <p class="sub">只改本机默认偏好。无「关闭隔离 / 本机直跑 Agent」。</p>
+    <div id="settings-recovery-banner" class="banner warn-banner ${focusIsolation ? "" : "hidden"}" role="status">
+      <strong>隔离未就绪 · 可在此改引擎</strong>
+      <p class="meta">托管 Colima 检测失败时，若本机已有 Docker Desktop，请改选「本机 Docker」并连接；或把后端改回 Seatbelt。改完后<strong>重启应用</strong>再开跑。</p>
+      <div class="actions" id="settings-recovery-actions"></div>
+    </div>
 
     <section class="card">
       <h3>Agent 检测</h3>
-      <p class="meta">须本机预装 CLI；隔离仅 <strong>macOS Darwin 25 · arm64 · 非 root</strong>。MCP：远程 HTTP（Token/OAuth）或宿主 stdio（进程在宿主机）。</p>
+      <p class="meta">Seatbelt：须本机预装 CLI（Darwin 25 · arm64 · 非 root）。Docker：检测/运行用镜像内 CLI。MCP：远程 HTTP（Token/OAuth）或宿主 stdio（进程在宿主机）。</p>
       <div class="meta" id="settings-agent">—</div>
       <button type="button" class="btn" id="btn-refresh-agents">重新检测</button>
+      <details style="margin-top:12px">
+        <summary class="meta">预置 profile 环境变量（Codex / dsh）</summary>
+        ${allEnvHintsHTML()}
+      </details>
     </section>
 
     <section class="card" style="margin-top:12px">
@@ -77,6 +89,44 @@ export function mountSettings(root, ctx) {
           <option value="relaxed">宽松 — +GitHub 等开发站</option>
         </select>
       </label>
+    </section>
+
+    <section class="card ${focusIsolation ? "settings-focus-isolation" : ""}" style="margin-top:12px" id="settings-isolation">
+      <h3>隔离后端</h3>
+      <p class="meta">二选一：<strong>Seatbelt</strong>（默认，macOS 沙箱）或 <strong>Docker</strong>（一会话一容器）。Colima / 本机 Docker 只是 Docker 后端的<strong>引擎</strong>，选 Seatbelt 时不必选引擎。<strong>改后端后需重启</strong>；<code>HARBOR_RUNTIME</code> 优先。</p>
+      <label class="field">后端
+        <select id="set-isolation-backend">
+          <option value="seatbelt">Seatbelt（默认）</option>
+          <option value="docker">Docker</option>
+        </select>
+      </label>
+      <div class="actions" id="isolation-restart-row" hidden>
+        <button type="button" class="btn primary" id="btn-restart-for-isolation">重启应用使生效</button>
+        <span class="meta">偏好已保存，本进程仍用旧隔离后端。</span>
+      </div>
+      <div id="engine-panel" class="engine-panel" hidden>
+        <p class="meta"><strong>无 Docker Desktop</strong> → 用「Harbor 托管 Colima」并<strong>一键安装</strong>（才下载）。<strong>本机已有 Docker</strong> → 选「本机 Docker」，只检测连接、<strong>不下载托管组件</strong>。</p>
+        <label class="field">容器引擎来源
+          <select id="set-engine-source">
+            <option value="harbor-colima">Harbor 托管 Colima（无 Desktop 时推荐）</option>
+            <option value="system-docker">本机 Docker（高级）</option>
+          </select>
+        </label>
+        <p class="meta" id="engine-desktop-status" role="status">Docker Desktop：检测中…</p>
+        <p class="meta" id="engine-health-status" role="status">引擎状态：—</p>
+        <div class="engine-progress" id="engine-progress" aria-live="polite">
+          <div class="engine-progress-track">
+            <div class="engine-progress-bar" id="engine-progress-bar"></div>
+          </div>
+          <p class="meta engine-progress-label" id="engine-progress-label">0%</p>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn" id="btn-engine-health">检测引擎</button>
+          <button type="button" class="btn primary" id="btn-engine-ensure">一键安装并启用</button>
+          <button type="button" class="btn" id="btn-engine-stop">停止 / 取消</button>
+        </div>
+        <p class="meta" id="engine-action-status">未装 Desktop 时选 Colima 再安装；有本机 Docker 时改选「本机 Docker」后点连接即可。</p>
+      </div>
     </section>
 
     <section class="card" style="margin-top:12px">
@@ -252,6 +302,152 @@ export function mountSettings(root, ctx) {
     return "standard";
   }
 
+  function normalizeIsolationBackend(v) {
+    if (v === "docker" || v === "p2" || v === "container") return "docker";
+    return "seatbelt";
+  }
+
+  function normalizeEngineSource(v) {
+    const s = String(v || "").toLowerCase();
+    if (s === "system-docker" || s === "system" || s === "desktop") {
+      return "system-docker";
+    }
+    return "harbor-colima";
+  }
+
+  function paintEngineProgress(percent, label, on) {
+    const wrap = root.querySelector("#engine-progress");
+    const bar = root.querySelector("#engine-progress-bar");
+    const lab = root.querySelector("#engine-progress-label");
+    if (!wrap || !bar || !lab) return;
+    const pct = Math.max(0, Math.min(100, Number(percent) || 0));
+    wrap.classList.toggle("on", !!on || pct > 0);
+    bar.style.width = `${pct}%`;
+    lab.textContent = label ? `${pct}% · ${label}` : `${pct}%`;
+  }
+
+  function currentEngineSource() {
+    return normalizeEngineSource(root.querySelector("#set-engine-source")?.value);
+  }
+
+  function syncEnsureButton(h) {
+    const btn = root.querySelector("#btn-engine-ensure");
+    const stopBtn = root.querySelector("#btn-engine-stop");
+    const hint = root.querySelector("#engine-action-status");
+    if (!btn) return;
+    const src = currentEngineSource();
+    const system = src === "system-docker";
+    if (system) {
+      btn.textContent = h?.ready ? "重新检测本机 Docker" : "连接本机 Docker";
+      if (stopBtn) stopBtn.textContent = "取消连接";
+      if (hint && !h?.installing) {
+        hint.textContent = "本机 Docker：不下载 Colima，只检测本机 docker CLI / daemon 是否可用。";
+      }
+    } else {
+      if (h?.ready) btn.textContent = "重新启用 Colima";
+      else if (h?.componentsInstalled) btn.textContent = "启动 Colima";
+      else btn.textContent = "一键安装并启用";
+      if (stopBtn) stopBtn.textContent = "停止 / 取消";
+      if (hint && !h?.installing) {
+        hint.textContent = h?.dockerDesktopInstalled
+          ? "已有 Desktop 时可改选「本机 Docker」。无 Desktop 或不想用 Desktop 时，一键安装 Harbor Colima。"
+          : "未检测到 Docker Desktop：请用 Harbor Colima 一键安装（才会下载）。";
+      }
+    }
+  }
+
+  function paintRecoveryActions(h) {
+    const banner = root.querySelector("#settings-recovery-banner");
+    const actions = root.querySelector("#settings-recovery-actions");
+    if (!banner || !actions) return;
+    const backend = normalizeIsolationBackend(
+      root.querySelector("#set-isolation-backend")?.value ||
+        ctx.state.uiPrefs?.isolationBackend,
+    );
+    const show =
+      focusIsolation ||
+      (backend === "docker" && h && !h.ready && !h.installing);
+    banner.classList.toggle("hidden", !show);
+    if (!show) {
+      actions.innerHTML = "";
+      return;
+    }
+    const bits = [];
+    if (h?.dockerDesktopInstalled && currentEngineSource() !== "system-docker") {
+      bits.push(
+        `<button type="button" class="btn primary" id="btn-prefer-system-docker">改用本机 Docker</button>`,
+      );
+    }
+    if (backend === "docker") {
+      bits.push(
+        `<button type="button" class="btn" id="btn-prefer-seatbelt">退回 Seatbelt</button>`,
+      );
+    }
+    actions.innerHTML = bits.join("") || `<p class="meta">请在下方选择引擎并检测。</p>`;
+    actions.querySelector("#btn-prefer-system-docker")?.addEventListener("click", async () => {
+      const eng = root.querySelector("#set-engine-source");
+      const iso = root.querySelector("#set-isolation-backend");
+      if (iso) iso.value = "docker";
+      if (eng) eng.value = "system-docker";
+      syncEnginePanel("docker");
+      await savePrefs();
+      showToast("已改为本机 Docker，正在连接…", "ok");
+      root.querySelector("#btn-engine-ensure")?.click();
+    });
+    actions.querySelector("#btn-prefer-seatbelt")?.addEventListener("click", async () => {
+      const iso = root.querySelector("#set-isolation-backend");
+      if (iso) iso.value = "seatbelt";
+      syncEnginePanel("seatbelt");
+      await savePrefs();
+      showToast("已退回 Seatbelt，请重启应用后重新检测", "ok");
+    });
+  }
+
+  function paintEngineHealth(h) {
+    const el = root.querySelector("#engine-health-status");
+    const desk = root.querySelector("#engine-desktop-status");
+    if (desk) {
+      if (!h) {
+        desk.textContent = "Docker Desktop：—";
+      } else if (h.dockerDesktopInstalled) {
+        desk.innerHTML = `<span class="ok">已检测到 Docker Desktop · 可直接选「本机 Docker」，无需装托管 Colima</span>`;
+      } else {
+        desk.innerHTML = `<span class="warn">未检测到 Docker Desktop · 请用 Harbor Colima 一键安装</span>`;
+      }
+    }
+    syncEnsureButton(h);
+    paintRecoveryActions(h);
+    if (!el) return;
+    if (!h) {
+      el.textContent = "引擎状态：—";
+      return;
+    }
+    const src = h.source || "";
+    if (h.installing || (h.progressPercent > 0 && h.progressPercent < 100 && !h.ready)) {
+      paintEngineProgress(h.progressPercent, h.progressLabel || "进行中…", true);
+    }
+    if (h.ready) {
+      el.innerHTML = `<span class="ok">引擎就绪 · ${src}${h.message ? " · " + h.message : ""}</span>`;
+      paintEngineProgress(100, h.progressLabel || "完成", false);
+    } else {
+      el.innerHTML = `<span class="bad">引擎未就绪 · ${src}${h.message ? " · " + h.message : ""}</span>`;
+    }
+  }
+
+  function syncEnginePanel(backend) {
+    const panel = root.querySelector("#engine-panel");
+    const docker = normalizeIsolationBackend(backend) === "docker";
+    if (!panel) return;
+    if (docker) panel.removeAttribute("hidden");
+    else panel.setAttribute("hidden", "");
+  }
+
+  async function refreshEngineHealth() {
+    const h = await api.getContainerEngineHealth();
+    paintEngineHealth(h);
+    return h;
+  }
+
   async function loadPrefs() {
     const res = await api.getUIPrefs();
     const prefs = res.prefs || ctx.state.uiPrefs || {};
@@ -266,11 +462,49 @@ export function mountSettings(root, ctx) {
     });
     const tierEl = root.querySelector("#set-security-tier");
     if (tierEl) tierEl.value = normalizeTierPref(prefs.securityTier);
+    const isoEl = root.querySelector("#set-isolation-backend");
+    const backend = normalizeIsolationBackend(prefs.isolationBackend);
+    if (isoEl) isoEl.value = backend;
+    const engEl = root.querySelector("#set-engine-source");
+    if (engEl) engEl.value = normalizeEngineSource(prefs.engineSource);
     syncClearDefaultEnabled();
+    syncEnginePanel(backend);
+    if (backend === "docker") {
+      refreshEngineHealth()
+        .then(async (h) => {
+          // 从阻断页进入且已装 Desktop：默认切到本机 Docker，避免卡在托管 Colima 探测失败
+          if (
+            focusIsolation &&
+            h?.dockerDesktopInstalled &&
+            normalizeEngineSource(prefs.engineSource) !== "system-docker"
+          ) {
+            const engEl = root.querySelector("#set-engine-source");
+            if (engEl) engEl.value = "system-docker";
+            await savePrefs();
+            showToast("已检测到 Docker Desktop，已切换为「本机 Docker」并连接", "ok");
+            // 直接探测本机 daemon，避免只改偏好仍卡在未就绪
+            root.querySelector("#btn-engine-ensure")?.click();
+            return;
+          }
+          return h;
+        })
+        .catch(() => paintEngineHealth(null));
+    } else if (focusIsolation) {
+      paintRecoveryActions(null);
+    }
   }
 
   async function savePrefs() {
     const clearRadio = root.querySelector('input[name="clear-default"]:checked');
+    const prevBackend = normalizeIsolationBackend(
+      ctx.state.uiPrefs?.isolationBackend,
+    );
+    const nextBackend = normalizeIsolationBackend(
+      root.querySelector("#set-isolation-backend")?.value,
+    );
+    const nextEngine = normalizeEngineSource(
+      root.querySelector("#set-engine-source")?.value,
+    );
     const prefs = {
       theme: normalizeTheme(root.querySelector("#set-theme").value),
       sidebarCollapsed: root.querySelector("#set-sidebar-collapsed").checked,
@@ -280,6 +514,8 @@ export function mountSettings(root, ctx) {
       securityTier: normalizeTierPref(
         root.querySelector("#set-security-tier")?.value,
       ),
+      isolationBackend: nextBackend,
+      engineSource: nextEngine,
     };
     const res = await api.setUIPrefs(prefs);
     const st = root.querySelector("#set-prefs-status");
@@ -290,24 +526,175 @@ export function mountSettings(root, ctx) {
     ctx.state.uiPrefs = res.prefs || prefs;
     ctx.applyUIPrefs?.(ctx.state.uiPrefs);
     syncClearDefaultEnabled();
-    st.innerHTML = `<span class="ok">已保存</span>`;
+    syncEnginePanel(nextBackend);
+    paintRunMode(nextBackend);
+
+    if (prevBackend !== nextBackend) {
+      if (nextBackend === "docker") {
+        st.innerHTML = `<span class="warn">已保存 · 请选择引擎并启用，再点「重启应用使生效」</span>`;
+        showToast("已切到 Docker：启用引擎后请重启", "ok");
+        refreshEngineHealth().catch(() => paintEngineHealth(null));
+      } else {
+        st.innerHTML = `<span class="warn">已保存 · 请点「重启应用使生效」</span>`;
+        showToast("隔离后端已保存，请重启应用", "ok");
+      }
+    } else {
+      st.innerHTML = `<span class="ok">已保存</span>`;
+    }
+    syncIsolationRestartRow();
   }
 
+  function syncIsolationRestartRow() {
+    const row = root.querySelector("#isolation-restart-row");
+    if (!row) return;
+    const preferred = normalizeIsolationBackend(
+      root.querySelector("#set-isolation-backend")?.value ||
+        ctx.state.uiPrefs?.isolationBackend,
+    );
+    const level = String(ctx.state.health?.isolationLevel || "").toLowerCase();
+    const fromHealth =
+      level.includes("docker")
+        ? "docker"
+        : level.includes("seatbelt") || level.includes("mock-seatbelt")
+          ? "seatbelt"
+          : "";
+    const need = !!fromHealth && fromHealth !== preferred;
+    row.hidden = !need;
+  }
+
+  function paintRunMode(backend) {
+    const el = root.querySelector("#about-run-mode");
+    if (!el) return;
+    const b = normalizeIsolationBackend(backend);
+    const backendLabel =
+      b === "docker"
+        ? "隔离后端偏好 Docker（须重启生效）"
+        : "隔离后端偏好 Seatbelt";
+    el.textContent = api.isMock()
+      ? `运行模式：模拟（浏览器 mock）— 不能当真实验收 · ${backendLabel}`
+      : `运行模式：真实绑定（桌面后端）· ${backendLabel}`;
+  }
+
+  root.querySelector("#btn-restart-for-isolation")?.addEventListener("click", () => {
+    void requestAppRestart({
+      reason: "重启后将按已保存的隔离后端偏好重新装配 Runtime。",
+    });
+  });
   root.querySelector("#set-theme").onchange = savePrefs;
   root.querySelector("#set-sidebar-collapsed").onchange = savePrefs;
   root.querySelector("#set-auto-collapse").onchange = savePrefs;
   root.querySelector("#set-ask-clear").onchange = savePrefs;
   root.querySelector("#set-security-tier")?.addEventListener("change", savePrefs);
+  root.querySelector("#set-isolation-backend")?.addEventListener("change", savePrefs);
+  root.querySelector("#set-engine-source")?.addEventListener("change", () => {
+    syncEnsureButton(null);
+    savePrefs();
+    if (normalizeIsolationBackend(root.querySelector("#set-isolation-backend")?.value) === "docker") {
+      refreshEngineHealth().catch(() => paintEngineHealth(null));
+    }
+  });
   root.querySelectorAll('input[name="clear-default"]').forEach((el) => {
     el.onchange = savePrefs;
   });
-  loadPrefs();
-  const runMode = root.querySelector("#about-run-mode");
-  if (runMode) {
-    runMode.textContent = api.isMock()
-      ? "运行模式：模拟（浏览器 mock）— 不能当真实验收"
-      : "运行模式：真实绑定（桌面后端）";
+  let offEngineProgress = null;
+  if (typeof api.onEngineProgress === "function") {
+    offEngineProgress = api.onEngineProgress((p) => {
+      if (!p) return;
+      paintEngineProgress(p.percent, p.label || "", !p.done);
+      const st = root.querySelector("#engine-action-status");
+      if (st && !p.done) {
+        st.textContent = p.label || `安装中 ${p.percent || 0}%`;
+      }
+      if (p.done && p.error && st) {
+        st.innerHTML = `<span class="bad">${p.error}</span>`;
+      }
+    });
   }
+
+  root.querySelector("#btn-engine-health")?.addEventListener("click", async () => {
+    const btn = root.querySelector("#btn-engine-health");
+    const st = root.querySelector("#engine-action-status");
+    btn.disabled = true;
+    if (st) st.textContent = "检测中…";
+    try {
+      await refreshEngineHealth();
+      if (st) st.innerHTML = `<span class="ok">已刷新</span>`;
+    } catch (e) {
+      if (st) st.innerHTML = `<span class="bad">检测失败</span>`;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  root.querySelector("#btn-engine-ensure")?.addEventListener("click", async () => {
+    const btn = root.querySelector("#btn-engine-ensure");
+    const st = root.querySelector("#engine-action-status");
+    const healthBtn = root.querySelector("#btn-engine-health");
+    const stopBtn = root.querySelector("#btn-engine-stop");
+    btn.disabled = true;
+    if (healthBtn) healthBtn.disabled = true;
+    if (stopBtn) stopBtn.disabled = false;
+    const system = currentEngineSource() === "system-docker";
+    paintEngineProgress(1, system ? "连接本机 Docker…" : "开始安装…", true);
+    if (st) {
+      st.textContent = system
+        ? "正在检测本机 Docker…"
+        : "一键安装中（下载 / 启动 Colima）…可点「停止 / 取消」";
+    }
+    showToast(system ? "正在连接本机 Docker…" : "正在一键安装 Harbor Colima…", "ok");
+    try {
+      const h = await api.ensureContainerEngine();
+      paintEngineHealth(h);
+      if (h?.ready) {
+        paintEngineProgress(100, system ? "本机 Docker 可用" : "安装完成", false);
+        if (st)
+          st.innerHTML = `<span class="ok">引擎已就绪 · 请点上方「重启应用使生效」</span>`;
+        showToast("容器引擎已就绪，请重启应用", "ok");
+        syncIsolationRestartRow();
+      } else {
+        if (st)
+          st.innerHTML = `<span class="bad">${h?.message || h?.error?.message || "失败"}</span>`;
+        showToast(h?.message || "容器引擎未就绪", "bad");
+      }
+    } catch (e) {
+      if (st) st.innerHTML = `<span class="bad">${system ? "连接失败" : "安装失败"}</span>`;
+      showToast(system ? "连接本机 Docker 失败" : "一键安装失败", "bad");
+    } finally {
+      btn.disabled = false;
+      if (healthBtn) healthBtn.disabled = false;
+    }
+  });
+  root.querySelector("#btn-engine-stop")?.addEventListener("click", async () => {
+    const btn = root.querySelector("#btn-engine-stop");
+    const st = root.querySelector("#engine-action-status");
+    btn.disabled = true;
+    if (st) st.textContent = "正在停止 / 取消…";
+    showToast("正在停止容器引擎…", "ok");
+    try {
+      const h = await api.stopContainerEngine();
+      paintEngineHealth(h);
+      paintEngineProgress(0, h?.message || "已停止", false);
+      if (st) st.innerHTML = `<span class="ok">${h?.message || "已停止"}</span>`;
+      showToast(h?.message || "已停止", "ok");
+    } catch (e) {
+      if (st) st.innerHTML = `<span class="bad">停止失败</span>`;
+      showToast("停止失败", "bad");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  loadPrefs();
+  paintRunMode(ctx.state.uiPrefs?.isolationBackend);
+  syncIsolationRestartRow();
+  // cleanup when leaving settings: views typically remount; best-effort
+  root.addEventListener(
+    "harbor:settings-dispose",
+    () => {
+      try {
+        offEngineProgress?.();
+      } catch {}
+    },
+    { once: true },
+  );
   const sel = root.querySelector("#scenario");
   if (sel) {
     sel.value = api.getMockScenario();
@@ -339,11 +726,15 @@ export function mountSettings(root, ctx) {
     if (toggleChecksBtn) toggleChecksBtn.disabled = true;
     const el = root.querySelector("#about-health");
     el.textContent = "正在逐项检测…";
-    lastAboutCheckItems = freshCheckItems();
+    const preferredLevel = normalizeIsolationBackend(
+      ctx.state.uiPrefs?.isolationBackend,
+    );
+    lastAboutCheckItems = freshCheckItems(preferredLevel);
     paintCheckList(aboutChecks, lastAboutCheckItems);
     setAboutChecksExpanded(true);
     try {
       const h = await runIsolationProbe({
+        preferredLevel,
         getHealth: async () => {
           if (typeof ctx.refreshHealth === "function") {
             return ctx.refreshHealth();
@@ -365,7 +756,9 @@ export function mountSettings(root, ctx) {
         vaultEl.classList.remove("hidden");
       }
       if (h?.available) {
-        el.innerHTML = `<span class="ok">● 隔离可用 ${h.isolationLevel || ""}</span>`;
+        const level = h.isolationLevel || "";
+        const note = h.reason && level === "docker" ? ` · ${h.reason}` : "";
+        el.innerHTML = `<span class="ok">● 隔离可用 ${level}${note}</span>`;
         showToast(
           h?.vaultNotice ? "隔离通过；凭据库有告警，见关于" : "隔离检测通过",
           h?.vaultNotice ? "bad" : "ok",
@@ -386,4 +779,12 @@ export function mountSettings(root, ctx) {
   refreshAgents();
   refreshHosts();
   root.querySelector("#btn-rehealth").click();
+  if (focusIsolation) {
+    requestAnimationFrame(() => {
+      root.querySelector("#settings-isolation")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }
 }

@@ -25,17 +25,20 @@ agent-harbor/
 │   ├── contracts/               # A/B 确定，C 核对：前端可见 DTO、事件、错误码
 │   │   ├── dto.go
 │   │   └── events.go
-│   ├── orchestrator/            # A：会话生命周期（目标多会话≤2、clone、PTY）、回滚及模块集成
+│   ├── orchestrator/            # A：会话生命周期（目标多会话≤5、clone、PTY）、回滚及模块集成
 │   │   ├── session.go
 │   │   └── session_test.go
-│   ├── runtime/                 # A：操作系统隔离与进程树管理
+│   ├── runtime/                 # A：操作系统隔离与进程树管理（P1 Seatbelt / P2 Docker）
 │   │   ├── runtime.go           # 后端接口与句柄
+│   │   ├── docker*.go           # P2 容器 Runtime（见 docs/P2-DOCKER.md）
+│   ├── engine/                  # A：P2 托管 Colima/引擎（B→C；见 DECISIONS）
 │   │   ├── macos.go             # macOS Seatbelt 实现
 │   │   ├── default_darwin.go    # NewDefault → NewMacOS
 │   │   ├── default_stub.go      # 非 Darwin：ISOLATION_UNAVAILABLE
 │   │   ├── sandbox.sb           # 随应用嵌入的 Seatbelt 模板
 │   │   └── *_test.go
 │   ├── mcpstdio/                # B：宿主 stdio MCP → 回环 HTTP 桥
+│   ├── mcppresets/              # B：首批预置 MCP（time/filesystem/context7）+ embed 脚本
 │   │   ├── bridge.go
 │   │   └── testdata/fake_mcp.py
 │   ├── kits/                    # A：无真实凭据的 Agent 启动适配
@@ -67,9 +70,9 @@ agent-harbor/
 │   ├── checks.py · seatbelt_probe.py
 │   ├── test_checks.py · test_sandbox_profile.py  # 可移植 deny-default 等
 │   └── fixtures/
-├── demos/                       # C：演示话术、导回证据、工作区
-│   ├── README.md · syncback-evidence.md · evidence-template.md
-│   └── workspace/
+├── demos/                       # C：演示话术、证据、工作区
+│   ├── README.md · B6-SUCCESS-DEMO.md · permission-live-test.md · evidence/
+│   └── workspace/               # EXPAND-TASK / BLOCK-TASK / hello / 导回样例
 ├── docs/
 │   ├── DIRECTORY-STRUCTURE.md   # 本文
 │   ├── MODULE-DESIGN.md         # 当前模块边界、依赖、替身与并行安排
@@ -132,7 +135,7 @@ runtime / gate → 注入的事件回调 → internal/desktop → Wails 事件 �
 
 ## 4. 保持两天范围
 
-- 不提前创建 Codex/dsh、Linux/Windows 或容器后端空实现，后续开始适配时再扩展。
+- P2 Docker Runtime 与托管引擎已在 `internal/runtime` / `internal/engine`；Linux Seatbelt / microVM 仍属后续。
 - 不新增 pkg、通用 utils、独立 API 服务、数据库、插件框架或 Python 业务进程。
 - 单元测试与源码同包就近维护；真实 Agent/模型/MCP 和操作系统隔离验收放 security，不仅依赖单元测试结论。
 - 会话临时 HOME、真实凭据、工作区数据和敏感运行日志放在源码树外；profile 模板可嵌入二进制，生成的会话规则及配置不能当作静态资源提交。

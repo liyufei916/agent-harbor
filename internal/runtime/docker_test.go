@@ -1,0 +1,275 @@
+package runtime
+
+import (
+	"context"
+	"errors"
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/liyufei916/agent-harbor/internal/contracts"
+)
+
+type fakeDockerRunner struct {
+	binOK       bool
+	infoErr     error
+	imageErr    error
+	networkErr  error
+	internalNet bool // inspect {{.Internal}} → true（遗留阻断网）
+	psOut       string
+	psErr       error
+	create      func(args []string) (string, error)
+	rmErr       error
+	calls       [][]string
+}
+
+func (f *fakeDockerRunner) LookPath() (string, error) {
+	if !f.binOK {
+		return "", errors.New("docker not found")
+	}
+	return "/usr/local/bin/docker", nil
+}
+
+func (f *fakeDockerRunner) Run(_ context.Context, args ...string) (string, error) {
+	f.calls = append(f.calls, append([]string(nil), args...))
+	if len(args) == 0 {
+		return "", errors.New("empty")
+	}
+	switch args[0] {
+	case "info":
+		return "24.0.0", f.infoErr
+	case "network":
+		if f.networkErr != nil {
+			return "", f.networkErr
+		}
+		if len(args) >= 2 && args[1] == "inspect" {
+			if f.internalNet {
+				return "true", nil
+			}
+			return "false", nil
+		}
+		// create / other
+		return "ok", nil
+	case "image":
+		return "sha256:fixture", f.imageErr
+	case "ps":
+		return f.psOut, f.psErr
+	case "create":
+		if f.create != nil {
+			return f.create(args)
+		}
+		return "cid-test", nil
+	case "start", "kill":
+		return "", nil
+	case "rm":
+		return "", f.rmErr
+	default:
+		return "", errors.New("unexpected " + args[0])
+	}
+}
+
+func TestDockerHealthFailClosedWithoutBinary(t *testing.T) {
+	r := NewDocker()
+	r.runner = &fakeDockerRunner{binOK: false}
+	err := r.Health(context.Background())
+	if err == nil {
+		t.Fatal("expected ISOLATION_UNAVAILABLE")
+	}
+	app, ok := err.(*contracts.AppError)
+	if !ok || app.Code != "ISOLATION_UNAVAILABLE" {
+		t.Fatalf("got %#v", err)
+	}
+	if !strings.Contains(app.Message, "docker CLI") {
+		t.Fatalf("want CLI hint: %q", app.Message)
+	}
+}
+
+func TestDockerHealthFailClosedWhenDaemonDown(t *testing.T) {
+	r := NewDocker()
+	r.runner = &fakeDockerRunner{binOK: true, infoErr: errors.New("Cannot connect to the Docker daemon")}
+	err := r.Health(context.Background())
+	if err == nil {
+		t.Fatal("expected ISOLATION_UNAVAILABLE")
+	}
+	app, ok := err.(*contracts.AppError)
+	if !ok || app.Code != "ISOLATION_UNAVAILABLE" || !strings.Contains(app.Message, "daemon") {
+		t.Fatalf("got %#v", err)
+	}
+}
+
+func TestDockerHealthFailClosedWhenImageMissing(t *testing.T) {
+	r := NewDocker()
+	r.runner = &fakeDockerRunner{binOK: true, imageErr: errors.New("No such image")}
+	err := r.Health(context.Background())
+	if err == nil {
+		t.Fatal("expected ISOLATION_UNAVAILABLE")
+	}
+	app, ok := err.(*contracts.AppError)
+	if !ok || app.Code != "ISOLATION_UNAVAILABLE" {
+		t.Fatalf("got %#v", err)
+	}
+	if !strings.Contains(app.Message, "镜像") {
+		t.Fatalf("want image hint: %q", app.Message)
+	}
+	if err := r.HealthFor(context.Background(), true); err == nil {
+		t.Fatal("HealthFor should also fail closed")
+	}
+}
+
+func TestDockerHealthFailClosedWhenNetworkUnavailable(t *testing.T) {
+	r := NewDocker()
+	r.runner = &fakeDockerRunner{binOK: true, networkErr: errors.New("network create failed")}
+	err := r.Health(context.Background())
+	if err == nil {
+		t.Fatal("expected ISOLATION_UNAVAILABLE")
+	}
+	app, ok := err.(*contracts.AppError)
+	if !ok || app.Code != "ISOLATION_UNAVAILABLE" || !strings.Contains(app.Message, "网络") {
+		t.Fatalf("got %#v", err)
+	}
+}
+
+func TestDockerEnsureHarborNetworkMigratesInternal(t *testing.T) {
+	fake := &fakeDockerRunner{binOK: true, internalNet: true}
+	r := NewDocker()
+	r.runner = fake
+	if err := r.ensureHarborNetwork(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	var sawRm, sawCreateNoInternal bool
+	for _, c := range fake.calls {
+		joined := strings.Join(c, " ")
+		if len(c) >= 2 && c[0] == "network" && c[1] == "rm" {
+			sawRm = true
+		}
+		if len(c) >= 2 && c[0] == "network" && c[1] == "create" {
+			sawCreateNoInternal = !strings.Contains(joined, "--internal")
+		}
+	}
+	if !sawRm || !sawCreateNoInternal {
+		t.Fatalf("want rm+create without --internal; calls=%v", fake.calls)
+	}
+}
+
+func TestDockerHealthPrunesExitedHarborContainers(t *testing.T) {
+	fake := &fakeDockerRunner{binOK: true, psOut: "cid-old\ncid-stale"}
+	r := NewDocker()
+	r.runner = fake
+	if err := r.Health(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	var sawPs, rmOld, rmStale bool
+	for _, c := range fake.calls {
+		if len(c) == 0 {
+			continue
+		}
+		joined := strings.Join(c, " ")
+		if c[0] == "ps" && strings.Contains(joined, "label=agent-harbor=1") && strings.Contains(joined, "status=exited") {
+			sawPs = true
+		}
+		if len(c) >= 3 && c[0] == "rm" && c[1] == "-f" && c[2] == "cid-old" {
+			rmOld = true
+		}
+		if len(c) >= 3 && c[0] == "rm" && c[1] == "-f" && c[2] == "cid-stale" {
+			rmStale = true
+		}
+	}
+	if !sawPs || !rmOld || !rmStale {
+		t.Fatalf("prune calls=%#v sawPs=%v rmOld=%v rmStale=%v", fake.calls, sawPs, rmOld, rmStale)
+	}
+}
+
+func TestDockerCreateRejectsForbiddenWorkspace(t *testing.T) {
+	r := NewDocker()
+	r.runner = &fakeDockerRunner{binOK: true}
+	_, err := r.Create(context.Background(), RuntimeSpec{
+		SessionID: "s1", MountMode: "direct", Workspace: "/etc",
+		AllowedTCP: []string{"127.0.0.1:1"}, ReadOnlyPaths: []string{"/usr/bin/true"},
+	})
+	if err == nil {
+		t.Fatal("expected WORKSPACE_DENIED")
+	}
+	if app, ok := err.(*contracts.AppError); !ok || app.Code != "WORKSPACE_DENIED" {
+		t.Fatalf("got %#v", err)
+	}
+}
+
+func TestDockerCreateDestroyAndExecUnsupported(t *testing.T) {
+	ws, err := os.MkdirTemp("/private/tmp", "harbor-docker-ws-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(ws) })
+	fake := &fakeDockerRunner{
+		binOK: true,
+		create: func(args []string) (string, error) {
+			joined := strings.Join(args, " ")
+			if !strings.Contains(joined, "--network "+HarborDockerNetwork) {
+				t.Fatalf("want internal network: %s", joined)
+			}
+			if !strings.Contains(joined, dockerGateHost+":host-gateway") {
+				t.Fatalf("want harbor.gate host-gateway: %s", joined)
+			}
+			if !strings.Contains(joined, "host.docker.internal:127.0.0.1") {
+				t.Fatalf("want host.docker.internal blackhole: %s", joined)
+			}
+			if !strings.Contains(joined, "--memory") || !strings.Contains(joined, "--cpus") {
+				t.Fatalf("want resource limits: %s", joined)
+			}
+			if strings.Contains(joined, "docker.sock") {
+				t.Fatal("must not mount docker.sock")
+			}
+			if !strings.Contains(joined, "--cap-drop ALL") {
+				t.Fatal("want cap-drop ALL")
+			}
+			if !strings.Contains(joined, "--init") {
+				t.Fatal("want --init for zombie reaping")
+			}
+			if !strings.Contains(joined, "agent-harbor.session=s-create") {
+				t.Fatalf("want session label: %s", joined)
+			}
+			return "cid-abc", nil
+		},
+	}
+	r := NewDocker()
+	r.runner = fake
+	r.image = "harbor-test:fixture"
+	h, err := r.Create(context.Background(), RuntimeSpec{
+		SessionID: "s-create", MountMode: "direct", Workspace: ws,
+		AllowedTCP: []string{"127.0.0.1:9"}, ReadOnlyPaths: []string{"/usr/bin/true"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h.PrivateHome == "" || h.Workspace != ws {
+		t.Fatalf("handle=%+v", h)
+	}
+	if err := r.Destroy(context.Background(), h); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Destroy(context.Background(), h); err != nil {
+		t.Fatal(err)
+	}
+	var sawRm bool
+	for _, c := range fake.calls {
+		if len(c) >= 3 && c[0] == "rm" && c[1] == "-f" && c[2] == "cid-abc" {
+			sawRm = true
+		}
+	}
+	if !sawRm {
+		t.Fatalf("expected docker rm -f: %#v", fake.calls)
+	}
+}
+
+func TestNewSelectedDockerEnv(t *testing.T) {
+	t.Setenv("HARBOR_RUNTIME", "docker")
+	rt := NewSelected()
+	if _, ok := rt.(*Docker); !ok {
+		t.Fatalf("want *Docker got %T", rt)
+	}
+	t.Setenv("HARBOR_RUNTIME", "")
+	rt = NewSelected()
+	if _, ok := rt.(*Docker); ok {
+		t.Fatal("default must not be Docker")
+	}
+}

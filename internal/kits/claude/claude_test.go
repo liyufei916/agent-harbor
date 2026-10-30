@@ -72,6 +72,9 @@ func TestBuildOnlyContainsGateConfiguration(t *testing.T) {
 	if launch.Env["ANTHROPIC_API_KEY"] != sentinel || launch.Env["ANTHROPIC_BASE_URL"] != input().ModelBaseURL {
 		t.Fatal("模型未指向 Gate")
 	}
+	if !strings.Contains(args, "--model "+wireModel) {
+		t.Fatalf("CLI 须用 wireModel（Gate 再改写账号模型），args=%s", args)
+	}
 	if len(launch.ConfigFiles) != 2 {
 		t.Fatal("配置文件缺失")
 	}

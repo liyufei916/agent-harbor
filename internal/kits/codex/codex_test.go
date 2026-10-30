@@ -48,7 +48,7 @@ func TestBuildUsesResponsesProviderAndPrivateCodexHome(t *testing.T) {
 		t.Fatalf("Codex 配置路径错误: %+v", launch.ConfigFiles)
 	}
 	config := string(launch.ConfigFiles[0].Content)
-	for _, required := range []string{"wire_api = \"responses\"", "env_key = \"OPENAI_API_KEY\"", "[mcp_servers.harbor]", "http://127.0.0.1:41002/mcp", `base_url = "http://127.0.0.1:41001/v1"`, `sandbox_mode = "danger-full-access"`, `approval_policy = "never"`} {
+	for _, required := range []string{"wire_api = \"responses\"", "env_key = \"OPENAI_API_KEY\"", "[mcp_servers.harbor]", "http://127.0.0.1:41002/mcp", `base_url = "http://127.0.0.1:41001/v1"`, `sandbox_mode = "danger-full-access"`, `approval_policy = "never"`, "[features]", "plugins = false"} {
 		if !strings.Contains(config, required) {
 			t.Fatalf("Codex 配置缺少 %q: %s", required, config)
 		}
@@ -181,5 +181,30 @@ func TestBuildUsesMCPURLs(t *testing.T) {
 	config := string(launch.ConfigFiles[0].Content)
 	if !strings.Contains(config, "[mcp_servers.harbor]") || !strings.Contains(config, "[mcp_servers.harbor-2]") {
 		t.Fatalf("多 MCP 配置错误: %s", config)
+	}
+}
+
+func TestDockerLaunchUsesTurnBridgeNotSingleShotExec(t *testing.T) {
+	t.Setenv("HARBOR_RUNTIME", "docker")
+	k, err := New(kits.GuestCodex, "gpt-5-codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	launch, err := k.Build(context.Background(), validInput())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if launch.Command != kits.GuestNode {
+		t.Fatalf("Docker Codex 须用 guest node: %+v", launch)
+	}
+	if !launch.Interactive || launch.EncodeInput == nil {
+		t.Fatalf("Docker 应走 turn_bridge 多轮，不能单轮 exec: %+v", launch)
+	}
+	joined := strings.Join(launch.Args, " ")
+	if strings.Contains(joined, " exec ") || !strings.Contains(joined, "harbor-turn.mjs") {
+		t.Fatalf("桥参数错误: %v", launch.Args)
+	}
+	if !strings.Contains(joined, "--codex "+kits.GuestCodex) {
+		t.Fatalf("缺 guest codex 路径: %v", launch.Args)
 	}
 }

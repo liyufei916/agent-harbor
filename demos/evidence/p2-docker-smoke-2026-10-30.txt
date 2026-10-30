@@ -1,0 +1,16 @@
+# P2 Docker 边界冒烟证据（开发机 · 有本机 Docker Desktop）
+# 日期：2026-10-30
+# 分支：feat/p2-docker-runtime
+# 命令：bash scripts/docker-p2-smoke.sh
+# 镜像：agent-harbor/runtime:dev
+# 网络：agent-harbor-p2（非 --internal）
+
+OK: 无 docker.sock
+OK: harbor.gate 可达宿主
+OK: uid=65534
+OK: guest node 存在
+OK: harbor.gate + host.docker.internal 拉黑
+SKIP: 非 TTY 环境，跳过 exec -t 检查
+PASS: docker-p2-smoke (agent-harbor/runtime:dev / agent-harbor-p2)
+
+说明：边界冒烟；三 Agent Docker live 见 p2-docker-agents-2026-10-30.txt；§B Colima 见 p2-colima-ensure-2026-10-30.txt。

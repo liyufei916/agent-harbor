@@ -11,6 +11,9 @@
 | `runtime.go` | Health、Create、Exec、Destroy、Process.Wait 与受限句柄 |
 | `macos.go` | macOS 能力检查、私有 HOME、执行与清理 |
 | `default_darwin.go` / `default_stub.go` | `NewDefault()`：Darwin→`NewMacOS`，其它平台不可用 stub |
+| `select.go` | `NewSelected()`：`HARBOR_RUNTIME=docker\|p2\|container` → Docker，否则 Default |
+| `docker.go` / `docker_exec.go` / `docker_terminal.go` / `docker_paths.go` / `docker_network.go` / `docker_proxy.go` / `docker_prune.go` / `docker_probe.go` | P2：会话网、配额、Exec/Terminal、`harbor.gate` 代理（Env+ConfigFiles）、孤儿容器清理、Guest Detect；无 sock |
+| `workspace_policy.go` | 工作区/安装根拒绝规则（Seatbelt 与 Docker 共用） |
 | `proctree_darwin.go` | AllowDescendants 杀树 |
 | `sandbox.sb` | 默认拒绝；`ProcessFork` 由 Create 参数选择 |
 | `profile_test.go` | 可移植 fail-closed 形状断言（deny-default、禁 system.sb 等） |
@@ -19,7 +22,7 @@
 
 ## 输入与输出
 
-`LaunchSpec.Terminal` 分配 OS PTY（与 Interactive/EncodeInput 互斥），Resize 走 `pty.Setsize`。Interactive + EncodeInput 仍用于结构化 JSONL（如 dsh）；无 Terminal 时 Resize 为 UNIMPLEMENTED。
+`LaunchSpec.Terminal` 分配 OS PTY（与 Interactive/EncodeInput 互斥），Resize 走 `pty.Setsize`。Docker 后端为宿主 PTY + `docker exec -it`。Interactive + EncodeInput 仍用于结构化 JSONL（如 dsh）；无 Terminal 时 Resize 为 UNIMPLEMENTED。
 
 接收规范化工作区、已确定的网络端口及 Kit LaunchSpec，返回输出流、退出通知与可销毁句柄。不解释账号、MCP 或授权弹窗，也不接收真实模型/MCP 凭据。
 

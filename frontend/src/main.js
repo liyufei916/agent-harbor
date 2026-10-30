@@ -26,13 +26,17 @@ import {
   loadTutorialProgress,
   markTutorialStep,
   resetTutorial,
+  skipOptionalTutorialStep,
   skipTutorial,
   tutorialSteps,
 } from "./tutorial-progress.js";
 import { normalizeTier } from "./security-tier.js";
+import { healthAllowsStart, healthBlockReason } from "./health-ready.js";
+import { requestAppRestart } from "./restart-app.js";
 
 const badge = document.getElementById("mode-badge");
-const usageGuideBtn = document.getElementById("usage-guide-btn");
+const isolationBadge = document.getElementById("isolation-badge");
+const restartAppBtn = document.getElementById("btn-restart-app");
 const sidebar = document.getElementById("sidebar");
 const healthDot = document.getElementById("health-dot");
 const healthText = document.getElementById("health-text");
@@ -78,6 +82,8 @@ const ctx = {
       clearOnStopDefault: "keep",
       theme: "system",
       securityTier: "standard",
+      isolationBackend: "seatbelt",
+      engineSource: "harbor-colima",
     },
     permissionPending: false,
   },
@@ -132,7 +138,7 @@ const ctx = {
   },
   onSessionCreated(snapshot, createSpec) {
     api.activateSession?.(snapshot);
-    markTutorialStep(2);
+    markTutorialStep(3);
     ctx.state.sessionId = snapshot.sessionId;
     ctx.state.lastSnapshot = snapshot;
     if (createSpec?.task) ctx.state.lastTask = createSpec.task;
@@ -153,8 +159,8 @@ const ctx = {
       showToast("找不到会话记录", "bad");
       return { error: { code: "SESSION_NOT_FOUND", message: "无历史" } };
     }
-    if (ctx.state.health?.available === false) {
-      showBlock(ctx.state.health.reason);
+    if (!healthAllowsStart(ctx.state.health)) {
+      showBlock(healthBlockReason(ctx.state.health));
       return { error: { code: "ISOLATION_UNAVAILABLE", message: "隔离不可用" } };
     }
     const res = await api.startSession(sessionId);
@@ -247,7 +253,13 @@ function syncSessionSwitch() {
 
 function syncBadge() {
   const banner = document.getElementById("mode-banner");
+  if (!badge) {
+    syncIsolationBadge();
+    return;
+  }
   if (api.isMock()) {
+    // 仅 mock 顶栏提示；桌面真连不展示「真实绑定」（对用户无信息量）
+    badge.classList.remove("hidden");
     badge.textContent = "模拟模式";
     badge.className = "badge mock";
     if (banner) {
@@ -255,15 +267,65 @@ function syncBadge() {
       banner.textContent = "模拟模式：仅看 UI，不能记入 I1–I11 真实验收。";
     }
   } else {
-    badge.textContent = "真实绑定";
-    badge.className = "badge live";
-    // 桌面真连不再展示开发期 UNIMPLEMENTED 横幅；说明见顶栏「使用说明」
+    badge.classList.add("hidden");
+    badge.textContent = "";
+    badge.className = "badge live hidden";
     banner?.classList.add("hidden");
   }
+  syncIsolationBadge();
 }
 
-if (usageGuideBtn) {
-  usageGuideBtn.addEventListener("click", () => showUsageGuide());
+/** 标题栏标记当前隔离后端：生效值来自 Health；与偏好不一致时提示待重启。 */
+function syncIsolationBadge() {
+  if (!isolationBadge) return;
+  const health = ctx.state.health;
+  const levelRaw = String(health?.isolationLevel || "").toLowerCase();
+  const fromHealth =
+    levelRaw === "docker" || levelRaw.includes("docker")
+      ? "docker"
+      : levelRaw === "seatbelt" || levelRaw.includes("seatbelt") || levelRaw.includes("mock-seatbelt")
+        ? "seatbelt"
+        : "";
+  const preferred = preferredIsolationLevel();
+  const label = (v) => (v === "docker" ? "Docker" : "Seatbelt");
+  const pendingRestart = !!fromHealth && fromHealth !== preferred;
+  const verified = healthAllowsStart(health) && !!fromHealth;
+
+  if (pendingRestart) {
+    // 偏好已改但本进程仍跑旧 Runtime：徽章跟偏好走，并标明须重启。
+    isolationBadge.textContent = `${label(preferred)}（待重启）`;
+    isolationBadge.className = "badge isolation-badge isolation-pending";
+  } else if ((fromHealth || preferred) === "docker") {
+    isolationBadge.textContent = verified ? "Docker" : "Docker（偏好）";
+    isolationBadge.className = `badge isolation-badge ${verified ? "isolation-docker" : "isolation-pending"}`;
+  } else {
+    isolationBadge.textContent = verified ? "Seatbelt" : "Seatbelt（偏好）";
+    isolationBadge.className = `badge isolation-badge ${verified ? "isolation-seatbelt" : "isolation-pending"}`;
+  }
+
+  if (restartAppBtn) {
+    restartAppBtn.classList.toggle("hidden", !pendingRestart);
+  }
+
+  const bits = [];
+  if (fromHealth) {
+    bits.push(`当前生效：${label(fromHealth) === "Docker" ? "Docker" : "Seatbelt"}`);
+  } else {
+    bits.push(`设置偏好：${label(preferred) === "Docker" ? "Docker" : "Seatbelt"}（尚未由健康检查确认）`);
+  }
+  if (pendingRestart) {
+    bits.push(`偏好已改为 ${label(preferred)}，须重启应用后生效`);
+  }
+  bits.push("设置 → 隔离后端 可切换");
+  isolationBadge.title = bits.join(" · ");
+}
+
+if (restartAppBtn) {
+  restartAppBtn.addEventListener("click", () => {
+    void requestAppRestart({
+      reason: "重启后将按已保存的隔离后端偏好重新装配 Runtime。",
+    });
+  });
 }
 
 function updatePermissionBadge() {
@@ -279,25 +341,53 @@ function showTutorialPanel() {
   if (!modal) return;
   const prog = loadTutorialProgress();
   const steps = tutorialSteps();
+  const current = !prog.completed && !prog.skipped ? steps[prog.step] || null : null;
   const lis = steps
     .map((s, i) => {
       const done = prog.completed || prog.step > i;
-      return `<li class="${done ? "meta" : ""}">${done ? "✓" : "○"} ${s.label}</li>`;
+      const on = !prog.completed && !prog.skipped && prog.step === i;
+      const mark = done ? "✓" : on ? "●" : "○";
+      const cls = done ? "tut-step done" : on ? "tut-step on" : "tut-step";
+      return `<li class="${cls}"><span class="tut-mark">${mark}</span><span>${s.label}${s.optional ? " <span class=\"meta\">可选</span>" : ""}</span></li>`;
     })
     .join("");
+  const status = prog.completed
+    ? "已完成上手步骤。细节可随时打开「使用说明」。"
+    : prog.skipped
+      ? "已跳过；可重新开始。"
+      : `进度 ${Math.min(prog.step, steps.length)}/${steps.length}`;
+  const focus = current
+    ? `<div class="tut-focus">
+        <h3>${current.label}</h3>
+        <div class="meta tut-hint">${current.hint}</div>
+        <div class="actions">
+          <button type="button" class="btn primary" id="tut-go-step">${current.goLabel || "前往"}</button>
+          ${
+            current.secondaryRoute
+              ? `<button type="button" class="btn" id="tut-go-secondary">${current.secondaryLabel || "前往"}</button>`
+              : ""
+          }
+          ${current.optional ? `<button type="button" class="btn" id="tut-skip-optional">跳过本步</button>` : ""}
+        </div>
+      </div>`
+    : prog.completed
+      ? `<p class="meta">主路径已走通。扩权弹窗、Docker 引擎等见「使用说明」。</p>`
+      : "";
   modal.classList.remove("hidden");
   modal.innerHTML = `
-    <div class="modal-card permission-overview-card" role="dialog" aria-modal="true">
-      <div class="row" style="justify-content:space-between;gap:12px">
-        <h2 style="margin:0">使用教程</h2>
+    <div class="modal-card tutorial-card" role="dialog" aria-modal="true" aria-labelledby="tut-title">
+      <div class="row page-head-spread">
+        <h2 id="tut-title" style="margin:0">使用教程</h2>
         <button type="button" class="btn" id="tut-close">关闭</button>
       </div>
-      <p class="meta">${prog.completed ? "已完成上手步骤。" : prog.skipped ? "已跳过；可重新开始。" : `当前进度 ${Math.min(prog.step, steps.length)}/${steps.length}`}</p>
-      <ol class="audit-list">${lis}</ol>
-      <div class="actions">
+      <p class="meta">${status}</p>
+      <ol class="tut-list">${lis}</ol>
+      ${focus}
+      <div class="actions tut-footer">
+        <button type="button" class="btn" id="tut-guide">使用说明</button>
         <button type="button" class="btn" id="tut-skip">稍后体验</button>
         <button type="button" class="btn" id="tut-reset">重新学习</button>
-        <button type="button" class="btn primary" id="tut-go">去 HOME</button>
+        <button type="button" class="btn" id="tut-home">HOME</button>
       </div>
     </div>`;
   const close = () => {
@@ -315,9 +405,43 @@ function showTutorialPanel() {
     close();
     showTutorialPanel();
   });
-  modal.querySelector("#tut-go")?.addEventListener("click", () => {
+  modal.querySelector("#tut-home")?.addEventListener("click", () => {
     close();
     navigate("home");
+  });
+  modal.querySelector("#tut-guide")?.addEventListener("click", () => {
+    close();
+    showUsageGuide();
+  });
+  const goRoute = (route) => {
+    close();
+    if (route === "wizard") navigate("wizard", { fresh: true });
+    else if (route === "session") {
+      if (ctx.state.sessionId) navigate("session");
+      else {
+        showToast("请先开一条运行中的会话，再在工作台右侧点「请求扩权」", "ok", {
+          durationMs: 5000,
+        });
+        navigate("home");
+      }
+    } else navigate(route || "home");
+  };
+  modal.querySelector("#tut-go-step")?.addEventListener("click", () => {
+    if (current?.action === "complete") {
+      markTutorialStep(prog.step);
+      close();
+      showTutorialPanel();
+      return;
+    }
+    goRoute(current?.route);
+  });
+  modal.querySelector("#tut-go-secondary")?.addEventListener("click", () => {
+    goRoute(current?.secondaryRoute);
+  });
+  modal.querySelector("#tut-skip-optional")?.addEventListener("click", () => {
+    skipOptionalTutorialStep();
+    close();
+    showTutorialPanel();
   });
 }
 
@@ -407,6 +531,7 @@ function onSystemThemeChange() {
 
 function applyUIPrefs(prefs) {
   if (!prefs) return;
+  const backend = String(prefs.isolationBackend || "").toLowerCase();
   ctx.state.uiPrefs = {
     ...(ctx.state.uiPrefs || {}),
     sidebarCollapsed: !!prefs.sidebarCollapsed,
@@ -416,8 +541,14 @@ function applyUIPrefs(prefs) {
       prefs.clearOnStopDefault === "clear" ? "clear" : "keep",
     theme: normalizeThemePref(prefs.theme),
     securityTier: normalizeTier(prefs.securityTier),
+    isolationBackend:
+      backend === "docker" || backend === "p2" || backend === "container"
+        ? "docker"
+        : "seatbelt",
+    engineSource: prefs.engineSource,
   };
   applyDocumentTheme(ctx.state.uiPrefs.theme);
+  syncIsolationBadge();
   // 工作台内若开了自动收缩且用户未手动展开，保持收窄，不把「默认展开」盖掉临时态
   if (
     currentRoute === "session" &&
@@ -452,7 +583,7 @@ function navigate(name, opts = {}) {
   if (name === "models") mountModels(views.models, ctx, opts);
   if (name === "tools") mountTools(views.tools, ctx, opts);
   if (name === "records") mountRecords(views.records, ctx, opts);
-  if (name === "settings") mountSettings(views.settings, ctx);
+  if (name === "settings") mountSettings(views.settings, ctx, opts);
   if (name === "session") {
     if (!ctx.state.sessionId) {
       sessionView?.showEmpty?.() || sessionView?.resetForNewSession?.(null);
@@ -467,8 +598,8 @@ function navigate(name, opts = {}) {
       setSidebarCollapsed(true, { persist: false });
     }
   }
-  if (ctx.state.health && ctx.state.health.available === false && name === "wizard") {
-    showBlock(ctx.state.health.reason);
+  if (ctx.state.health && !healthAllowsStart(ctx.state.health) && name === "wizard") {
+    showBlock(healthBlockReason(ctx.state.health));
   } else {
     hideBlock();
   }
@@ -476,18 +607,19 @@ function navigate(name, opts = {}) {
 
 function applyHealthToShell(health) {
   ctx.state.health = health;
-  const ok = !!health?.available;
+  const ok = healthAllowsStart(health);
   healthDot.className = `health-dot ${ok ? "ok" : "bad"}`;
   healthText.textContent = ok
-    ? health.provisional
-      ? "隔离就绪（占位）"
-      : "隔离就绪"
-    : "隔离不可用";
-  if (!ok) healthText.title = health?.reason || "点击查看说明";
+    ? "隔离就绪"
+    : health?.provisional
+      ? "隔离未验证（占位）"
+      : "隔离不可用";
+  if (!ok) healthText.title = healthBlockReason(health);
   else healthText.title = "";
   if (ok) markTutorialStep(0);
   const healthEl = document.getElementById("health-light");
   healthEl?.classList.toggle("clickable", !ok);
+  syncIsolationBadge();
   if (currentRoute === "home") mountHome(views.home, ctx);
   return health;
 }
@@ -497,12 +629,18 @@ async function refreshHealth() {
   return applyHealthToShell(health);
 }
 
+function preferredIsolationLevel() {
+  const v = String(ctx.state.uiPrefs?.isolationBackend || "").toLowerCase();
+  return v === "docker" || v === "p2" || v === "container" ? "docker" : "seatbelt";
+}
+
 function showBlock(reason) {
   const health = ctx.state.health;
   blockRoot.classList.remove("hidden");
   mountBlock(blockRoot, {
     reason: reason || health?.reason || "ISOLATION_UNAVAILABLE",
     health: health || { available: false, reason },
+    preferredLevel: preferredIsolationLevel(),
     getHealth: async () => {
       const h = await api.getRuntimeHealth();
       applyHealthToShell(h);
@@ -513,9 +651,9 @@ function showBlock(reason) {
       if (currentRoute === "wizard") navigate("wizard");
       else navigate(currentRoute || "home");
     },
-    onSettings: () => {
+    onSettings: (opts = {}) => {
       hideBlock();
-      navigate("settings");
+      navigate("settings", { focusIsolation: opts.focusIsolation !== false });
     },
   });
 }
@@ -534,6 +672,7 @@ function maybeOnboarding(_health) {
   shell.classList.add("hidden");
   onboardRoot.classList.remove("hidden");
   mountOnboarding(onboardRoot, {
+    preferredLevel: preferredIsolationLevel(),
     getHealth: async () => {
       const h = await api.getRuntimeHealth();
       applyHealthToShell(h);
@@ -547,6 +686,15 @@ function maybeOnboarding(_health) {
       onboardRoot.classList.add("hidden");
       shell.classList.remove("hidden");
       navigate("home");
+    },
+    onSettings(opts = {}) {
+      // 失败也不能卡死在引导：进设置改引擎；标记已引导以免反复遮罩
+      try {
+        localStorage.setItem("harbor-onboarded", "1");
+      } catch {}
+      onboardRoot.classList.add("hidden");
+      shell.classList.remove("hidden");
+      navigate("settings", { focusIsolation: opts.focusIsolation !== false });
     },
   });
   return true;
@@ -590,7 +738,7 @@ async function boot() {
   });
 
   document.getElementById("health-light")?.addEventListener("click", () => {
-    if (ctx.state.health?.available === false) showBlock(ctx.state.health.reason);
+    if (!healthAllowsStart(ctx.state.health)) showBlock(healthBlockReason(ctx.state.health));
   });
 
   sessionSwitch.onchange = () => {

@@ -2,6 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import * as mock from "./mock-api.js";
 import * as api from "./api.js";
+import { healthAllowsStart, healthBlockReason } from "./health-ready.js";
+
+test("healthAllowsStart：provisional 禁止开跑", () => {
+  assert.equal(healthAllowsStart({ available: true }), true);
+  assert.equal(healthAllowsStart({ available: true, provisional: true }), false);
+  assert.equal(healthAllowsStart({ available: false, provisional: true }), false);
+  assert.equal(healthAllowsStart({ available: false }), false);
+  assert.match(healthBlockReason({ provisional: true, reason: "占位" }), /占位|未验证/);
+});
 
 test("mock getRuntimeHealth：normal 可用，isolation 不可用", async () => {
   mock.resetMock();

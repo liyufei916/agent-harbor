@@ -48,14 +48,67 @@ export const ISOLATION_CHECK_DEFS = [
   },
 ];
 
+/** P2 Docker 后端探测文案（仍一次 GetRuntimeHealth，仅展示映射不同）。 */
+export const DOCKER_CHECK_DEFS = [
+  {
+    id: "os",
+    name: "Docker CLI",
+    okDetail: "本机 docker 可执行",
+    checkingDetail: "查找 docker CLI…",
+  },
+  {
+    id: "tmpdir",
+    name: "Docker daemon",
+    okDetail: "daemon 可响应",
+    checkingDetail: "探测 Docker daemon…",
+  },
+  {
+    id: "profile",
+    name: "Harbor 网络",
+    okDetail: "agent-harbor-p2 就绪（harbor.gate 可达）",
+    checkingDetail: "确保 Harbor 网络…",
+  },
+  {
+    id: "sandbox",
+    name: "运行时镜像",
+    okDetail: "agent-harbor/runtime:dev 可用",
+    checkingDetail: "校验 Harbor 镜像…",
+  },
+  {
+    id: "read-ok",
+    name: "Gate 入口",
+    okDetail: "仅 harbor.gate（host-gateway）",
+    checkingDetail: "确认 Gate 别名策略…",
+  },
+  {
+    id: "read-deny",
+    name: "别名拉黑",
+    okDetail: "host.docker.internal 已拉黑",
+    checkingDetail: "确认常见 SSRF 别名拉黑…",
+  },
+  {
+    id: "gate",
+    name: "安全闸口",
+    okDetail: "可创建新会话",
+    failDetail: "依赖 Docker 隔离就绪；不会无隔离启动 Agent",
+    checkingDetail: "确认开跑准入…",
+  },
+];
+
 const PROBE_COUNT = 6;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function freshCheckItems() {
-  return ISOLATION_CHECK_DEFS.map((d) => ({
+export function defsFor(level) {
+  return String(level || "").toLowerCase() === "docker"
+    ? DOCKER_CHECK_DEFS
+    : ISOLATION_CHECK_DEFS;
+}
+
+export function freshCheckItems(level) {
+  return defsFor(level).map((d) => ({
     id: d.id,
     name: d.name,
     status: "pending",
@@ -64,10 +117,14 @@ export function freshCheckItems() {
 }
 
 /** 已有最终 health 时的静态列表（阻断页首屏等） */
-export function checksFromHealth(health) {
+export function checksFromHealth(health, preferredLevel = "") {
   const ok = !!health?.available;
   const reason = health?.reason || "ISOLATION_UNAVAILABLE";
-  return ISOLATION_CHECK_DEFS.map((d, i) => {
+  const level = ok
+    ? health?.isolationLevel
+    : health?.isolationLevel || preferredLevel;
+  const defs = defsFor(level);
+  return defs.map((d, i) => {
     if (ok) {
       const detail =
         i === PROBE_COUNT && health?.isolationLevel
@@ -96,21 +153,28 @@ export function checksFromHealth(health) {
 }
 
 /**
- * @param {{ getHealth: () => Promise<object>, onUpdate?: (items) => void, stepMs?: number }} opts
+ * @param {{ getHealth: () => Promise<object>, onUpdate?: (items) => void, stepMs?: number, preferredLevel?: string }} opts
  * @returns {Promise<object>} health
  */
 export async function runIsolationProbe({
   getHealth,
   onUpdate,
   stepMs = 160,
+  preferredLevel = "",
 } = {}) {
-  const items = freshCheckItems();
+  let defs = defsFor(preferredLevel);
+  const items = defs.map((d) => ({
+    id: d.id,
+    name: d.name,
+    status: "pending",
+    detail: "等待检测",
+  }));
   const emit = () => onUpdate?.(items.map((x) => ({ ...x })));
   emit();
 
   if (typeof getHealth !== "function") {
     const failed = { available: false, reason: "ISOLATION_UNAVAILABLE" };
-    applyFinal(items, failed);
+    applyFinal(items, failed, preferredLevel);
     emit();
     return failed;
   }
@@ -129,42 +193,50 @@ export async function runIsolationProbe({
 
   for (let i = 0; i < PROBE_COUNT; i++) {
     items[i].status = "checking";
-    items[i].detail = ISOLATION_CHECK_DEFS[i].checkingDetail;
+    items[i].detail = defs[i].checkingDetail;
     emit();
     await sleep(stepMs);
     if (settled && !settled.available) {
-      failAt(items, i, settled.reason || "ISOLATION_UNAVAILABLE");
+      failAt(items, i, settled.reason || "ISOLATION_UNAVAILABLE", defs);
       emit();
       return settled;
     }
   }
 
   items[PROBE_COUNT].status = "checking";
-  items[PROBE_COUNT].detail = ISOLATION_CHECK_DEFS[PROBE_COUNT].checkingDetail;
+  items[PROBE_COUNT].detail = defs[PROBE_COUNT].checkingDetail;
   emit();
 
   const health = settled || (await healthPromise);
+  if (health?.isolationLevel) {
+    defs = defsFor(health.isolationLevel);
+    for (let i = 0; i < defs.length; i++) {
+      items[i].id = defs[i].id;
+      items[i].name = defs[i].name;
+    }
+  }
   if (!health?.available) {
-    applyFinal(items, health);
+    applyFinal(items, health, preferredLevel);
     emit();
     return health;
   }
 
   for (let i = 0; i < PROBE_COUNT; i++) {
     items[i].status = "ok";
-    items[i].detail = ISOLATION_CHECK_DEFS[i].okDetail;
+    items[i].detail = defs[i].okDetail;
     emit();
     await sleep(Math.min(70, stepMs));
   }
   items[PROBE_COUNT].status = "ok";
   items[PROBE_COUNT].detail = health.isolationLevel
-    ? `${ISOLATION_CHECK_DEFS[PROBE_COUNT].okDetail} · ${health.isolationLevel}`
-    : ISOLATION_CHECK_DEFS[PROBE_COUNT].okDetail;
+    ? `${defs[PROBE_COUNT].okDetail} · ${health.isolationLevel}`
+    : defs[PROBE_COUNT].okDetail;
   emit();
   return health;
 }
 
-function failAt(items, index, reason) {
+function failAt(items, index, reason, defs) {
+  const list = defs || ISOLATION_CHECK_DEFS;
   for (let i = 0; i < PROBE_COUNT; i++) {
     if (i < index) {
       items[i].status = "skipped";
@@ -178,14 +250,16 @@ function failAt(items, index, reason) {
     }
   }
   items[PROBE_COUNT].status = "bad";
-  items[PROBE_COUNT].detail = ISOLATION_CHECK_DEFS[PROBE_COUNT].failDetail;
+  items[PROBE_COUNT].detail = list[PROBE_COUNT].failDetail;
 }
 
-function applyFinal(items, health) {
-  const final = checksFromHealth(health);
+function applyFinal(items, health, preferredLevel) {
+  const final = checksFromHealth(health, preferredLevel);
   for (let i = 0; i < final.length; i++) {
     items[i].status = final[i].status;
     items[i].detail = final[i].detail;
+    items[i].name = final[i].name;
+    items[i].id = final[i].id;
   }
 }
 

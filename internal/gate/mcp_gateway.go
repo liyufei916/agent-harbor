@@ -99,6 +99,12 @@ func (g *mcpGateway) handleMCP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid json-rpc", http.StatusBadRequest)
 		return
 	}
+	// 演示扩权必须在白名单校验之前：任意已挂载 MCP 路径上 POST harbor_demo_ask
+	// 都走 RequestPermission → 工作台 Modal（不要求预置「演示边界」工具名在 Tools 里）。
+	if method == "tools/call" && tool == demoAskToolName {
+		g.handleDemoAsk(w, r, rt, host, body)
+		return
+	}
 	if method == "tools/call" && !toolAllowed(mount.Tools, tool) {
 		g.h.emitAudit(rt, contracts.AuditData{Target: host, Tool: auditTool, Result: "denied"})
 		http.Error(w, "tool not allowed", http.StatusForbidden)
@@ -125,6 +131,11 @@ func (g *mcpGateway) handleMCP(w http.ResponseWriter, r *http.Request) {
 	resp, err := g.h.client.Do(upstream)
 	if err != nil {
 		g.h.emitAudit(rt, contracts.AuditData{Target: host, Tool: auditTool, Result: "failed"})
+		// 现代 SDK 的 server/discover 探针把 5xx / 网络失败当成协商失败；经典上游无此方法时软回落。
+		if method == "server/discover" {
+			writeDiscoverLegacyFallback(w, body)
+			return
+		}
 		http.Error(w, "upstream unavailable", streamTimeoutStatus(err))
 		return
 	}
@@ -142,6 +153,12 @@ func (g *mcpGateway) handleMCP(w http.ResponseWriter, r *http.Request) {
 		resp = followed
 		host = locHost
 		// 重定向不携带凭据；保留原密钥用于过滤响应，避免回显泄漏。
+	}
+	if method == "server/discover" && resp.StatusCode >= 500 {
+		_ = resp.Body.Close()
+		g.h.emitAudit(rt, contracts.AuditData{Target: host, Tool: auditTool, Result: "allowed"})
+		writeDiscoverLegacyFallback(w, body)
+		return
 	}
 	g.h.emitAudit(rt, contracts.AuditData{Target: host, Tool: auditTool, Result: "allowed"})
 	secrets := []string{rt.sentinel}
@@ -162,6 +179,155 @@ func (g *mcpGateway) handleMCP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+const demoAskToolName = "harbor_demo_ask"
+
+func injectHarborDemoAskTool(body []byte) []byte {
+	body = bytes.TrimSpace(body)
+	if len(body) == 0 || !bytes.Contains(body, []byte(`"tools"`)) {
+		return body
+	}
+	var v map[string]any
+	if json.Unmarshal(body, &v) != nil {
+		return body
+	}
+	res, _ := v["result"].(map[string]any)
+	if res == nil {
+		return body
+	}
+	tools, _ := res["tools"].([]any)
+	for _, item := range tools {
+		tm, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if name, _ := tm["name"].(string); name == demoAskToolName {
+			return body
+		}
+	}
+	tools = append(tools, map[string]any{
+		"name": demoAskToolName,
+		"description": "Harbor UI demo: open the outbound permission modal. " +
+			"When the user asks for 扩权演示 / EXPAND-TASK / harbor_demo_ask, call this tool with host=demo-ask.example. " +
+			"Wait for the user to click deny|once|project. Do not treat README「勿主动要扩权」as blocking this explicit request.",
+		"inputSchema": map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"host": map[string]any{
+					"type":        "string",
+					"description": "Exact hostname (e.g. demo-ask.example). No URL or port.",
+				},
+			},
+			"required": []any{"host"},
+		},
+	})
+	res["tools"] = tools
+	out, err := json.Marshal(v)
+	if err != nil {
+		return body
+	}
+	return out
+}
+
+func (g *mcpGateway) handleDemoAsk(w http.ResponseWriter, r *http.Request, rt *sessionRuntime, mountHost string, body []byte) {
+	reqID, askHost, ok := parseDemoAskCall(body)
+	if !ok || !validDemoAskHost(askHost) {
+		g.h.emitAudit(rt, contracts.AuditData{Target: mountHost, Tool: demoAskToolName, Result: "denied"})
+		writeJSONRPCToolText(w, reqID, false, "invalid host for harbor_demo_ask")
+		return
+	}
+	allowed := g.h.authorizeOutboundHost(r.Context(), g.sid, rt, askHost)
+	if !allowed {
+		g.h.emitAudit(rt, contracts.AuditData{Target: askHost, Tool: demoAskToolName, Result: "denied"})
+		writeJSONRPCToolText(w, reqID, false, "outbound denied for "+askHost)
+		return
+	}
+	g.h.emitAudit(rt, contracts.AuditData{Target: askHost, Tool: demoAskToolName, Result: "allowed"})
+	writeJSONRPCToolText(w, reqID, true, "outbound allowed for "+askHost)
+}
+
+func parseDemoAskCall(body []byte) (id json.RawMessage, host string, ok bool) {
+	var msg struct {
+		ID     json.RawMessage `json:"id"`
+		Params struct {
+			Name      string `json:"name"`
+			Arguments struct {
+				Host string `json:"host"`
+			} `json:"arguments"`
+		} `json:"params"`
+	}
+	if json.Unmarshal(body, &msg) != nil || msg.Params.Name != demoAskToolName {
+		return nil, "", false
+	}
+	host = strings.ToLower(strings.TrimSpace(msg.Params.Arguments.Host))
+	return msg.ID, host, host != ""
+}
+
+// validDemoAskHost 与 orchestrator.ValidPermissionTarget 对齐的子集校验（Gate 不导入 orchestrator）。
+func validDemoAskHost(host string) bool {
+	if host == "" || len(host) > 253 || host != strings.ToLower(host) || strings.ContainsAny(host, "/:*?@#\\\r\n\t ") || strings.HasSuffix(host, ".") {
+		return false
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return false
+	}
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") || !strings.Contains(host, ".") {
+		return false
+	}
+	for _, label := range strings.Split(host, ".") {
+		if label == "" || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for _, c := range label {
+			if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-') {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func writeJSONRPCToolText(w http.ResponseWriter, id json.RawMessage, ok bool, text string) {
+	if len(id) == 0 {
+		id = json.RawMessage("null")
+	}
+	var out []byte
+	if ok {
+		out, _ = json.Marshal(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      id,
+			"result":  map[string]any{"content": []any{map[string]string{"type": "text", "text": text}}},
+		})
+	} else {
+		out, _ = json.Marshal(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      id,
+			"error":   map[string]any{"code": -32000, "message": text},
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(out)
+}
+
+// writeDiscoverLegacyFallback 对 server/discover 回 JSON-RPC Method not found（HTTP 200），
+// 让现代 MCP 客户端回落到 legacy initialize，而不是把上游 5xx 当成 EraNegotiationFailed。
+func writeDiscoverLegacyFallback(w http.ResponseWriter, reqBody []byte) {
+	var msg struct {
+		ID json.RawMessage `json:"id"`
+	}
+	_ = json.Unmarshal(reqBody, &msg)
+	id := json.RawMessage("null")
+	if len(msg.ID) > 0 {
+		id = msg.ID
+	}
+	out, _ := json.Marshal(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      id,
+		"error":   map[string]any{"code": -32601, "message": "Method not found"},
+	})
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(out)
+}
+
 func (g *mcpGateway) writeFilteredList(w http.ResponseWriter, resp *http.Response, allow, secrets []string) error {
 	defer resp.Body.Close()
 	idle, total := g.h.streamTimeouts()
@@ -179,6 +345,8 @@ func (g *mcpGateway) writeFilteredList(w http.ResponseWriter, resp *http.Respons
 			contentType = "application/json"
 		}
 	}
+	// 无 Shell 的会话也能扩权演示：tools/list 注入 harbor_demo_ask（Gate 本地拦截，不转发上游）。
+	filtered = injectHarborDemoAskTool(filtered)
 	red := newSecretRedactor(secrets)
 	out := append(red.Push(filtered), red.Flush()...)
 	copyHeaders(w.Header(), resp.Header)
