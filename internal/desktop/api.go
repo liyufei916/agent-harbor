@@ -126,6 +126,23 @@ func (d *DesktopAPI) GetSession(id string) contracts.SessionResponse {
 	return contracts.SessionResponse{Session: &snap}
 }
 
+// StartSession 在已停止的原会话上重新拉起，不创建新会话。
+func (d *DesktopAPI) StartSession(id string) contracts.SessionResponse {
+	starter, ok := d.app.sessionRef().(interface {
+		Start(context.Context, string) (contracts.SessionSnapshot, error)
+	})
+	if !ok {
+		return contracts.SessionResponse{Error: unimplemented()}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	snap, err := starter.Start(ctx, id)
+	if err != nil {
+		return contracts.SessionResponse{Error: mapError(err)}
+	}
+	return contracts.SessionResponse{Session: &snap}
+}
+
 // StopSession 请求停止会话。
 func (d *DesktopAPI) StopSession(id string) contracts.SessionResponse {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

@@ -124,6 +124,9 @@ export function mountSession(root, ctx) {
   let auditCount = 0;
   let term = null;
   let sending = false;
+  let focusedId = "";
+  // 离开工作台后视图只是隐藏，xterm 可能被清掉；按会话留下已展示的文本以便回来重放。
+  const screens = new Map();
   const modalRoot =
     typeof document !== "undefined"
       ? document.getElementById("modal-root")
@@ -426,7 +429,7 @@ export function mountSession(root, ctx) {
       els.hint.classList.remove("hidden");
       els.hint.textContent = isClone
         ? "本轮已结束。请点「导回原文件夹」把副本改动写回源目录，再到 Finder 确认新文件；然后可销毁副本。"
-        : "本轮已结束。可回 HOME「再次开始」或开新会话。";
+        : "本轮已结束。可回 HOME「再次开始」重新开启这条会话，不会自动重跑创建时的任务。";
     } else if (isClone && active) {
       els.hint.classList.remove("hidden");
       els.hint.textContent = "安全副本模式：改动在副本中；需要时点「导回原文件夹」覆盖写回原目录。";
@@ -438,16 +441,62 @@ export function mountSession(root, ctx) {
     syncComposer(s);
   }
 
+  function screenOf(id) {
+    if (!id) return null;
+    let row = screens.get(id);
+    if (!row) {
+      row = { text: "", audits: [], outCount: 0, auditCount: 0 };
+      screens.set(id, row);
+    }
+    return row;
+  }
+
+  function rememberText(text) {
+    const row = screenOf(ctx.state.sessionId);
+    if (row && text) row.text += text;
+  }
+
+  function wipeTerm() {
+    const t = ensureTerm();
+    if (!t) return null;
+    if (typeof t.reset === "function") t.reset();
+    else t.clear();
+    return t;
+  }
+
+  function paintScreen(id) {
+    const row = screens.get(id);
+    const t = wipeTerm();
+    if (row?.text) t?.write(row.text);
+    outCount = row?.outCount || 0;
+    auditCount = row?.auditCount || 0;
+    if (els.statOut) els.statOut.textContent = String(outCount);
+    if (els.statAudit) els.statAudit.textContent = String(auditCount);
+    if (!els.audit) return;
+    els.audit.innerHTML = "";
+    if (typeof document === "undefined") return;
+    const lines = row?.audits || [];
+    for (let i = lines.length - 1; i >= 0; i -= 1) {
+      const li = document.createElement("li");
+      li.textContent = lines[i];
+      els.audit.appendChild(li);
+    }
+  }
+
   function appendPty(text, { raw = false } = {}) {
     const t = ensureTerm();
     if (!t) return;
     if (!text) return;
     if (raw) {
+      rememberText(text);
       t.write(text);
       return;
     }
     const pretty = streamDisplay.push(text);
-    if (pretty) t.write(pretty);
+    if (pretty) {
+      rememberText(pretty);
+      t.write(pretty);
+    }
   }
 
   function onEvent(ev) {
@@ -459,6 +508,8 @@ export function mountSession(root, ctx) {
     } else if (ev.type === "output" && ev.output) {
       outCount += 1;
       els.statOut.textContent = String(outCount);
+      const row = screenOf(ctx.state.sessionId);
+      if (row) row.outCount = outCount;
       markTutorialStep(3);
       tail.append(ev.seq, ev.output.text || "");
       appendPty(ev.output.text || "");
@@ -470,9 +521,17 @@ export function mountSession(root, ctx) {
       auditCount += 1;
       els.statAudit.textContent = String(auditCount);
       recordAudit(ev.audit, ev.sessionId || "");
-      const li = document.createElement("li");
-      li.textContent = `${ev.audit.result} · ${ev.audit.tool || "-"} @ ${ev.audit.target || "-"}`;
-      els.audit.prepend(li);
+      const line = `${ev.audit.result} · ${ev.audit.tool || "-"} @ ${ev.audit.target || "-"}`;
+      const row = screenOf(ev.sessionId || ctx.state.sessionId);
+      if (row) {
+        row.audits.push(line);
+        row.auditCount = auditCount;
+      }
+      if (els.audit && typeof document !== "undefined") {
+        const li = document.createElement("li");
+        li.textContent = line;
+        els.audit.prepend(li);
+      }
     } else if (ev.type === "error" && ev.error) {
       els.error.textContent = formatErrorWithHint(ev.error);
     } else if (ev.type === "permission_needed" && ev.permission) {
@@ -798,9 +857,13 @@ export function mountSession(root, ctx) {
       streamDisplay = createStreamDisplay();
       outCount = 0;
       auditCount = 0;
+      focusedId = snapshot?.sessionId || "";
+      if (focusedId) {
+        screens.set(focusedId, { text: "", audits: [], outCount: 0, auditCount: 0 });
+      }
       if (els.statOut) els.statOut.textContent = "0";
       if (els.statAudit) els.statAudit.textContent = "0";
-      ensureTerm()?.clear();
+      wipeTerm();
       if (els.audit) els.audit.innerHTML = "";
       if (els.error) els.error.textContent = "";
       if (els.permSummary) els.permSummary.innerHTML = `<p class="meta">加载中…</p>`;
@@ -816,6 +879,20 @@ export function mountSession(root, ctx) {
         renderSnapshot(null);
       }
       fillModels(snapshot?.modelAccountId);
+    },
+    showSnapshot(snapshot, { freshStream = false } = {}) {
+      const id = snapshot?.sessionId || "";
+      if (freshStream || (id && focusedId && id !== focusedId)) {
+        tail = new OutputTail();
+        streamDisplay = createStreamDisplay();
+      }
+      focusedId = id;
+      paintScreen(id);
+      if (!snapshot) return;
+      ctx.state.lastSnapshot = snapshot;
+      api.activateSession(snapshot);
+      renderSnapshot(snapshot);
+      notifyResize();
     },
     showEmpty,
     destroy() {

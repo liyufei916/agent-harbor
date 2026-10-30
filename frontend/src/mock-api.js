@@ -942,6 +942,60 @@ export async function getSession(sessionId) {
   return { session: snapshotOf(sessionId), error: null };
 }
 
+export async function startSession(sessionId) {
+  const session = sessions.get(sessionId);
+  if (!session) {
+    return {
+      session: null,
+      error: err("SESSION_NOT_FOUND", "未知会话"),
+    };
+  }
+  const terminal =
+    (session.state === "stopped" || session.state === "failed") &&
+    session.cleanupComplete;
+  if (!terminal) {
+    return {
+      session: null,
+      error: err("INVALID_ARGUMENT", "只能重新开启已停止且清理完成的会话"),
+    };
+  }
+  let active = 0;
+  for (const other of sessions.values()) {
+    if (other.sessionId === sessionId || other.cleanupComplete) continue;
+    active += 1;
+    if (
+      other.workspace &&
+      session.workspace &&
+      other.workspace === session.workspace
+    ) {
+      return {
+        session: null,
+        error: err("WORKSPACE_BUSY", "该工作区已有会话正在使用"),
+      };
+    }
+  }
+  if (active >= 2) {
+    return {
+      session: null,
+      error: err("SESSION_LIMIT", "已达到同时运行的会话上限"),
+    };
+  }
+  snapshotOf(sessionId, {
+    state: "provisioning",
+    cleanupComplete: false,
+    error: null,
+  });
+  emit({ type: "state_changed", sessionId, state: snapshotOf(sessionId) });
+  const opened = snapshotOf(sessionId);
+  scheduleFor(sessionId, 200, () => {
+    const s = sessions.get(sessionId);
+    if (!s || s.state !== "provisioning") return;
+    snapshotOf(sessionId, { state: "running" });
+    emit({ type: "state_changed", sessionId, state: snapshotOf(sessionId) });
+  });
+  return { session: opened, error: null };
+}
+
 export async function stopSession(sessionId) {
   const session = sessions.get(sessionId);
   if (!session) {

@@ -197,6 +197,11 @@ func (s *extendedSession) Get(context.Context, string) (contracts.SessionSnapsho
 func (s *extendedSession) Stop(context.Context, string) (contracts.SessionSnapshot, error) {
 	return s.snapshot, s.err
 }
+func (s *extendedSession) Start(_ context.Context, id string) (contracts.SessionSnapshot, error) {
+	s.snapshot.SessionID = id
+	s.snapshot.State = contracts.StateProvisioning
+	return s.snapshot, s.err
+}
 func (s *extendedSession) Destroy(context.Context, string) (contracts.SessionSnapshot, error) {
 	return s.snapshot, s.err
 }
@@ -237,6 +242,9 @@ func TestDesktopSessionLifecycleAndPtyBindings(t *testing.T) {
 	}
 	if got := api.StopSession("s1"); got.Error != nil || got.Session == nil {
 		t.Fatalf("stop=%+v", got)
+	}
+	if got := api.StartSession("s1"); got.Error != nil || got.Session == nil || got.Session.SessionID != "s1" || got.Session.State != contracts.StateProvisioning {
+		t.Fatalf("start=%+v", got)
 	}
 	if got := api.DestroySession("s1"); got.Error != nil || got.Session == nil {
 		t.Fatalf("destroy=%+v", got)

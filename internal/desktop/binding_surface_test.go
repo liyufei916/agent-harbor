@@ -10,7 +10,7 @@ func TestDesktopExposesOnlyContractMethods(t *testing.T) {
 	want := map[string]bool{
 		"ListAgents": true, "SelectWorkspace": true, "ConnectModel": true, "ConnectMcp": true,
 		"ListAccounts": true, "RemoveAccount": true,
-		"CreateSession": true, "GetSession": true, "StopSession": true,
+		"CreateSession": true, "GetSession": true, "StopSession": true, "StartSession": true,
 		"ListSessions": true, "DestroySession": true, "SyncBackWorkspace": true,
 		"GetRuntimeHealth": true, "GetPermissionOverview": true,
 		"ListRememberedHosts": true, "RevokeRememberedHost": true, "ResolvePermission": true,

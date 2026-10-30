@@ -28,7 +28,7 @@
 
 ## 状态与验收
 
-本版每个会话执行一个非交互任务：`provisioning → running → stopping → stopped`，异常为 failed。failed 且 cleanupComplete=true 释放槽位；failed 且 cleanupComplete=false 保留槽位。终态记录在 `Destroy` 前保留，便于页面恢复摘要；再次运行创建新会话，不恢复旧进程。
+本版每个会话执行一个非交互任务：`provisioning → running → stopping → stopped`，异常为 failed。failed 且 cleanupComplete=true 释放槽位；failed 且 cleanupComplete=false 保留槽位。终态记录在 `Destroy` 前保留。`Start` 在同一 session_id 上重新拉起已清理的 stopped/failed 会话，不分配新 id，也不恢复已退出的旧进程。
 
 测试重点：并发创建拒绝、各启动步骤失败回滚、重复停止幂等、Agent 正常/异常退出、Gate 致命故障以及清理失败阻止新会话。上游单次认证错误不应自动扩大授权。
 

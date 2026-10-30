@@ -17,7 +17,6 @@ import { showToast } from "./toast.js";
 import { showUsageGuide } from "./usage-guide.js";
 import {
   mergeHistoryRow,
-  buildRestartCreateSpec,
 } from "./session-history.js";
 import {
   recordAudit,
@@ -145,7 +144,7 @@ const ctx = {
     syncSessionSwitch();
     navigate("session");
   },
-  /** 用已停止会话的配置再 Create 一次，直接进工作台（I10）。 */
+  /** 在已停止的原会话上重新拉起，不新建会话。 */
   async restartSession(sessionId) {
     const prev = (ctx.state.sessionHistory || []).find(
       (s) => s.sessionId === sessionId,
@@ -158,52 +157,35 @@ const ctx = {
       showBlock(ctx.state.health.reason);
       return { error: { code: "ISOLATION_UNAVAILABLE", message: "隔离不可用" } };
     }
-    const spec = buildRestartCreateSpec(prev, {
-      modelAccountId: ctx.state.modelAccount?.id || "",
-      lastTask: ctx.state.lastTask || "",
-    });
-    if (!spec) {
-      ctx.state.wizardResume = {
-        step: 0,
-        draft: {
-          workspace: prev.projectWorkspace || prev.workspace || "",
-          mountMode: prev.mountMode || "clone",
-          agentId: prev.agentId || "claude",
-          modelAccountId: prev.modelAccountId || ctx.state.modelAccount?.id || "",
-          mcpIds: [...(prev.mcpIds || [])],
-          task: prev.task || ctx.state.lastTask || "",
-        },
-      };
-      showToast("缺少模型或工作区，请在向导中确认后开始", "bad");
-      navigate("wizard");
-      return { error: { code: "INVALID_ARGUMENT", message: "配置不完整" } };
-    }
-    const res = await api.createSession(spec);
-    if (res.error) {
-      showToast(`${res.error.code}: ${res.error.message}`, "bad");
-      if (
-        res.error.code === "WORKSPACE_BUSY" ||
-        res.error.code === "SESSION_LIMIT"
-      ) {
-        navigate("home");
-      } else {
-        ctx.state.wizardResume = {
-          step: 3,
-          draft: {
-            workspace: spec.workspace,
-            mountMode: spec.mountMode,
-            agentId: spec.agentId,
-            modelAccountId: spec.modelAccountId,
-            mcpIds: [...spec.mcpIds],
-            task: spec.task,
-          },
-        };
-        navigate("wizard");
-      }
+    const res = await api.startSession(sessionId);
+    if (res.error || !res.session) {
+      const message = res.error
+        ? `${res.error.code}: ${res.error.message}`
+        : "无法重新开启";
+      showToast(message, "bad");
       return res;
     }
-    ctx.onSessionCreated(res.session, spec);
-    showToast("已用上次配置重新开始", "ok");
+    if (res.session.sessionId !== sessionId) {
+      showToast("重新开启返回了另一条会话", "bad");
+      return res;
+    }
+    ctx.state.sessionId = res.session.sessionId;
+    ctx.state.lastSnapshot = res.session;
+    upsertHistory(res.session, {
+      task: prev.task || "",
+      workspace: prev.projectWorkspace || prev.workspace || "",
+      agentId: prev.agentId,
+      modelAccountId: prev.modelAccountId,
+      mcpIds: prev.mcpIds || [],
+      mountMode: prev.mountMode,
+    });
+    try {
+      sessionStorage.setItem("harbor-session-id", res.session.sessionId);
+    } catch {}
+    sessionView?.showSnapshot?.(res.session, { freshStream: true });
+    syncSessionSwitch();
+    navigate("session");
+    showToast("已重新开启原会话", "ok");
     return res;
   },
   async openSession(sessionId) {
@@ -215,7 +197,7 @@ const ctx = {
     try {
       sessionStorage.setItem("harbor-session-id", res.session.sessionId);
     } catch {}
-    sessionView.resetForNewSession(res.session);
+    sessionView?.showSnapshot?.(res.session);
     syncSessionSwitch();
     navigate("session");
   },
@@ -474,6 +456,8 @@ function navigate(name, opts = {}) {
   if (name === "session") {
     if (!ctx.state.sessionId) {
       sessionView?.showEmpty?.() || sessionView?.resetForNewSession?.(null);
+    } else if (enteringSession && ctx.state.lastSnapshot) {
+      sessionView?.showSnapshot?.(ctx.state.lastSnapshot);
     }
     // 进入工作台：按「进入工作台时自动收缩」临时收窄（不写死默认偏好）
     const auto =

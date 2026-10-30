@@ -37,28 +37,30 @@ type Service struct {
 }
 
 type session struct {
-	snapshot       contracts.SessionSnapshot
-	spec           contracts.SessionSpec
-	ctx            context.Context
-	cancel         context.CancelFunc
-	failure        *contracts.AppError
-	handle         runtime.Handle
-	retainedClone  string // 停止后保留的副本路径；Destroy 时删除
-	gateStarted    bool
-	wait           <-chan runtime.Exit
-	process        runtime.Process
-	interactive    bool
-	boundary       contracts.PermissionOverview
-	permissions    map[string]*permissionRequest
-	cleanupDone    chan struct{}
-	finished       chan struct{}
-	retry          chan struct{}
-	early          []contracts.OutputData
-	earlyBytes     int
-	earlyTruncated bool
-	started        time.Time
-	outputReady    bool
-	filters        map[string]*streamFilter
+	snapshot        contracts.SessionSnapshot
+	spec            contracts.SessionSpec
+	ctx             context.Context
+	cancel          context.CancelFunc
+	failure         *contracts.AppError
+	handle          runtime.Handle
+	retainedClone   string // 停止后保留的副本路径；Destroy 时删除
+	resumeFrom      string // 再次开启前挪走的副本，成功盖回新隔离目录后删除
+	skipInitialTask bool   // 再次开启：进程起来后等待用户输入，不再把创建任务写入 stdin
+	gateStarted     bool
+	wait            <-chan runtime.Exit
+	process         runtime.Process
+	interactive     bool
+	boundary        contracts.PermissionOverview
+	permissions     map[string]*permissionRequest
+	cleanupDone     chan struct{}
+	finished        chan struct{}
+	retry           chan struct{}
+	early           []contracts.OutputData
+	earlyBytes      int
+	earlyTruncated  bool
+	started         time.Time
+	outputReady     bool
+	filters         map[string]*streamFilter
 }
 
 var _ SessionService = (*Service)(nil)
@@ -381,6 +383,78 @@ func (o *Service) Destroy(ctx context.Context, id string) (contracts.SessionSnap
 	return result, nil
 }
 
+// Start 在已清理的原会话上重新拉起 Agent，不分配新的 session_id。
+func (o *Service) Start(ctx context.Context, id string) (contracts.SessionSnapshot, error) {
+	if ctx.Err() != nil {
+		return contracts.SessionSnapshot{}, publicError("CANCELLED")
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if o.closing || o.app.Err() != nil {
+		return contracts.SessionSnapshot{}, publicError("CANCELLED")
+	}
+	if o.connectionDone != nil {
+		return contracts.SessionSnapshot{}, publicError("SESSION_BUSY")
+	}
+	s, ok := o.sessions[id]
+	if !ok {
+		return contracts.SessionSnapshot{}, publicError("SESSION_NOT_FOUND")
+	}
+	if s.snapshot.State != contracts.StateStopped && s.snapshot.State != contracts.StateFailed {
+		return contracts.SessionSnapshot{}, publicError("INVALID_ARGUMENT")
+	}
+	if !s.snapshot.CleanupComplete {
+		return contracts.SessionSnapshot{}, publicError("CLEANUP_FAILED")
+	}
+	activeCount := 0
+	for _, existing := range o.sessions {
+		if existing == s || existing.snapshot.CleanupComplete {
+			continue
+		}
+		activeCount++
+		if existing.snapshot.Workspace != "" && sameWorkspace(existing.spec.Workspace, s.spec.Workspace) {
+			return contracts.SessionSnapshot{}, publicError("WORKSPACE_BUSY")
+		}
+	}
+	if activeCount >= 2 {
+		return contracts.SessionSnapshot{}, publicError("SESSION_LIMIT")
+	}
+	if s.retainedClone != "" {
+		bak := s.retainedClone + ".resume"
+		_ = os.RemoveAll(bak)
+		if err := os.Rename(s.retainedClone, bak); err == nil {
+			s.resumeFrom = bak
+		}
+		s.retainedClone = ""
+	}
+	sessionCtx, cancel := context.WithCancel(o.app)
+	s.ctx, s.cancel = sessionCtx, cancel
+	s.failure = nil
+	s.snapshot.Error = nil
+	s.snapshot.CleanupComplete = false
+	s.handle = runtime.Handle{}
+	s.gateStarted = false
+	s.wait = nil
+	s.process = nil
+	s.interactive = false
+	s.permissions = nil
+	s.cleanupDone = make(chan struct{})
+	s.finished = make(chan struct{})
+	s.retry = make(chan struct{}, 1)
+	s.early, s.earlyBytes, s.earlyTruncated = nil, 0, false
+	s.started = time.Now()
+	s.outputReady = false
+	s.filters = nil
+	s.skipInitialTask = true
+	if s.snapshot.SourceWorkspace != "" {
+		s.snapshot.Workspace = s.snapshot.SourceWorkspace
+	}
+	o.stateLocked(s, contracts.StateProvisioning)
+	initial := snapshot(s)
+	go o.run(s)
+	return initial, nil
+}
+
 // SyncBack 将安全副本合并写回用户原工作区（覆盖同名文件，不删原目录多余文件）。
 func (o *Service) SyncBack(ctx context.Context, id string) (contracts.SessionSnapshot, error) {
 	if ctx.Err() != nil {
@@ -681,6 +755,9 @@ func (o *Service) provision(s *session) error {
 		o.mu.Lock()
 		s.snapshot.Workspace = handle.Workspace
 		o.mu.Unlock()
+		if err := o.restoreRetainedClone(ctx, s, handle.Workspace); err != nil {
+			return err
+		}
 	}
 	if err := ctx.Err(); err != nil {
 		return err
@@ -692,6 +769,10 @@ func (o *Service) provision(s *session) error {
 	})
 	if err != nil {
 		return safeError(err, "AGENT_UNSUPPORTED")
+	}
+	// 创建任务仍交给 Kit 校验；再次开启不再写入 stdin，交互进程停在下一轮输入。
+	if s.skipInitialTask {
+		launch.Stdin = nil
 	}
 	if err := ctx.Err(); err != nil {
 		return err
@@ -882,6 +963,28 @@ func (o *Service) cleanup(s *session) bool {
 		return true
 	}
 	return false
+}
+
+// restoreRetainedClone 把上次停止时旁路保留的副本盖回新的隔离目录。
+func (o *Service) restoreRetainedClone(ctx context.Context, s *session, dest string) error {
+	o.mu.Lock()
+	src := s.resumeFrom
+	o.mu.Unlock()
+	if src == "" || sameWorkspace(src, dest) {
+		return nil
+	}
+	if err := runtime.SyncWorkspace(ctx, src, dest); err != nil {
+		return err
+	}
+	if err := os.RemoveAll(src); err != nil {
+		return publicError("INTERNAL_ERROR")
+	}
+	o.mu.Lock()
+	if s.resumeFrom == src {
+		s.resumeFrom = ""
+	}
+	o.mu.Unlock()
+	return nil
 }
 
 func bindingMCPURLs(b gate.GateBinding) []string {

@@ -52,6 +52,17 @@ async function call(method, ...args) {
       ) {
         return { error: null, provisional: true };
       }
+      if (method === "startSession") {
+        return {
+          session: null,
+          error: {
+            code: "UNIMPLEMENTED",
+            message: "当前桌面未绑定 StartSession，请重新生成绑定并重启应用后再开启。",
+            retryable: false,
+          },
+          provisional: true,
+        };
+      }
       if (method === "syncBackWorkspace" || method === "stopSession") {
         return {
           session: null,
@@ -248,6 +259,20 @@ export function activateSession(snapshot) {
 export async function getSession(sessionId) {
   const response = await call("getSession", sessionId);
   if (response.session) events.applySnapshot(response.session);
+  return response;
+}
+export async function startSession(sessionId) {
+  if (!events.beginCreate())
+    return {
+      session: null,
+      error: {
+        code: "SESSION_BUSY",
+        message: "会话创建正在进行中。",
+        retryable: false,
+      },
+    };
+  const response = await call("startSession", sessionId);
+  if (response.error || !response.session) events.cancelCreate();
   return response;
 }
 export async function stopSession(sessionId) {

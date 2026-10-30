@@ -36,6 +36,7 @@ type fixture struct {
 	onAudit        func(contracts.AuditData)
 	beforeExec     func(func(contracts.OutputData))
 	interactive    bool
+	lastStdin      []byte
 	switchedModel  string
 	events         []contracts.Event
 	cloneWorkspace string // 非空时 clone 会话挂载此真实目录
@@ -75,11 +76,12 @@ func (f *fixture) Create(_ context.Context, input runtime.RuntimeSpec) (runtime.
 	}
 	return runtime.Handle{ID: "runtime", PrivateHome: "/private/test-home", Workspace: workspace}, nil
 }
-func (f *fixture) Exec(_ context.Context, _ runtime.Handle, _ runtime.LaunchSpec, output func(contracts.OutputData)) (runtime.Process, error) {
+func (f *fixture) Exec(_ context.Context, _ runtime.Handle, launch runtime.LaunchSpec, output func(contracts.OutputData)) (runtime.Process, error) {
 	if err := f.step("exec"); err != nil {
 		return nil, err
 	}
 	f.mu.Lock()
+	f.lastStdin = append([]byte(nil), launch.Stdin...)
 	f.onOutput = output
 	before := f.beforeExec
 	f.mu.Unlock()
@@ -139,8 +141,14 @@ func (f *fixture) Detect(context.Context) (kits.KitInfo, error) {
 	}
 	return kits.KitInfo{Agent: contracts.AgentInfo{ID: "claude", Available: true}, ReadOnlyPaths: []string{"/test/claude"}, NeedsDescendants: true}, nil
 }
-func (f *fixture) Build(context.Context, kits.KitInput) (runtime.LaunchSpec, error) {
-	return runtime.LaunchSpec{Command: "/test/claude", Interactive: f.interactive}, f.step("build")
+func (f *fixture) Build(_ context.Context, input kits.KitInput) (runtime.LaunchSpec, error) {
+	return runtime.LaunchSpec{Command: "/test/claude", Interactive: f.interactive, Stdin: []byte(input.Task)}, f.step("build")
+}
+
+func (f *fixture) stdin() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return string(f.lastStdin)
 }
 
 type fakePolicy struct{ f *fixture }
@@ -378,6 +386,65 @@ func TestListAndDestroyRetainOnlyExplicitlyDestroyedRecords(t *testing.T) {
 	items, err = o.List(context.Background())
 	if err != nil || len(items) != 0 {
 		t.Fatalf("Destroy 后仍有会话：%+v %v", items, err)
+	}
+}
+
+func TestStartReopensSameSession(t *testing.T) {
+	f := newFixture()
+	o := setup(t, f, Timeouts{}, nil)
+	s := create(t, o)
+	awaitState(t, o, s.SessionID, contracts.StateRunning)
+	f.exit <- runtime.Exit{Code: 0}
+	awaitState(t, o, s.SessionID, contracts.StateStopped)
+	select {
+	case <-f.exit:
+	default:
+	}
+	again, err := o.Start(context.Background(), s.SessionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.SessionID != s.SessionID || again.State != contracts.StateProvisioning {
+		t.Fatalf("应在原会话上重新开启：%+v", again)
+	}
+	awaitState(t, o, s.SessionID, contracts.StateRunning)
+	items, err := o.List(context.Background())
+	if err != nil || len(items) != 1 || items[0].SessionID != s.SessionID || items[0].State != contracts.StateRunning {
+		t.Fatalf("重新开启不应另建会话：%+v %v", items, err)
+	}
+	if _, err := o.Start(context.Background(), s.SessionID); err == nil {
+		t.Fatal("运行中的会话不应再次 Start")
+	} else {
+		assertCode(t, err, "INVALID_ARGUMENT")
+	}
+	if _, err := o.Start(context.Background(), "missing"); err == nil {
+		t.Fatal("未知会话应被拒绝")
+	} else {
+		assertCode(t, err, "SESSION_NOT_FOUND")
+	}
+}
+
+func TestStartDoesNotReplayInitialTask(t *testing.T) {
+	f := newFixture()
+	f.interactive = true
+	o := setup(t, f, Timeouts{}, nil)
+	s := create(t, o)
+	awaitState(t, o, s.SessionID, contracts.StateRunning)
+	if got := f.stdin(); got != "测试任务" {
+		t.Fatalf("首次应送入创建任务，得到 %q", got)
+	}
+	f.exit <- runtime.Exit{Code: 0}
+	awaitState(t, o, s.SessionID, contracts.StateStopped)
+	select {
+	case <-f.exit:
+	default:
+	}
+	if _, err := o.Start(context.Background(), s.SessionID); err != nil {
+		t.Fatal(err)
+	}
+	awaitState(t, o, s.SessionID, contracts.StateRunning)
+	if got := f.stdin(); got != "" {
+		t.Fatalf("再次开启不应送入初始任务，得到 %q", got)
 	}
 }
 
