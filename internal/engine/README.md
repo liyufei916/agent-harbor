@@ -20,7 +20,7 @@
 |---|---|
 | `Engine` 接口 / `NewSelected` | 已有；默认 `harbor-colima` |
 | `SystemDocker` | 已有（高级：本机 docker） |
-| `Colima` | PATH/`bin`；profile `agent-harbor`；`EnsureImage` |
+| `Colima` | PATH/`bin`；profile `agent-harbor`；`COLIMA_HOME=~/Library/Caches/AgentHarbor/colima`；`EnsureImage` |
 | 钉扎下载 | **M2c**：colima + lima + docker CLI；SHA256；默认自动下载 |
 | 设置 / API | **M3**：`Get/EnsureContainerEngine` + UI 来源 |
 | 无感路径 | **M4**：切 Docker 后端自动 Ensure；Attach 时 Ensure/Start |
@@ -32,5 +32,5 @@
 | `engine.go` | 接口与 Status |
 | `select.go` | 按来源选型 |
 | `system_docker.go` | 本机 Docker 探测 |
-| `colima.go` / `paths.go` | 托管启停、DOCKER_HOST |
+| `colima.go` / `paths.go` | 托管启停、短路径 COLIMA_HOME、`engine/share`→lima guestagent、DOCKER_HOST |
 | `image.go` | 构建 runtime 镜像 |
