@@ -56,3 +56,18 @@ test("mock 的事件 seq、会话 ID、错误码和 Stop 幂等遵循真实契�
     mock.resetMock();
   }
 });
+
+test("mock Health 在 isolationBackend=docker 时返回 isolationLevel=docker", async () => {
+  mock.resetMock();
+  try {
+    const seat = await mock.getRuntimeHealth();
+    assert.match(String(seat.isolationLevel || ""), /seatbelt/);
+    await mock.setUIPrefs({ isolationBackend: "docker" });
+    const dock = await mock.getRuntimeHealth();
+    assert.equal(dock.available, true);
+    assert.equal(dock.isolationLevel, "docker");
+    assert.match(String(dock.reason || ""), /Docker/i);
+  } finally {
+    mock.resetMock();
+  }
+});

@@ -199,6 +199,15 @@ export async function getRuntimeHealth() {
       error: null,
     };
   }
+  const backend = String(uiPrefs?.isolationBackend || "").toLowerCase();
+  if (backend === "docker" || backend === "p2" || backend === "container") {
+    return {
+      available: true,
+      reason: "P2 Docker（mock · harbor.gate · 镜像内 Agent）",
+      isolationLevel: "docker",
+      error: null,
+    };
+  }
   return {
     available: true,
     reason: "",
