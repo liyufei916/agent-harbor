@@ -31,7 +31,8 @@ Gate / Policy / 页面主契约不变，只换 `Runtime` 实现。
 | 12 | mock Health 跟随 Docker 偏好；CONTRACT 注记 P2 Terminal | **完成** |
 | 13 | ProbeDockerGuest 先校验镜像；缺失/daemon 文案可辨 | **完成** |
 | 14 | Health 清理已退出的 Harbor 孤儿容器；设置页显示后端偏好 | **完成** |
-| 15 | 配额环境变量格式校验（非法回落默认）；保存偏好刷新关于栏 | **本提交** |
+| 15 | 配额环境变量格式校验（非法回落默认）；保存偏好刷新关于栏 | **完成** |
+| 16 | `docker-p2-up.sh` 一键构建+冒烟；目录文档交叉引用 | **本提交** |
 
 ## 残留风险（Docker Desktop）
 
@@ -40,10 +41,9 @@ Desktop 仍可能经其它路径触及宿主机 loopback；拉黑 `host.docker.i
 ## 启用
 
 ```bash
-docker build -t agent-harbor/runtime:dev -f deploy/docker/Dockerfile deploy/docker
+bash scripts/docker-p2-up.sh   # 构建镜像 + 边界冒烟
 # 设置 → 隔离后端 → Docker，重启应用
 # 或：export HARBOR_RUNTIME=docker
-bash scripts/docker-p2-smoke.sh
 ```
 
 ## 环境变量

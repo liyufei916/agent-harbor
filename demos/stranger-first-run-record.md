@@ -69,11 +69,10 @@ dsh：`bash scripts/install-dsh.sh` 默认路径下桌面可自动 Detect，**�
 默认仍是 Seatbelt。若测容器路径：
 
 ```text
-1. docker build -t agent-harbor/runtime:dev -f deploy/docker/Dockerfile deploy/docker
-2. bash scripts/docker-p2-smoke.sh → PASS
-3. 设置 → 隔离后端 → Docker → 重启应用（或 HARBOR_RUNTIME=docker）
-4. 设置「重新检测隔离」应显示 isolationLevel=docker；失败文案应区分 CLI/daemon/镜像
-5. 新会话用镜像内 Claude/Codex/dsh（不必本机预装同名 CLI）
+1. bash scripts/docker-p2-up.sh → PASS（构建 + 冒烟）
+2. 设置 → 隔离后端 → Docker → 重启应用（或 HARBOR_RUNTIME=docker）
+3. 设置「重新检测隔离」应显示 isolationLevel=docker；失败文案应区分 CLI/daemon/镜像
+4. 新会话用镜像内 Claude/Codex/dsh（不必本机预装同名 CLI）
 □ 冒烟 PASS  □ Health docker  □ 首任务（脱敏）
 ```
 
