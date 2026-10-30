@@ -3,6 +3,7 @@ package dsh
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -81,5 +82,32 @@ func TestPathsAcceptsSupportedLayout(t *testing.T) {
 	}
 	if gotNode == "" || gotRoot == "" || script == "" {
 		t.Fatalf("empty paths: %q %q %q", gotNode, gotRoot, script)
+	}
+}
+
+func TestDetectAvailableWithInjectedProbe(t *testing.T) {
+	node, root := writeDSHStubInstall(t, t.TempDir(), SupportedNodeVersion, SupportedVersion)
+	k, err := New(node, root, "fixture-model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	k.probe = func(_ context.Context, command string, args, _ []string) (string, error) {
+		if len(args) == 1 && args[0] == "--version" {
+			return SupportedNodeVersion + "\n", nil
+		}
+		if len(args) >= 2 && args[1] == "--version" {
+			return SupportedVersion + "\n", nil
+		}
+		if len(args) >= 2 && args[1] == "--help" {
+			return "usage --profile harbor headless\n", nil
+		}
+		return "", errors.New("unexpected probe " + command)
+	}
+	info, err := k.Detect(context.Background())
+	if err != nil || !info.Agent.Available || info.Agent.Version != SupportedVersion {
+		t.Fatalf("%+v err=%v", info, err)
+	}
+	if !info.NeedsDescendants || len(info.ReadOnlyPaths) < 2 {
+		t.Fatalf("readonly: %+v", info)
 	}
 }

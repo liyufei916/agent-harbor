@@ -469,17 +469,22 @@ func (d *DesktopAPI) SaveTextFile(in contracts.SaveTextFileInput) contracts.Save
 		dlg = dlg.SetDirectory(downloads)
 	}
 	path, err := dlg.PromptForSingleSelection()
+	return finishSaveTextFile(path, err, in.Content, in.Reveal, revealInFileManager)
+}
+
+// finishSaveTextFile 对话框选定后的写盘/取消/reveal（单测可注入路径）。
+func finishSaveTextFile(path string, err error, content string, reveal bool, revealFn func(string)) contracts.SaveFileResponse {
 	if err != nil {
 		return contracts.SaveFileResponse{Error: mapError(err)}
 	}
 	if path == "" {
 		return contracts.SaveFileResponse{Cancelled: true}
 	}
-	if err := os.WriteFile(path, []byte(in.Content), 0600); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
 		return contracts.SaveFileResponse{Error: contracts.NewAppError(contracts.ErrInternal, "写入失败", true)}
 	}
-	if in.Reveal {
-		revealInFileManager(path)
+	if reveal && revealFn != nil {
+		revealFn(path)
 	}
 	return contracts.SaveFileResponse{Path: path}
 }

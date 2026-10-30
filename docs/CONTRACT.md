@@ -256,6 +256,8 @@ type AuditData struct {
     Target string `json:"target"`
     Tool string `json:"tool"`
     Result string `json:"result"` // allowed、denied 或 failed
+    InputTokens int64 `json:"inputTokens,omitempty"`   // Gate 模型流旁路扫描；可无
+    OutputTokens int64 `json:"outputTokens,omitempty"`
 }
 type PermissionNeeded struct {
     Target string `json:"target"`
@@ -440,7 +442,9 @@ type Runtime interface {
 
 AgentID 仅允许已验证项；Task 限 1–32768 UTF-8 字节。ConnectInput 的 Name/APIKey 必填；Name≤100 Unicode；APIKey≤16384 字节。固定 profile 路径下 ProfileID 必填。重连创建新账号 ID。活动会话仍引用某账号时 `RemoveAccount` → `SESSION_BUSY`。`ConnectModel`/`ConnectMcp` 经 `WithConnection`：与并发 Connect、以及 `provisioning` 中的 Create 互斥；**已有 running 会话不拦截新增账号**（新账号仅进本机列表，不自动挂到当前会话）。
 
-工具白名单：**固定 MCP profile** 用登记 `Tools`；**自定义 MCP** 用连接探测写入的 `AccountInfo.tools`（会话期不再自动并入上游新工具）。自定义 MCP 账号缺 `tools`（旧版连接未落盘）时 `CreateSession` → `INVALID_ARGUMENT`（Policy `ErrMissingMCP`），须在「工具」删除后重新连接。Policy 失败勿一律映为 `WORKSPACE_DENIED`。
+工具白名单：**固定 MCP profile** 用登记 `Tools`；**自定义 MCP** 用连接探测写入的 `AccountInfo.tools`（UI/策略种子）；**会话内 `tools/call` 仍按挂载白名单动态校验**。自定义 MCP 账号缺 `tools`（旧版连接未落盘）时 `CreateSession` → `INVALID_ARGUMENT`（Policy `ErrMissingMCP`），须在「工具」删除后重新连接。Policy 失败勿一律映为 `WORKSPACE_DENIED`。
+
+远程 HTTP MCP **initialize**：客户端优先提出 `2025-03-26`；上游返回的 `protocolVersion` 须属于接受列表 `2025-06-18` / `2025-03-26` / `2024-11-05`（见 [mcp-compat-matrix](../demos/mcp-compat-matrix.md)）。
 
 SessionSnapshot.state：`provisioning`|`running`|`stopping`|`stopped`|`failed`（扩权等待 **不** 新增 state；用 `permission_needed` 事件表示挂起，会话保持 `running`）。cleanupComplete 语义同 v1。AccountInfo.kind 仅 model/mcp。
 

@@ -21,9 +21,13 @@ import (
 const SupportedVersion = "0.2.1-rc.2"
 const SupportedNodeVersion = "v26.12.1"
 
+// installProbe 默认同 runtime.ProbeInstallation；单测可注入避免依赖 Seatbelt。
+type installProbe func(ctx context.Context, command string, args, readOnly []string) (string, error)
+
 type Kit struct {
 	node, installation, model string
 	conversation              bool
+	probe                     installProbe
 }
 
 var _ kits.Kit = (*Kit)(nil)
@@ -85,6 +89,13 @@ func (k *Kit) paths() (string, string, string, error) {
 	return node, root, script, nil
 }
 
+func (k *Kit) probeInstall(ctx context.Context, command string, args, readOnly []string) (string, error) {
+	if k != nil && k.probe != nil {
+		return k.probe(ctx, command, args, readOnly)
+	}
+	return runtime.ProbeInstallation(ctx, command, args, readOnly)
+}
+
 func (k *Kit) Detect(ctx context.Context) (kits.KitInfo, error) {
 	info := kits.KitInfo{Agent: contracts.AgentInfo{ID: "dsh", Name: "DeepSeek dsh", ModelProfileID: "dsh-model", Reason: "未安装固定版本或受限检测未通过。"}}
 	if ctx.Err() != nil {
@@ -94,15 +105,15 @@ func (k *Kit) Detect(ctx context.Context) (kits.KitInfo, error) {
 	if err != nil {
 		return info, nil
 	}
-	version, err := runtime.ProbeInstallation(ctx, node, []string{"--version"}, nil)
+	version, err := k.probeInstall(ctx, node, []string{"--version"}, nil)
 	if err != nil || strings.TrimSpace(version) != SupportedNodeVersion {
 		return info, nil
 	}
-	text, err := runtime.ProbeInstallation(ctx, node, []string{script, "--version"}, []string{root})
+	text, err := k.probeInstall(ctx, node, []string{script, "--version"}, []string{root})
 	if err != nil || strings.TrimSpace(text) != SupportedVersion {
 		return info, nil
 	}
-	text, err = runtime.ProbeInstallation(ctx, node, []string{script, "--help"}, []string{root})
+	text, err = k.probeInstall(ctx, node, []string{script, "--help"}, []string{root})
 	if err != nil || !strings.Contains(text, "--profile") || !strings.Contains(text, "headless") {
 		return info, nil
 	}

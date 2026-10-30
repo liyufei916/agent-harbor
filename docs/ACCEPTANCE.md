@@ -120,14 +120,14 @@ $ grep -n harbor-live-i2 demos/workspace/summary.txt
 
 仍开放：Apple 公证；扩权 GUI 点选补镜（API 已过）；302 异常项按需。导回口播见 [B6-SUCCESS-DEMO](../demos/B6-SUCCESS-DEMO.md)。
 
-## Codex / dsh 真实短任务（待填 · 固定提交）
+## Codex / dsh 真实短任务（固定提交 · 本机 harness）
 
 命令：`go run ./scripts/cmd/agent-task-evidence -agents=codex,dsh`  
 填空与陌生用户路径：[stranger-first-run-record.md](../demos/stranger-first-run-record.md)。**通过项须含本机跑出的报告行**（勿用 Claude 项顶替）。
 
 | Agent | 状态 | 证据（脱敏） |
 |---|---|---|
-| codex | **待执行** | |
-| dsh | **待执行** | |
+| codex | **通过（2026-10-30）** | `go run ./scripts/cmd/agent-task-evidence -agents=codex -timeout=120s` → `session=9921bdbe… model=model_67… marker=harbor-agent-codex-42901 srcSummary=true SyncBack=ok`（HEAD 当时工作树；合入后以含本段的提交为准） |
+| dsh | **阻断** | Detect 未绿：`未安装固定版本或受限检测未通过`（本机无固定 dsh 预览安装；装好后重跑同上命令） |
 
-陌生用户获取→首配→首任务：Release [v0.0.0-ci.8efc0d9](https://github.com/liyufei916/agent-harbor/releases/tag/v0.0.0-ci.8efc0d9) + SHA256 见 `demos/evidence/AgentHarbor-macos-8efc0d9.sha256`；人工勾选表同上。
+陌生用户获取→首配→首任务：预发布 [v0.0.0-ci.8efc0d9](https://github.com/liyufei916/agent-harbor/releases/tag/v0.0.0-ci.8efc0d9)；正式 [v0.1.0](https://github.com/liyufei916/agent-harbor/releases/tag/v0.1.0)（打标后）。人工勾选表：[stranger-first-run-record.md](../demos/stranger-first-run-record.md)。
