@@ -2,11 +2,12 @@ package engine
 
 import "context"
 
-// Status is a coarse, UI-safe engine probe result (no secrets, no sock paths in Message for logs only).
+// Status is a coarse, UI-safe engine probe result (no secrets in Message).
 type Status struct {
-	Ready   bool   `json:"ready"`
-	Source  string `json:"source,omitempty"`  // harbor-colima | system-docker | ""
-	Message string `json:"message,omitempty"` // fixed template for UI
+	Ready      bool   `json:"ready"`
+	Source     string `json:"source,omitempty"`     // harbor-colima | system-docker | ""
+	Message    string `json:"message,omitempty"`    // fixed template for UI
+	DockerHost string `json:"dockerHost,omitempty"` // unix://… when known
 }
 
 // Engine manages a Docker-API-compatible daemon for P2 Runtime (B→C).

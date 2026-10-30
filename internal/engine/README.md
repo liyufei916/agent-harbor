@@ -20,7 +20,8 @@
 |---|---|
 | `Engine` 接口 / `NewSelected` | 已有；默认 `harbor-colima` |
 | `SystemDocker` | 已有（高级：本机 docker） |
-| `Colima` | **占位** fail-closed；M2b 实现下载与启停 |
+| `Colima` | **M2b**：PATH/`bin` 二进制；profile `agent-harbor`；`COLIMA_HOME` 落盘；`EnsureImage` |
+| 钉扎下载 | **M2c** 待做 |
 
 ## 文件
 
@@ -29,4 +30,5 @@
 | `engine.go` | 接口与 Status |
 | `select.go` | 按来源选型 |
 | `system_docker.go` | 本机 Docker 探测 |
-| `colima.go` | 托管引擎（M2b） |
+| `colima.go` / `paths.go` | 托管启停、DOCKER_HOST |
+| `image.go` | 构建 runtime 镜像 |

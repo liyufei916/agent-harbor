@@ -18,9 +18,10 @@ func TestNewSelectedDefaultsToColima(t *testing.T) {
 	}
 }
 
-func TestColimaFailClosedUntilM2(t *testing.T) {
+func TestColimaHealthFailClosedWithoutBinaries(t *testing.T) {
 	c := NewColima()
 	c.Root = t.TempDir()
+	c.lookPath = func(string) (string, error) { return "", errors.New("missing") }
 	st, err := c.Health(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -28,7 +29,7 @@ func TestColimaFailClosedUntilM2(t *testing.T) {
 	if st.Ready || st.Source != SourceHarborColima {
 		t.Fatalf("%+v", st)
 	}
-	if !strings.Contains(st.Message, "M2") {
+	if !strings.Contains(st.Message, "colima") {
 		t.Fatalf("message=%q", st.Message)
 	}
 }

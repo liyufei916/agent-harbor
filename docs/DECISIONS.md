@@ -81,7 +81,8 @@
 | 默认隔离 | 仍为 **Seatbelt**；启用容器隔离失败 → fail-closed，禁止无隔离直跑 |
 | 不做 | 安装包内嵌 Docker Desktop；把 `docker.sock` 挂进 Guest；跳过引擎假装已隔离 |
 | 包体 | 优先「首启按需下载钉扎产物 + 校验和」；随包附带为可选优化，公证体积另估 |
-| 里程碑 | M2 引擎启停+建镜像；M3 设置接来源；M4 默认无感路径 + 陌生机证据（见 P2-DOCKER） |
+| 里程碑 | M2b 启停+建镜像（用 PATH/`engine/bin`）；M2c 钉扎下载；M3 设置接来源；M4 默认无感路径（见 P2-DOCKER） |
+| Colima 配置 | profile=`agent-harbor`；`COLIMA_HOME=<engine>/colima`；启动 `--activate=false`（不抢用户全局 context）；轻量默认 2CPU/2GiB/20GiB |
 
 ## 2026-10-24 开发环境观测
 
