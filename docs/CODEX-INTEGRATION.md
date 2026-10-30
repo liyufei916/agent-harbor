@@ -29,7 +29,7 @@ export HARBOR_CODEX_MODEL_BASE_PATH=""
 - Codex 配置使用 `wire_api = "responses"`、`OPENAI_API_KEY` 和 Harbor MCP 的 HTTP URL。
 - `CODEX_HOME` 指向 Runtime 私有目录，因此 Codex 只读取本会话生成的配置；会话数据不落宿主 `~/.codex`。探测阶段会确认 CLI 仍支持 `--ephemeral` / `--skip-git-repo-check`，但**生产多轮路径不走 `codex exec --ephemeral`**。
 - 外层已是 Harbor Seatbelt，故 Codex 使用 `sandbox_mode = "danger-full-access"`；app-server 侧同样按「外部已沙箱」绕过内层 approvals/sandbox，避免嵌套 `sandbox-exec` 导致 `exec_command` EPERM / `apply_patch` read-only。实际文件与进程边界仍由 Runtime 白名单约束。
-- 多轮（npm/`node`+`codex.js`）：Kit 写入并启动常驻 `harbor-turn.mjs`（Interactive + EncodeInput），内部一次 `codex app-server --listen stdio://`。`thread/start` 后每轮 `turn/start`；桥接把 `item/agentMessage/delta` 转成 `agent_message.delta` JSONL，前端流式上屏。停止会话才结束 app-server。测试替身/无 Args 的原生路径仍可单轮 `codex exec --json --skip-git-repo-check … -`。
+- 多轮：Kit 写入并启动常驻 `harbor-turn.mjs`（Interactive + EncodeInput）。npm 的 `codex.js` 由 node 解释后执行 `app-server --listen stdio://`；ChatGPT.app 等原生二进制在 `app-server --help` 含 `--listen` / `stdio://` 时，由同一桥直接 exec `codex app-server --listen stdio://`（桥进程仍是 node，只读白名单含 node 与该二进制）。`thread/start` 后每轮 `turn/start`；桥接把 `item/agentMessage/delta` 转成 `agent_message.delta` JSONL，前端流式上屏。停止会话才结束 app-server。没有 app-server 的测试替身仍单轮 `codex exec --json --skip-git-repo-check … -`，进程退出后会话进入 stopped。
 - Codex 启动会探测 `/etc/codex/requirements.toml` 和 `/etc/codex/managed_config.toml`；Runtime 仅对这两个固定路径授予只读探测权限，不开放整个 `/etc`。个人 `~/.codex` 不直接挂载，避免认证、历史和宿主权限配置进入执行面。
 - Codex 0.157+ 启动会 `CFPreferencesAppSynchronize`；受控 profile 放行 `user-preference-read`、`apple.cfprefs.*` POSIX shm 读，以及 `cfprefsd` daemon/agent（含 local-name）查询通道。不开放 `user-preference-write`、钥匙串或其它宿主 IPC。
 - 运行参数通过固定参数数组传递，不拼接 shell 命令。

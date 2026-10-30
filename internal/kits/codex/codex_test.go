@@ -67,8 +67,52 @@ func TestBuildUsesResponsesProviderAndPrivateCodexHome(t *testing.T) {
 		t.Fatalf("缺少外部沙箱 bypass 旗标: %v", launch.Args)
 	}
 	if launch.Interactive {
-		t.Fatal("原生/替身二进制路径不应启用 turn_bridge")
+		t.Fatal("无 app-server 的替身二进制不应启用 turn_bridge")
 	}
+}
+
+func TestNativeAppServerUsesTurnBridge(t *testing.T) {
+	k, err := New("/bin/sh", "gpt-5-codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	k.lookupNode = func() (string, error) { return "/tmp/harbor-node", nil }
+	k.inspect = func(_ context.Context, _ string, args []string) (string, error) {
+		if len(args) >= 1 && args[0] == "app-server" {
+			return "Usage: codex app-server\n--listen <URL> stdio://\n", nil
+		}
+		if len(args) == 1 && args[0] == "--version" {
+			return "codex-cli 0.155.0", nil
+		}
+		return "--json --ephemeral --skip-git-repo-check", nil
+	}
+	info, err := k.Detect(context.Background())
+	if err != nil || !info.Agent.Available || !containsPath(info.ReadOnlyPaths, "/tmp/harbor-node") || !containsPath(info.ReadOnlyPaths, "/bin/sh") {
+		t.Fatalf("检测未放行 node 与原生二进制: %+v %v", info, err)
+	}
+	launch, err := k.Build(context.Background(), validInput())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if launch.Command != "/tmp/harbor-node" || !launch.Interactive || launch.EncodeInput == nil {
+		t.Fatalf("原生 app-server 应走 turn_bridge: %+v", launch)
+	}
+	joined := strings.Join(launch.Args, " ")
+	if !strings.Contains(joined, "--native") || !strings.Contains(joined, "--codex /bin/sh") || strings.Contains(joined, " exec ") {
+		t.Fatalf("桥参数错误: %v", launch.Args)
+	}
+	if len(launch.ConfigFiles) != 2 || launch.ConfigFiles[1].RelativePath != "codex/harbor-turn.mjs" {
+		t.Fatalf("缺少常驻桥脚本: %+v", launch.ConfigFiles)
+	}
+}
+
+func containsPath(paths []string, target string) bool {
+	for _, path := range paths {
+		if path == target {
+			return true
+		}
+	}
+	return false
 }
 
 func TestEncodePromptJSONLine(t *testing.T) {
