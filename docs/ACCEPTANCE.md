@@ -78,7 +78,7 @@ D1 的绑定生成已执行；原生 WebView 冒烟通过生成绑定校验 DTO�
 
 ## 2026-10-25 联调准入缺陷修复
 
-连接重定向/假成功、在途撤销、桌面准入与前端事件问题已修复并加入回归；退出失败可保留窗口重试。**历史笔记曾写「受限绑定仅七个方法」；现行 DesktopAPI 契约绑定为 24 个方法**（`binding_surface_test.go`），勿用旧句覆盖。证据与范围见 [ABC 修复进展](archive/ABC-INTEGRATION-REVIEW.md#修复进展)。独立 Postman 上游模拟已实际收到真实 Go HTTP 客户端请求；前端测试及实际 WebView 关闭通过。现行 live 以 §「2026-10-30 全量重跑」与 [demos/evidence/REVIEWER-RESPONSE.md](../demos/evidence/REVIEWER-RESPONSE.md) 为准。
+连接重定向/假成功、在途撤销、桌面准入与前端事件问题已修复并加入回归；退出失败可保留窗口重试。**历史笔记曾写「受限绑定仅七个方法」；现行 DesktopAPI 契约绑定为 24 个方法**（`binding_surface_test.go`），勿用旧句覆盖。证据与范围见 [ABC 修复进展](archive/ABC-INTEGRATION-REVIEW.md#修复进展)。独立 Postman 上游模拟已实际收到真实 Go HTTP 客户端请求；前端测试及实际 WebView 关闭通过。现行 live 以 §「2026-10-30 全量重跑」与 `demos/evidence/` 命令级日志为准。
 
 ## 2026-10-25 P0-C-DOC-3 草稿状态（产品 C）
 

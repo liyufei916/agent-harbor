@@ -7,7 +7,7 @@
 | mock / D4 | **模拟模式** | `frontend` 下 `npm run dev` → http://127.0.0.1:5173/ | **否** |
 | 桌面 live | **真实绑定** | 仓库根 `./scripts/dev-desktop.sh` 或 `wails3 dev` | 可以记，须有脱敏证据 |
 
-eng 已 **code-complete**；I1–I11 live 见 [ACCEPTANCE](../docs/ACCEPTANCE.md) 与 [evidence/REVIEWER-RESPONSE.md](evidence/REVIEWER-RESPONSE.md)。陌生用户：[FIRST-RUN.md](FIRST-RUN.md)。
+eng 已 **code-complete**；I1–I11 live 见 [ACCEPTANCE](../docs/ACCEPTANCE.md)。陌生用户：[FIRST-RUN.md](FIRST-RUN.md)。
 
 **MCP 边界**：默认远程 HTTP + Token；stdio 为可选「宿主侧 · 更高信任」；OAuth 需自备 Client，属高级轨。不承诺「市面每一个 MCP 开箱即用」。
 
