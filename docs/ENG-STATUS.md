@@ -39,6 +39,7 @@
 | 2026-10-30ai | **P2 §B Colima**：`COLIMA_HOME` 改 `~/Library/Caches/AgentHarbor/colima`（UNIX_PATH_MAX）；`engine/share`→`lima/share` guestagent；Ensure/Health 证据 `p2-colima-ensure-*.txt`（Desktop 已安装但未用）。 |
 | 2026-10-30aj | **扩权演示收敛**：Gate `tools/list` 注入 `harbor_demo_ask`；工作区 `EXPAND-TASK`/`BLOCK-TASK`；删不可用 shell 触发脚本与冗余 demos md。 |
 | 2026-10-30ak | **P2 桌面 GUI Docker live**：`bin/AgentHarbor.app` 无 `HARBOR_RUNTIME`；顶栏 Docker + 侧栏隔离就绪截图 `17-desktop-docker-health.png`；UIPrefs `GetRuntimeHealth` 证据 `p2-docker-gui-*.txt`；stranger §P2 A GUI 勾选。 |
+| 2026-10-30al | **陌生人首跑表代填**：步骤 1–9 + Agent 矩阵 + §P2 A/B（除「陌生机无 Desktop GUI」）按 Release/live 证据勾选；公证/302/MCP SDK/microVM 本轮不推进。 |
 
 ## eng-complete（代码已接线）
 

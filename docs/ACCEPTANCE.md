@@ -118,7 +118,7 @@ $ grep -n harbor-live-i2 demos/workspace/summary.txt
 1:harbor-live-i2: …
 ```
 
-仍开放：Apple 公证；扩权 GUI **人工补镜**（toast 已带主机结果文案；须 live 录屏）；302 异常项按需。导回成功 toast 提示源路径（不自动开访达）。口播见 [B6-SUCCESS-DEMO](../demos/B6-SUCCESS-DEMO.md)。亮点 mock 截图：[screenshots](../demos/screenshots/)。
+仍开放：**Apple 公证**（账号阻断）；302 异常项按需（backlog）。扩权主路径 + toast 带主机 + `EXPAND-TASK`/`harbor_demo_ask` 已接线（录屏可选）。导回 toast 提示源路径。口播见 [B6-SUCCESS-DEMO](../demos/B6-SUCCESS-DEMO.md)。截图：[screenshots](../demos/screenshots/)。
 
 ## Codex / dsh 真实短任务（固定提交 · 本机 harness）
 
@@ -139,7 +139,7 @@ $ grep -n harbor-live-i2 demos/workspace/summary.txt
 | Health isolation=docker | **通过（API）** | agents 证据首行 `health available=true isolation="docker"` |
 | 三 Agent Docker 短任务 | **通过** | `demos/evidence/p2-docker-agents-2026-10-30.txt` EXIT:0 |
 | Harbor Colima Ensure/Health | **通过（§B · Desktop 已安装但未用）** | `demos/evidence/p2-colima-ensure-2026-10-30.txt`：`DOCKER_HOST=…/Caches/AgentHarbor/colima/agent-harbor/docker.sock` · Name=`colima-agent-harbor`（对照 Desktop Name=`docker-desktop`） |
-| 桌面 GUI Docker 切换 | **待** | 设置页点选 live |
-| 陌生机无 Desktop GUI | **待** | 不能用本机 Desktop 冒充 |
+| 桌面 GUI Docker 切换 | **通过** | `demos/evidence/p2-docker-gui-2026-10-30.txt` + `screenshots/17-desktop-docker-health.png`（UIPrefs=`docker`，无 `HARBOR_RUNTIME`） |
+| 陌生机无 Desktop GUI | **待（另机）** | 本机 Colima §B 已证「Desktop 已装未用」；真无 Desktop 端到端不冒充 |
 
-陌生用户获取→首配→首任务：预发布 [v0.0.0-ci.8efc0d9](https://github.com/liyufei916/agent-harbor/releases/tag/v0.0.0-ci.8efc0d9)；正式 [v0.1.0](https://github.com/liyufei916/agent-harbor/releases/tag/v0.1.0)（打标后）。人工勾选表：[stranger-first-run-record.md](../demos/stranger-first-run-record.md)。
+陌生用户获取→首配→首任务：预发布 [v0.0.0-ci.8efc0d9](https://github.com/liyufei916/agent-harbor/releases/tag/v0.0.0-ci.8efc0d9)；正式 [v0.1.0](https://github.com/liyufei916/agent-harbor/releases/tag/v0.1.0)。勾选表已按证据**代填**（非独立陌生机）：[stranger-first-run-record.md](../demos/stranger-first-run-record.md)；**真无 Desktop 另机 GUI**仍待。
