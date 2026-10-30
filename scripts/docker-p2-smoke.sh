@@ -73,4 +73,16 @@ echo "$hosts" | grep -E 'host\.docker\.internal' | grep -Eq '127\.0\.0\.1' || {
 }
 echo "OK: harbor.gate + host.docker.internal 拉黑"
 
+# 6) 可选：宿主是 TTY 时验证 docker exec -t（非交互 CI 跳过）
+if [ -t 0 ] && [ -t 1 ]; then
+  tty_out="$(docker exec -i -t "$cid" /bin/sh -c 'if [ -t 0 ]; then echo tty-ok; else echo tty-missing; fi' | tr -d '\r')"
+  echo "$tty_out" | grep -q 'tty-ok' || {
+    echo "FAIL: docker exec -t 未获得 TTY: $tty_out" >&2
+    exit 1
+  }
+  echo "OK: docker exec -t 可用"
+else
+  echo "SKIP: 非 TTY 环境，跳过 exec -t 检查"
+fi
+
 echo "PASS: docker-p2-smoke ($IMAGE / $NET)"

@@ -26,7 +26,8 @@ Gate / Policy / 页面主契约不变，只换 `Runtime` 实现。
 | 7 | Health 分步文案 + 探测超时；隔离 UI Docker 文案；冒烟校验 Gate 别名 | **完成** |
 | 8 | `--init` 收割僵尸；陌生人记录补 Docker 路径 | **完成** |
 | 9 | 容器 `agent-harbor.session` label；网络失败 Health 文案 | **完成** |
-| 10 | Docker Terminal：宿主 PTY + `docker exec -it`；Resize | **本提交** |
+| 10 | Docker Terminal：宿主 PTY + `docker exec -it`；Resize | **完成** |
+| 11 | 冒烟可选校验 `docker exec -t`（非 TTY CI 跳过） | **本提交** |
 
 ## 残留风险（Docker Desktop）
 
