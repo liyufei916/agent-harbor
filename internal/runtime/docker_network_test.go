@@ -1,28 +1,32 @@
 package runtime
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
-func TestAppendResourceLimitsDefaults(t *testing.T) {
-	t.Setenv("HARBOR_DOCKER_MEMORY", "")
-	t.Setenv("HARBOR_DOCKER_CPUS", "")
-	t.Setenv("HARBOR_DOCKER_PIDS", "")
-	args := appendResourceLimits(nil)
-	joined := strings.Join(args, " ")
-	if !strings.Contains(joined, "--memory 2g") || !strings.Contains(joined, "--cpus 2") || !strings.Contains(joined, "--pids-limit 256") {
-		t.Fatal(joined)
+func TestDockerResourceLimitSanitization(t *testing.T) {
+	t.Setenv("HARBOR_DOCKER_MEMORY", "2g --privileged")
+	if got := dockerMemoryLimit(); got != "2g" {
+		t.Fatalf("invalid memory must fall back, got %q", got)
 	}
-}
-
-func TestAppendResourceLimitsOverride(t *testing.T) {
 	t.Setenv("HARBOR_DOCKER_MEMORY", "512m")
-	t.Setenv("HARBOR_DOCKER_CPUS", "1")
-	t.Setenv("HARBOR_DOCKER_PIDS", "32")
-	args := appendResourceLimits(nil)
-	joined := strings.Join(args, " ")
-	if !strings.Contains(joined, "--memory 512m") || !strings.Contains(joined, "--cpus 1") || !strings.Contains(joined, "--pids-limit 32") {
-		t.Fatal(joined)
+	if got := dockerMemoryLimit(); got != "512m" {
+		t.Fatalf("got %q", got)
+	}
+
+	t.Setenv("HARBOR_DOCKER_CPUS", "-1")
+	if got := dockerCPULimit(); got != "2" {
+		t.Fatalf("invalid cpus must fall back, got %q", got)
+	}
+	t.Setenv("HARBOR_DOCKER_CPUS", "1.5")
+	if got := dockerCPULimit(); got != "1.5" {
+		t.Fatalf("got %q", got)
+	}
+
+	t.Setenv("HARBOR_DOCKER_PIDS", "2")
+	if got := dockerPidsLimit(); got != "256" {
+		t.Fatalf("too-small pids must fall back, got %q", got)
+	}
+	t.Setenv("HARBOR_DOCKER_PIDS", "512")
+	if got := dockerPidsLimit(); got != "512" {
+		t.Fatalf("got %q", got)
 	}
 }

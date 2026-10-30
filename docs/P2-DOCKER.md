@@ -30,7 +30,8 @@ Gate / Policy / 页面主契约不变，只换 `Runtime` 实现。
 | 11 | 冒烟可选校验 `docker exec -t`（非 TTY CI 跳过） | **完成** |
 | 12 | mock Health 跟随 Docker 偏好；CONTRACT 注记 P2 Terminal | **完成** |
 | 13 | ProbeDockerGuest 先校验镜像；缺失/daemon 文案可辨 | **完成** |
-| 14 | Health 清理已退出的 Harbor 孤儿容器；设置页显示后端偏好 | **本提交** |
+| 14 | Health 清理已退出的 Harbor 孤儿容器；设置页显示后端偏好 | **完成** |
+| 15 | 配额环境变量格式校验（非法回落默认）；保存偏好刷新关于栏 | **本提交** |
 
 ## 残留风险（Docker Desktop）
 
@@ -51,6 +52,6 @@ bash scripts/docker-p2-smoke.sh
 |---|---|---|
 | `HARBOR_RUNTIME` | （空则看 UIPrefs） | `docker` / `seatbelt`；**优先于设置项** |
 | `HARBOR_DOCKER_IMAGE` | `agent-harbor/runtime:dev` | |
-| `HARBOR_DOCKER_MEMORY` / `_CPUS` / `_PIDS` | `2g` / `2` / `256` | |
+| `HARBOR_DOCKER_MEMORY` / `_CPUS` / `_PIDS` | `2g` / `2` / `256` | 非法格式回落默认（memory 如 `512m`；cpus `0–64`；pids `16–100000`） |
 
 对照：[deploy/docker](../deploy/docker/README.md) · [CONTRACT UIPrefs](CONTRACT.md) · [ENG-STATUS](ENG-STATUS.md)。

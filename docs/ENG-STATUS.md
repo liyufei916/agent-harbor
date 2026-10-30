@@ -20,6 +20,7 @@
 | 2026-10-30p | **P2 切片 12**：浏览器 mock Health 随 `isolationBackend=docker`；CONTRACT 注记 Docker Terminal。 |
 | 2026-10-30q | **P2 切片 13**：`ProbeDockerGuest` 先 `image inspect`；镜像/daemon 失败文案可辨。 |
 | 2026-10-30r | **P2 切片 14**：Health 清理 `label=agent-harbor=1` 且已退出的孤儿容器；设置「关于」显示隔离后端偏好。 |
+| 2026-10-30s | **P2 切片 15**：`HARBOR_DOCKER_*` 配额格式校验；设置保存后刷新关于栏后端文案。 |
 
 ## eng-complete（代码已接线）
 
@@ -47,7 +48,7 @@
 | I1–I11 / B6 live | **通过（2026-10-30 全量重跑）** | harness + 平台探针 + `bin/AgentHarbor.app` 启停；见 ACCEPTANCE |
 | 扩权 302 异常项（可选） | **backlog** | 主路径改为 `PromptPermission` ask + 白名单；302 不挡验收 |
 | Apple 公证 / 分发签名 | **blocked（账号）** | 需 Apple Developer；清单见 [`scripts/notarize-prep.md`](../scripts/notarize-prep.md) |
-| Docker Runtime（P2） | **进行中（分支可用）** | `feat/p2-docker-runtime` 切片 0–14；Desktop 残留：其它路径仍可能触及宿主机 loopback；真机 daemon 冒烟待本机 Docker |
+| Docker Runtime（P2） | **进行中（分支可用）** | `feat/p2-docker-runtime` 切片 0–15；Desktop 残留：其它路径仍可能触及宿主机 loopback；真机 daemon 冒烟待本机 Docker |
 | microVM | **backlog（后于 Docker）** | 不挡 P2 容器；预研另立 |
 | 官方 MCP SDK | **backlog** | 现用 `net/http` 转发；待真实上游后再换 SDK |
 | Linux Seatbelt | **N/A** | Runtime 非 Darwin → `ISOLATION_UNAVAILABLE`；无 Linux Seatbelt 目标 |

@@ -65,7 +65,7 @@
 | 子进程/Bash（P1-A-04） | A 门禁 | 门禁保留 | Codex 显式声明后受控白名单；Claude/dsh 严格单进程 |
 | 安装签名/更新（P1-B-06） | B | **backlog（非 eng-open）** | 公证需 Apple 账号，见 `scripts/notarize-prep.md` |
 | 外观浅色主题 | C | **eng 已关闭** | `UIPrefs.theme` system/light/dark 已接线落盘 |
-| Docker Runtime（P2） | A | **进行中（切片 0–14）** | 分支 `feat/p2-docker-runtime`；默认 Seatbelt；设置/`HARBOR_RUNTIME=docker`；见 [P2-DOCKER](P2-DOCKER.md) |
+| Docker Runtime（P2） | A | **进行中（切片 0–15）** | 分支 `feat/p2-docker-runtime`；默认 Seatbelt；设置/`HARBOR_RUNTIME=docker`；见 [P2-DOCKER](P2-DOCKER.md) |
 | microVM（P1-A-07） | A | **backlog（后于 Docker）** | 不挡容器二期 |
 | 官方 MCP SDK | B | **backlog（非 eng-open）** | 现用标准 `net/http` 转发 |
 | DESIGN 对外口号 | 产品 | 产品项 | 不挡开发文案 |

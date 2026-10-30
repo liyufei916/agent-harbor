@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -12,23 +13,33 @@ import (
 // Internet; Gate remains reachable via harbor.gate:host-gateway.
 const HarborDockerNetwork = "agent-harbor-p2"
 
+var (
+	dockerMemoryRe = regexp.MustCompile(`(?i)^[1-9][0-9]{0,8}[bkmgt]?$`)
+	dockerCPUsRe   = regexp.MustCompile(`^[0-9]+(\.[0-9]{1,3})?$`)
+)
+
 func dockerMemoryLimit() string {
-	if v := strings.TrimSpace(os.Getenv("HARBOR_DOCKER_MEMORY")); v != "" {
-		return v
+	if v := strings.TrimSpace(os.Getenv("HARBOR_DOCKER_MEMORY")); dockerMemoryRe.MatchString(v) {
+		return strings.ToLower(v)
 	}
 	return "2g"
 }
 
 func dockerCPULimit() string {
-	if v := strings.TrimSpace(os.Getenv("HARBOR_DOCKER_CPUS")); v != "" {
-		return v
+	if v := strings.TrimSpace(os.Getenv("HARBOR_DOCKER_CPUS")); dockerCPUsRe.MatchString(v) {
+		if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 && f <= 64 {
+			return v
+		}
 	}
 	return "2"
 }
 
 func dockerPidsLimit() string {
 	if v := strings.TrimSpace(os.Getenv("HARBOR_DOCKER_PIDS")); v != "" {
-		return v
+		n, err := strconv.Atoi(v)
+		if err == nil && n >= 16 && n <= 100000 {
+			return v
+		}
 	}
 	return "256"
 }

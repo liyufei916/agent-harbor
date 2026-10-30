@@ -315,12 +315,26 @@ export function mountSettings(root, ctx) {
     ctx.state.uiPrefs = res.prefs || prefs;
     ctx.applyUIPrefs?.(ctx.state.uiPrefs);
     syncClearDefaultEnabled();
+    paintRunMode(nextBackend);
     if (prevBackend !== nextBackend) {
       st.innerHTML = `<span class="warn">已保存 · 隔离后端须重启应用后生效</span>`;
       showToast("隔离后端已保存，请重启应用后生效", "ok");
     } else {
       st.innerHTML = `<span class="ok">已保存</span>`;
     }
+  }
+
+  function paintRunMode(backend) {
+    const el = root.querySelector("#about-run-mode");
+    if (!el) return;
+    const b = normalizeIsolationBackend(backend);
+    const backendLabel =
+      b === "docker"
+        ? "隔离后端偏好 Docker（须重启生效）"
+        : "隔离后端偏好 Seatbelt";
+    el.textContent = api.isMock()
+      ? `运行模式：模拟（浏览器 mock）— 不能当真实验收 · ${backendLabel}`
+      : `运行模式：真实绑定（桌面后端）· ${backendLabel}`;
   }
 
   root.querySelector("#set-theme").onchange = savePrefs;
@@ -333,14 +347,7 @@ export function mountSettings(root, ctx) {
     el.onchange = savePrefs;
   });
   loadPrefs();
-  const runMode = root.querySelector("#about-run-mode");
-  if (runMode) {
-    const backend = normalizeIsolationBackend(ctx.state.uiPrefs?.isolationBackend);
-    const backendLabel = backend === "docker" ? "隔离后端偏好 Docker（须重启生效）" : "隔离后端偏好 Seatbelt";
-    runMode.textContent = api.isMock()
-      ? `运行模式：模拟（浏览器 mock）— 不能当真实验收 · ${backendLabel}`
-      : `运行模式：真实绑定（桌面后端）· ${backendLabel}`;
-  }
+  paintRunMode(ctx.state.uiPrefs?.isolationBackend);
   const sel = root.querySelector("#scenario");
   if (sel) {
     sel.value = api.getMockScenario();
