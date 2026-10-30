@@ -6,6 +6,7 @@
 import * as api from "../api.js";
 import { defaultAgentsForProfile, modelCompatLabel } from "../agent-compat.js";
 import { fixedProfileHint } from "../agent-env-hints.js";
+import { openFormModal } from "../form-modal.js";
 import { showToast } from "../toast.js";
 
 const AGENT_OPTS = [
@@ -45,6 +46,32 @@ export function mountModels(root, ctx, opts = {}) {
   let listStatus = "";
   /** null=自定义 Anthropic；否则为固定 profileId（codex-model / dsh-model） */
   let fixedProfileId = null;
+  /** @type {{ body: HTMLElement, setTitle: Function, close: Function } | null} */
+  let formModal = null;
+
+  function closeFormModal() {
+    if (formModal) {
+      const m = formModal;
+      formModal = null;
+      m.close();
+    }
+  }
+
+  function ensureFormModal(title) {
+    if (formModal?.body) {
+      formModal.setTitle(title);
+      return formModal.body;
+    }
+    formModal = openFormModal({
+      title,
+      onClose: () => {
+        formModal = null;
+        editing = null;
+        fixedProfileId = null;
+      },
+    });
+    return formModal?.body || null;
+  }
 
   function clearReturn() {
     if (ctx.state.returnAfterAccount?.kind === "model") {
@@ -99,7 +126,6 @@ export function mountModels(root, ctx, opts = {}) {
              <div class="actions"><button type="button" class="btn primary" id="empty-add-model">+ 添加第一个</button></div></div>`
           : ""
       }
-      <div id="model-form" class="${editing ? "" : "hidden"}"></div>
     `;
 
     const listEl = root.querySelector("#model-list");
@@ -132,7 +158,6 @@ export function mountModels(root, ctx, opts = {}) {
       pendingDelete = "";
       listStatus = "";
       fixedProfileId = null;
-      paint();
       paintForm();
     };
     root.querySelector("#btn-add-model").onclick = startAdd;
@@ -150,7 +175,6 @@ export function mountModels(root, ctx, opts = {}) {
           acc?.profileId === "codex-model" || acc?.profileId === "dsh-model"
             ? acc.profileId
             : null;
-        paint();
         paintForm();
       };
     });
@@ -181,7 +205,10 @@ export function mountModels(root, ctx, opts = {}) {
           return;
         }
         listStatus = "";
-        if (editing === id) editing = null;
+        if (editing === id) {
+          editing = null;
+          closeFormModal();
+        }
         await load();
       };
     });
@@ -189,7 +216,8 @@ export function mountModels(root, ctx, opts = {}) {
   }
 
   function paintForm() {
-    const form = root.querySelector("#model-form");
+    const form = ensureFormModal(editing === "new" ? "添加模型" : "编辑模型");
+    if (!form) return;
     const acc =
       editing === "new"
         ? { name: "", host: "", profileId: "custom" }
@@ -197,7 +225,6 @@ export function mountModels(root, ctx, opts = {}) {
     const originValue =
       acc.origin ||
       (acc.host ? "https://" + acc.host + (acc.basePath || "") : "");
-    form.classList.remove("hidden");
     const isFixed = !!fixedProfileId;
     const fixedMeta = FIXED_PRESETS.find((p) => p.profileId === fixedProfileId);
     const profileForAgents = fixedProfileId || acc.profileId || "custom";
@@ -206,8 +233,6 @@ export function mountModels(root, ctx, opts = {}) {
         ? acc.agents
         : defaultAgentsForProfile(profileForAgents);
     form.innerHTML = `
-      <section class="card">
-        <h3>${editing === "new" ? "添加模型" : "编辑模型"}</h3>
         <label class="field">名称<input id="m-name" value="${acc.name || ""}" maxlength="100"/></label>
         <div id="m-custom-fields" class="${isFixed ? "hidden" : ""}">
           <label class="field">API 地址<input id="m-origin" value="${originValue}" placeholder="https://api.deepseek.com/anthropic"/></label>
@@ -246,8 +271,7 @@ export function mountModels(root, ctx, opts = {}) {
           <button type="button" class="btn" id="m-cancel">取消</button>
           <button type="button" class="btn primary" id="m-save">保存</button>
         </div>
-        <p class="meta" id="m-status" role="status"></p>
-      </section>`;
+        <p class="meta" id="m-status" role="status"></p>`;
     const nameEl = form.querySelector("#m-name");
     const originEl = form.querySelector("#m-origin");
     const modelEl = form.querySelector("#m-model");
@@ -300,6 +324,7 @@ export function mountModels(root, ctx, opts = {}) {
     form.querySelector("#m-cancel").onclick = () => {
       editing = null;
       fixedProfileId = null;
+      closeFormModal();
       if (returning) {
         clearReturn();
         ctx.navigate("wizard");
@@ -409,6 +434,7 @@ export function mountModels(root, ctx, opts = {}) {
         keyEl.value = "";
         editing = null;
         fixedProfileId = null;
+        closeFormModal();
         ctx.onAccountsChanged?.();
         if (resumeWizard(res.account?.id)) return;
         await load();
@@ -419,4 +445,9 @@ export function mountModels(root, ctx, opts = {}) {
   }
 
   load();
+  return {
+    destroy() {
+      closeFormModal();
+    },
+  };
 }
