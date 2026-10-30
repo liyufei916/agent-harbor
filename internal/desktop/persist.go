@@ -84,6 +84,14 @@ func normalizeUIPrefs(p contracts.UIPrefs) contracts.UIPrefs {
 	default:
 		p.IsolationBackend = "seatbelt"
 	}
+	switch strings.ToLower(strings.TrimSpace(p.EngineSource)) {
+	case "system-docker", "system", "docker", "desktop":
+		p.EngineSource = "system-docker"
+	case "harbor-colima", "colima", "managed", "":
+		p.EngineSource = "harbor-colima"
+	default:
+		p.EngineSource = "harbor-colima"
+	}
 	return p
 }
 

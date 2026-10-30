@@ -43,6 +43,7 @@ let uiPrefs = {
   theme: "system",
   securityTier: "standard",
   isolationBackend: "seatbelt",
+  engineSource: "harbor-colima",
 };
 
 function hostKey(host, workspace) {
@@ -214,6 +215,36 @@ export async function getRuntimeHealth() {
     isolationLevel: "mock-seatbelt",
     error: null,
   };
+}
+
+let mockEngineReady = false;
+
+export async function getContainerEngineHealth() {
+  const source =
+    String(uiPrefs?.engineSource || "").toLowerCase() === "system-docker"
+      ? "system-docker"
+      : "harbor-colima";
+  if (mockEngineReady) {
+    return {
+      ready: true,
+      source,
+      message: source === "system-docker" ? "本机 Docker 可用（mock）" : "Harbor Colima 可用（mock）",
+      dockerHost: "unix:///tmp/mock-harbor.sock",
+      error: null,
+    };
+  }
+  return {
+    ready: false,
+    source,
+    message: "容器引擎未启用（mock）。点「启用容器引擎」模拟启动。",
+    dockerHost: "",
+    error: null,
+  };
+}
+
+export async function ensureContainerEngine() {
+  mockEngineReady = true;
+  return getContainerEngineHealth();
 }
 
 export async function listSessions() {
@@ -467,6 +498,13 @@ export async function setUIPrefs(prefs) {
     const b = prefs.isolationBackend;
     next.isolationBackend =
       b === "docker" || b === "p2" || b === "container" ? "docker" : "seatbelt";
+  }
+  if (prefs?.engineSource !== undefined) {
+    const s = String(prefs.engineSource || "").toLowerCase();
+    next.engineSource =
+      s === "system-docker" || s === "system" || s === "desktop"
+        ? "system-docker"
+        : "harbor-colima";
   }
   if (prefs?.securityTier !== undefined) {
     const t = prefs.securityTier;
@@ -1068,12 +1106,16 @@ export function resetMock() {
   mcpAccounts.clear();
   seedRememberedHosts();
   scenario = "normal";
+  mockEngineReady = false;
   uiPrefs = {
     sidebarCollapsed: false,
     autoCollapseWorkbench: true,
     askClearOnStop: true,
     clearOnStopDefault: "keep",
     theme: "system",
+    securityTier: "standard",
+    isolationBackend: "seatbelt",
+    engineSource: "harbor-colima",
   };
 }
 

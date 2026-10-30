@@ -50,6 +50,8 @@ func (a *App) AttachOrchestrator(appCtx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// P2：若 Harbor Colima 已就绪，先挂 DOCKER_HOST，再选 Docker Runtime。
+	a.applyEngineDockerHost(appCtx)
 	rt := runtime.NewSelectedWithBackend(a.getPrefs().IsolationBackend)
 	svc, err := orchestrator.New(appCtx, orchestrator.Dependencies{
 		Runtime: rt,

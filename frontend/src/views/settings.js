@@ -81,13 +81,25 @@ export function mountSettings(root, ctx) {
 
     <section class="card" style="margin-top:12px">
       <h3>隔离后端（P2）</h3>
-      <p class="meta">默认 Seatbelt（一期）。Docker 需本机 daemon 与 <code>agent-harbor/runtime:dev</code> 镜像。<strong>更改后需重启应用</strong>；环境变量 <code>HARBOR_RUNTIME</code> 优先于本选项。</p>
+      <p class="meta">默认 Seatbelt。容器隔离主路径为 Harbor 托管 Colima（无需 Docker Desktop）。<strong>更改后端后需重启应用</strong>；<code>HARBOR_RUNTIME</code> 优先于本选项。</p>
       <label class="field">后端
         <select id="set-isolation-backend">
           <option value="seatbelt">Seatbelt（P1 · 默认）</option>
-          <option value="docker">Docker 容器（P2）</option>
+          <option value="docker">容器隔离（P2）</option>
         </select>
       </label>
+      <label class="field">容器引擎来源
+        <select id="set-engine-source">
+          <option value="harbor-colima">Harbor 托管 Colima（推荐）</option>
+          <option value="system-docker">本机已有 Docker（高级）</option>
+        </select>
+      </label>
+      <p class="meta" id="engine-health-status" role="status">引擎状态：—</p>
+      <div class="actions">
+        <button type="button" class="btn" id="btn-engine-health">检测引擎</button>
+        <button type="button" class="btn primary" id="btn-engine-ensure">启用容器引擎</button>
+      </div>
+      <p class="meta" id="engine-action-status"></p>
     </section>
 
     <section class="card" style="margin-top:12px">
@@ -268,6 +280,35 @@ export function mountSettings(root, ctx) {
     return "seatbelt";
   }
 
+  function normalizeEngineSource(v) {
+    const s = String(v || "").toLowerCase();
+    if (s === "system-docker" || s === "system" || s === "desktop") {
+      return "system-docker";
+    }
+    return "harbor-colima";
+  }
+
+  function paintEngineHealth(h) {
+    const el = root.querySelector("#engine-health-status");
+    if (!el) return;
+    if (!h) {
+      el.textContent = "引擎状态：—";
+      return;
+    }
+    const src = h.source || "";
+    if (h.ready) {
+      el.innerHTML = `<span class="ok">引擎就绪 · ${src}${h.message ? " · " + h.message : ""}</span>`;
+    } else {
+      el.innerHTML = `<span class="bad">引擎未就绪 · ${src}${h.message ? " · " + h.message : ""}</span>`;
+    }
+  }
+
+  async function refreshEngineHealth() {
+    const h = await api.getContainerEngineHealth();
+    paintEngineHealth(h);
+    return h;
+  }
+
   async function loadPrefs() {
     const res = await api.getUIPrefs();
     const prefs = res.prefs || ctx.state.uiPrefs || {};
@@ -284,7 +325,10 @@ export function mountSettings(root, ctx) {
     if (tierEl) tierEl.value = normalizeTierPref(prefs.securityTier);
     const isoEl = root.querySelector("#set-isolation-backend");
     if (isoEl) isoEl.value = normalizeIsolationBackend(prefs.isolationBackend);
+    const engEl = root.querySelector("#set-engine-source");
+    if (engEl) engEl.value = normalizeEngineSource(prefs.engineSource);
     syncClearDefaultEnabled();
+    refreshEngineHealth().catch(() => paintEngineHealth(null));
   }
 
   async function savePrefs() {
@@ -294,6 +338,9 @@ export function mountSettings(root, ctx) {
     );
     const nextBackend = normalizeIsolationBackend(
       root.querySelector("#set-isolation-backend")?.value,
+    );
+    const nextEngine = normalizeEngineSource(
+      root.querySelector("#set-engine-source")?.value,
     );
     const prefs = {
       theme: normalizeTheme(root.querySelector("#set-theme").value),
@@ -305,6 +352,7 @@ export function mountSettings(root, ctx) {
         root.querySelector("#set-security-tier")?.value,
       ),
       isolationBackend: nextBackend,
+      engineSource: nextEngine,
     };
     const res = await api.setUIPrefs(prefs);
     const st = root.querySelector("#set-prefs-status");
@@ -343,8 +391,47 @@ export function mountSettings(root, ctx) {
   root.querySelector("#set-ask-clear").onchange = savePrefs;
   root.querySelector("#set-security-tier")?.addEventListener("change", savePrefs);
   root.querySelector("#set-isolation-backend")?.addEventListener("change", savePrefs);
+  root.querySelector("#set-engine-source")?.addEventListener("change", savePrefs);
   root.querySelectorAll('input[name="clear-default"]').forEach((el) => {
     el.onchange = savePrefs;
+  });
+  root.querySelector("#btn-engine-health")?.addEventListener("click", async () => {
+    const btn = root.querySelector("#btn-engine-health");
+    const st = root.querySelector("#engine-action-status");
+    btn.disabled = true;
+    if (st) st.textContent = "检测中…";
+    try {
+      await refreshEngineHealth();
+      if (st) st.innerHTML = `<span class="ok">已刷新</span>`;
+    } catch (e) {
+      if (st) st.innerHTML = `<span class="bad">检测失败</span>`;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  root.querySelector("#btn-engine-ensure")?.addEventListener("click", async () => {
+    const btn = root.querySelector("#btn-engine-ensure");
+    const st = root.querySelector("#engine-action-status");
+    btn.disabled = true;
+    if (st) st.textContent = "启用中（可能下载组件 / 启动 Colima）…";
+    showToast("正在启用容器引擎…", "ok");
+    try {
+      const h = await api.ensureContainerEngine();
+      paintEngineHealth(h);
+      if (h?.ready) {
+        if (st) st.innerHTML = `<span class="ok">引擎已就绪</span>`;
+        showToast("容器引擎已就绪", "ok");
+      } else {
+        if (st)
+          st.innerHTML = `<span class="bad">${h?.message || h?.error?.message || "启用失败"}</span>`;
+        showToast(h?.message || "容器引擎未就绪", "bad");
+      }
+    } catch (e) {
+      if (st) st.innerHTML = `<span class="bad">启用失败</span>`;
+      showToast("启用容器引擎失败", "bad");
+    } finally {
+      btn.disabled = false;
+    }
   });
   loadPrefs();
   paintRunMode(ctx.state.uiPrefs?.isolationBackend);

@@ -206,6 +206,17 @@ type UIPrefs struct {
 	SecurityTier string `json:"securityTier,omitempty"`
 	// IsolationBackend：seatbelt | docker；空=seatbelt（P1）。需重启应用后生效；HARBOR_RUNTIME 环境变量优先。
 	IsolationBackend string `json:"isolationBackend,omitempty"`
+	// EngineSource：harbor-colima | system-docker；仅 isolationBackend=docker 时有意义；空=harbor-colima。
+	EngineSource string `json:"engineSource,omitempty"`
+}
+
+// ContainerEngineHealthResponse 是 P2 容器引擎（Colima/本机 Docker）探测结果。
+type ContainerEngineHealthResponse struct {
+	Ready      bool      `json:"ready"`
+	Source     string    `json:"source,omitempty"`     // harbor-colima | system-docker
+	Message    string    `json:"message,omitempty"`    // 固定模板，禁密钥
+	DockerHost string    `json:"dockerHost,omitempty"` // unix://…；可空
+	Error      *AppError `json:"error"`
 }
 
 // UIPrefsResponse 包装偏好。
@@ -249,6 +260,10 @@ type DesktopAPI interface {
 	// SyncBackWorkspace 将 clone 副本合并写回 SourceWorkspace；direct 会话返回 INVALID_ARGUMENT。
 	SyncBackWorkspace(sessionID string) SessionResponse
 	GetRuntimeHealth() RuntimeHealthResponse
+	// GetContainerEngineHealth 探测 P2 容器引擎（不启停）。
+	GetContainerEngineHealth() ContainerEngineHealthResponse
+	// EnsureContainerEngine 下载/启动托管引擎并尽量构建 runtime 镜像。
+	EnsureContainerEngine() ContainerEngineHealthResponse
 	GetPermissionOverview(sessionID string) PermissionOverviewResponse
 	ListRememberedHosts(workspace string) RememberedHostsResponse
 	RevokeRememberedHost(RevokeHostInput) EmptyResponse

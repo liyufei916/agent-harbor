@@ -238,6 +238,7 @@ func (d *DesktopAPI) GetRuntimeHealth() contracts.RuntimeHealthResponse {
 	// Docker Health may inspect daemon + network + image (nested timeouts up to ~20s).
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 	defer cancel()
+	d.app.applyEngineDockerHost(ctx)
 	if err := rt.Health(ctx); err != nil {
 		ae := mapError(err)
 		reason := ae.Message
@@ -402,7 +403,11 @@ func (d *DesktopAPI) GetUIPrefs() contracts.UIPrefsResponse {
 
 // SetUIPrefs 写入本机 UI 偏好。
 func (d *DesktopAPI) SetUIPrefs(prefs contracts.UIPrefs) contracts.UIPrefsResponse {
+	prev := d.app.getPrefs()
 	saved := d.app.setPrefs(prefs)
+	if normalizeEngineSource(prev.EngineSource) != normalizeEngineSource(saved.EngineSource) {
+		d.app.resetEngine()
+	}
 	return contracts.UIPrefsResponse{Prefs: &saved}
 }
 

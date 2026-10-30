@@ -79,6 +79,7 @@ const ctx = {
       theme: "system",
       securityTier: "standard",
       isolationBackend: "seatbelt",
+      engineSource: "harbor-colima",
     },
     permissionPending: false,
   },

@@ -35,6 +35,20 @@ async function call(method, ...args) {
           error: null,
         };
       }
+      if (method === "getContainerEngineHealth" || method === "ensureContainerEngine") {
+        return {
+          ready: false,
+          source: "harbor-colima",
+          message: "当前桌面未绑定容器引擎 API，请重新生成 Wails 绑定后重启。",
+          dockerHost: "",
+          provisional: true,
+          error: {
+            code: "UNIMPLEMENTED",
+            message: "当前桌面未绑定容器引擎 API，请重新生成绑定并重启应用。",
+            retryable: false,
+          },
+        };
+      }
       if (method === "listSessions") {
         return { sessions: [], provisional: true, error: null };
       }
@@ -100,6 +114,15 @@ async function call(method, ...args) {
         available: false,
         reason: wrapTransportError(e).message,
         isolationLevel: "",
+        error: wrapTransportError(e),
+      };
+    }
+    if (method === "getContainerEngineHealth" || method === "ensureContainerEngine") {
+      return {
+        ready: false,
+        source: "",
+        message: wrapTransportError(e).message,
+        dockerHost: "",
         error: wrapTransportError(e),
       };
     }
@@ -175,6 +198,12 @@ export function listAgents() {
 }
 export function getRuntimeHealth() {
   return call("getRuntimeHealth");
+}
+export function getContainerEngineHealth() {
+  return call("getContainerEngineHealth");
+}
+export function ensureContainerEngine() {
+  return call("ensureContainerEngine");
 }
 export function listSessions() {
   return call("listSessions");

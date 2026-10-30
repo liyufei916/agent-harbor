@@ -32,8 +32,8 @@ Gate / Policy / 页面主契约不变，只换 `Runtime` 实现；引擎由 Harb
 | **B0** | DECISIONS：Colima 主路径、目录、fail-closed、不做 Desktop 内嵌 | **完成** |
 | **M2a** | `internal/engine`：SystemDocker 适配 + Colima 占位（fail-closed） | **完成** |
 | **M2b** | Colima Start/Stop/Health（PATH 或 `engine/bin`）；`EnsureImage`；不抢全局 docker context | **完成** |
-| **M2c** | 钉扎下载 colima + lima + docker CLI（SHA256）；`HARBOR_ENGINE_AUTO_DOWNLOAD` | **本提交** |
-| **M3** | 设置：引擎来源（Harbor / 本机 Docker）；`DOCKER_HOST` 接入 Runtime | 待做 |
+| **M2c** | 钉扎下载 colima + lima + docker CLI（SHA256）；`HARBOR_ENGINE_AUTO_DOWNLOAD` | **完成** |
+| **M3** | 设置：引擎来源 / Health / 启用；`DOCKER_HOST` 接入 Runtime | **本提交** |
 | **M4** | 默认无感路径（C）；陌生机无 Desktop 证据 | 待做 |
 
 开发期若本机已有 Docker，仍可用外置 daemon 验证 Runtime（`bash scripts/docker-p2-up.sh`），与 B→C 产品主路径不冲突。
@@ -52,7 +52,7 @@ bash scripts/docker-p2-up.sh   # 构建镜像 + 边界冒烟（需已有 docker�
 # 或：export HARBOR_RUNTIME=docker
 ```
 
-产品主路径落地后：设置/向导「启用容器隔离」→ Harbor 拉起 Colima → 自动建镜像 → 切 P2（细节见 M3/M4）。
+产品主路径（M3）：设置 → 容器引擎来源（默认 Harbor Colima）→「启用容器引擎」→ 切隔离后端为容器 → **重启应用**。M4 再做首启无感。
 
 ## 环境变量
 

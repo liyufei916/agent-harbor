@@ -21,6 +21,8 @@ const LIVE_SURFACE = [
   "destroySession",
   "syncBackWorkspace",
   "getRuntimeHealth",
+  "getContainerEngineHealth",
+  "ensureContainerEngine",
   "getPermissionOverview",
   "listRememberedHosts",
   "revokeRememberedHost",

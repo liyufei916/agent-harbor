@@ -26,6 +26,7 @@
 | 2026-10-30v | **P2 引擎 M2a**：SystemDocker 适配器 + Colima 占位（未实现前 fail-closed）；默认选型 Colima。 |
 | 2026-10-30w | **P2 引擎 M2b**：Colima profile `agent-harbor` 启停/Health/`DOCKER_HOST`；`EnsureImage`；`--activate=false`。 |
 | 2026-10-30x | **P2 引擎 M2c**：钉扎下载 colima/lima/docker（校验 SHA256）；默认自动下载，可用 `HARBOR_ENGINE_AUTO_DOWNLOAD=0` 关闭。 |
+| 2026-10-30y | **P2 引擎 M3**：`Get/EnsureContainerEngine` + 设置页来源/检测/启用；`DOCKER_HOST` 在 Attach/Health 接入 Runtime。 |
 
 ## eng-complete（代码已接线）
 
@@ -53,7 +54,7 @@
 | I1–I11 / B6 live | **通过（2026-10-30 全量重跑）** | harness + 平台探针 + `bin/AgentHarbor.app` 启停；见 ACCEPTANCE |
 | 扩权 302 异常项（可选） | **backlog** | 主路径改为 `PromptPermission` ask + 白名单；302 不挡验收 |
 | Apple 公证 / 分发签名 | **blocked（账号）** | 需 Apple Developer；清单见 [`scripts/notarize-prep.md`](../scripts/notarize-prep.md) |
-| Docker Runtime（P2） | **Runtime 底座完成；引擎 B→C 进行中** | Runtime 0–16；引擎至 **M2c（钉扎下载）**；**M3 UI / M4 无感** 待做 |
+| Docker Runtime（P2） | **Runtime 底座完成；引擎 B→C 进行中** | Runtime 0–16；引擎至 **M3（设置/Health/DOCKER_HOST）**；**M4 无感** 待做 |
 | microVM | **backlog（后于 Docker）** | 不挡 P2 容器；预研另立 |
 | 官方 MCP SDK | **backlog** | 现用 `net/http` 转发；待真实上游后再换 SDK |
 | Linux Seatbelt | **N/A** | Runtime 非 Darwin → `ISOLATION_UNAVAILABLE`；无 Linux Seatbelt 目标 |

@@ -210,9 +210,18 @@ type UIPrefs struct {
     ClearOnStopDefault string `json:"clearOnStopDefault,omitempty"` // keep | clear；空=keep
     SecurityTier string `json:"securityTier,omitempty"` // strict | standard | relaxed
     IsolationBackend string `json:"isolationBackend,omitempty"` // seatbelt | docker；改后需重启；HARBOR_RUNTIME 优先
+    EngineSource string `json:"engineSource,omitempty"` // harbor-colima | system-docker；空=harbor-colima
 }
 type UIPrefsResponse struct {
     Prefs *UIPrefs `json:"prefs"`
+    Error *AppError `json:"error"`
+}
+// ContainerEngineHealthResponse：P2 容器引擎状态（Colima / 本机 Docker）。
+type ContainerEngineHealthResponse struct {
+    Ready bool `json:"ready"`
+    Source string `json:"source,omitempty"`
+    Message string `json:"message,omitempty"`
+    DockerHost string `json:"dockerHost,omitempty"`
     Error *AppError `json:"error"`
 }
 type EmptyResponse struct {
@@ -235,6 +244,8 @@ type DesktopAPI interface {
     DestroySession(sessionID string) SessionResponse
     SyncBackWorkspace(sessionID string) SessionResponse // clone → 原目录合并写回
     GetRuntimeHealth() RuntimeHealthResponse
+    GetContainerEngineHealth() ContainerEngineHealthResponse
+    EnsureContainerEngine() ContainerEngineHealthResponse
     GetPermissionOverview(sessionID string) PermissionOverviewResponse
     ListRememberedHosts(workspace string) RememberedHostsResponse
     RevokeRememberedHost(RevokeHostInput) EmptyResponse
@@ -436,6 +447,8 @@ type Runtime interface {
 | DestroySession | 移除终态会话记录 | 非 stopped/failed 或 cleanupComplete=false → `INVALID_ARGUMENT`；未知 → `SESSION_NOT_FOUND`；并删除停止后保留的 clone 副本 |
 | SyncBackWorkspace | 将 clone 副本合并写回 `sourceWorkspace` | 仅 `mountMode=clone`；覆盖同名常规文件，不删原目录多余项；成功后桌面在访达中显示源目录；无副本/direct → `INVALID_ARGUMENT`；未知 → `SESSION_NOT_FOUND` |
 | GetRuntimeHealth | 隔离/Runtime 探测 | available=false 时 reason 必填；可选 `vaultNotice` 提示凭据介质告警；不因此自动放行无隔离启动 |
+| GetContainerEngineHealth | P2 容器引擎探测 | ready=false 时 message 必填；不启停引擎；禁密钥 |
+| EnsureContainerEngine | 启用/下载/启动引擎并尽量建镜像 | 失败 fail-closed；成功可写 `DOCKER_HOST`；不自动改 Seatbelt 默认 |
 | GetPermissionOverview | 只读边界摘要 | 无 Key/Sentinel/完整 Gate URL；sessionId 空则返回「默认/全局」允许摘要（无工作区时 workspace=""） |
 | ListRememberedHosts | 已记住主机 | workspace 空=全部；与设置「管理网站」同源 |
 | RevokeRememberedHost | 撤销 project/session 记住项 | 未知 host 成功幂等（error=null） |
