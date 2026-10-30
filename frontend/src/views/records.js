@@ -10,8 +10,10 @@ import {
   formatEventRow,
   listUsageEvents,
   loadModelPrices,
-  saveModelPrices,
+  lockedPriceCurrency,
+  removeModelPrice,
   summarizeUsage,
+  upsertModelPrice,
 } from "../usage-analytics.js";
 import {
   TIER_LABELS,
@@ -28,11 +30,14 @@ import {
 export function mountRecords(root, ctx, opts = {}) {
   const allowed = ["usage", "blocks", "permissions", "diagnose"];
   let tab = allowed.includes(opts.tab) ? opts.tab : "usage";
+  /** @type {string} 正在编辑的模型名；空=新建 */
+  let editingModel = "";
 
   async function paint() {
     const s = summarizeUsage();
     const cost = estimateCostStatus();
     const prices = loadModelPrices();
+    const lockedCcy = lockedPriceCurrency(prices);
     const top =
       s.topFailures.length === 0
         ? "<li class='meta'>暂无</li>"
@@ -51,6 +56,56 @@ export function mountRecords(root, ctx, opts = {}) {
     } catch {
       hosts = [];
     }
+
+    /** @type {{ value: string, label: string }[]} */
+    let modelChoices = [];
+    try {
+      const acc = await api.listAccounts("model");
+      const seen = new Set();
+      for (const a of acc.accounts || []) {
+        if (a.kind && a.kind !== "model") continue;
+        const value = String(a.model || a.name || "").trim();
+        if (!value || seen.has(value)) continue;
+        seen.add(value);
+        const bits = [a.name || value];
+        if (a.model && a.model !== a.name) bits.push(a.model);
+        if (a.host) bits.push(a.host);
+        modelChoices.push({ value, label: bits.join(" · ") });
+      }
+    } catch {
+      modelChoices = [];
+    }
+    // 已有单价但账号列表里没有的，仍保留可选以便修改
+    for (const p of prices) {
+      if (p.model && !modelChoices.some((m) => m.value === p.model)) {
+        modelChoices.push({ value: p.model, label: `${p.model}（仅单价）` });
+      }
+    }
+
+    const editing = prices.find((p) => p.model === editingModel);
+    const peersForCcy = editingModel
+      ? prices.filter((p) => p.model !== editingModel)
+      : prices;
+    const peerLocked = lockedPriceCurrency(peersForCcy);
+    const formCcy =
+      editing?.currency ||
+      (peerLocked === "CNY" || peerLocked === "USD"
+        ? peerLocked
+        : lockedCcy === "CNY" || lockedCcy === "USD"
+          ? lockedCcy
+          : "CNY");
+    const ccySelectLocked = peerLocked === "CNY" || peerLocked === "USD";
+    const modelOpts =
+      modelChoices.length === 0
+        ? `<option value="">（请先在「模型」页添加账号）</option>`
+        : `${editingModel ? "" : `<option value="">选择已添加的模型</option>`}${modelChoices
+            .map(
+              (m) =>
+                `<option value="${escapeAttr(m.value)}" ${
+                  editingModel === m.value ? "selected" : ""
+                }>${escapeHtml(m.label)}</option>`,
+            )
+            .join("")}`;
 
     root.innerHTML = `
       <h2>记录</h2>
@@ -74,16 +129,29 @@ export function mountRecords(root, ctx, opts = {}) {
           <p>典型失败 Top：</p>
           <ul class="audit-list">${top}</ul>
         </div>
-        <h4 class="meta" style="margin-top:12px">参考单价（人工填写，CNY/USD 勿混加）</h4>
+        <h4 class="meta" style="margin-top:12px">参考单价（人工填写；同一列表内 CNY/USD 勿混加）</h4>
         <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">
-          <label class="field">模型 <input id="price-model" placeholder="如 deepseek-chat" /></label>
-          <label class="field">输入/1M <input id="price-in" type="number" min="0" step="0.01" placeholder="0" /></label>
-          <label class="field">输出/1M <input id="price-out" type="number" min="0" step="0.01" placeholder="0" /></label>
-          <label class="field">币种
-            <select id="price-ccy"><option value="CNY">CNY</option><option value="USD">USD</option></select>
+          <label class="field">模型
+            <select id="price-model" ${editingModel ? "disabled" : ""}>${modelOpts}</select>
           </label>
-          <button type="button" class="btn" id="price-add">保存单价</button>
+          <label class="field">输入/1M <input id="price-in" type="number" min="0" step="0.01" placeholder="0" value="${editing ? editing.inputPer1M : ""}" /></label>
+          <label class="field">输出/1M <input id="price-out" type="number" min="0" step="0.01" placeholder="0" value="${editing ? editing.outputPer1M : ""}" /></label>
+          <label class="field">币种
+            <select id="price-ccy" ${ccySelectLocked ? "disabled" : ""}>
+              <option value="CNY" ${formCcy === "CNY" ? "selected" : ""}>CNY</option>
+              <option value="USD" ${formCcy === "USD" ? "selected" : ""}>USD</option>
+            </select>
+          </label>
+          <button type="button" class="btn primary" id="price-add">${editingModel ? "更新单价" : "添加单价"}</button>
+          ${editingModel ? `<button type="button" class="btn" id="price-cancel-edit">取消编辑</button>` : ""}
         </div>
+        <p class="meta">${
+          lockedCcy === "MIXED"
+            ? "检测到 CNY/USD 混用，请删除一侧后再保存。"
+            : ccySelectLocked
+              ? `当前列表币种已锁定为 ${peerLocked}（可删光后重选）。`
+              : "尚未锁定币种；第一条单价将决定本列表币种。"
+        }</p>
         <ul class="audit-list" style="margin-top:8px">
           ${
             prices.length === 0
@@ -91,7 +159,13 @@ export function mountRecords(root, ctx, opts = {}) {
               : prices
                   .map(
                     (p) =>
-                      `<li>${p.model} · in ${p.inputPer1M} / out ${p.outputPer1M} ${p.currency} · ${p.asOf}</li>`,
+                      `<li class="row" style="justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap">
+                        <span>${escapeHtml(p.model)} · in ${p.inputPer1M} / out ${p.outputPer1M} ${escapeHtml(p.currency)} · ${escapeHtml(p.asOf || "")}</span>
+                        <span class="row" style="gap:6px">
+                          <button type="button" class="btn" data-price-edit="${escapeAttr(p.model)}">修改</button>
+                          <button type="button" class="btn" data-price-del="${escapeAttr(p.model)}">删除</button>
+                        </span>
+                      </li>`,
                   )
                   .join("")
           }
@@ -214,26 +288,56 @@ export function mountRecords(root, ctx, opts = {}) {
       const model = root.querySelector("#price-model")?.value?.trim();
       const inputPer1M = Number(root.querySelector("#price-in")?.value || 0);
       const outputPer1M = Number(root.querySelector("#price-out")?.value || 0);
-      const currency = root.querySelector("#price-ccy")?.value || "CNY";
-      if (!model) {
-        showToast("请填写模型名", "bad");
+      let currency = root.querySelector("#price-ccy")?.value || "CNY";
+      if (ccySelectLocked) currency = peerLocked;
+      const wasEdit = Boolean(editingModel);
+      const result = upsertModelPrice(prices, {
+        model: wasEdit ? editingModel : model,
+        inputPer1M,
+        outputPer1M,
+        currency,
+        asOf: new Date().toISOString().slice(0, 10),
+      });
+      if (!result.ok) {
+        showToast(result.error, "bad");
         return;
       }
-      const next = [
-        {
-          model,
-          inputPer1M,
-          outputPer1M,
-          currency,
-          asOf: new Date().toISOString().slice(0, 10),
-        },
-        ...prices.filter((p) => p.model !== model),
-      ];
-      saveModelPrices(next);
+      editingModel = "";
       paint();
-      showToast("已保存单价快照", "ok");
+      showToast(wasEdit ? "已更新单价" : "已添加单价", "ok");
+    });
+    root.querySelector("#price-cancel-edit")?.addEventListener("click", () => {
+      editingModel = "";
+      paint();
+    });
+    root.querySelectorAll("[data-price-edit]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        editingModel = btn.getAttribute("data-price-edit") || "";
+        paint();
+      });
+    });
+    root.querySelectorAll("[data-price-del]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const model = btn.getAttribute("data-price-del") || "";
+        removeModelPrice(prices, model);
+        if (editingModel === model) editingModel = "";
+        paint();
+        showToast("已删除单价", "ok");
+      });
     });
   }
 
   paint();
+}
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function escapeAttr(s) {
+  return escapeHtml(s).replace(/'/g, "&#39;");
 }

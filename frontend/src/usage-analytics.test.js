@@ -4,10 +4,15 @@ import {
   clearUsageAnalytics,
   formatEventRow,
   listUsageEvents,
+  loadModelPrices,
+  lockedPriceCurrency,
   recordAudit,
   recordPermissionDecision,
   recordSessionOutcome,
+  removeModelPrice,
+  saveModelPrices,
   summarizeUsage,
+  upsertModelPrice,
 } from "./usage-analytics.js";
 
 test("usage analytics aggregates success deny and failures locally", () => {
@@ -59,4 +64,36 @@ test("records channels split blocks vs permissions", () => {
   assert.match(formatEventRow(perms[0]), /deny|project/);
   assert.equal(summarizeUsage().permissionCount, 2);
   clearUsageAnalytics();
+});
+
+test("model prices upsert/edit/delete and reject CNY/USD mix", () => {
+  saveModelPrices([]);
+  assert.equal(lockedPriceCurrency(), "");
+  const a = upsertModelPrice([], {
+    model: "deepseek-chat",
+    inputPer1M: 1,
+    outputPer1M: 2,
+    currency: "CNY",
+  });
+  assert.equal(a.ok, true);
+  assert.equal(loadModelPrices().length, 1);
+  const mixed = upsertModelPrice(loadModelPrices(), {
+    model: "gpt",
+    inputPer1M: 1,
+    outputPer1M: 1,
+    currency: "USD",
+  });
+  assert.equal(mixed.ok, false);
+  assert.match(mixed.error, /勿与 USD 混加|混加/);
+  const upd = upsertModelPrice(loadModelPrices(), {
+    model: "deepseek-chat",
+    inputPer1M: 3,
+    outputPer1M: 4,
+    currency: "CNY",
+  });
+  assert.equal(upd.ok, true);
+  assert.equal(loadModelPrices()[0].inputPer1M, 3);
+  removeModelPrice(loadModelPrices(), "deepseek-chat");
+  assert.equal(loadModelPrices().length, 0);
+  assert.equal(lockedPriceCurrency(), "");
 });

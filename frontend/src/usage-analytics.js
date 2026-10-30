@@ -299,13 +299,36 @@ const PRICE_KEY = "harbor-usage-prices";
  * @typedef {{ model: string, inputPer1M: number, outputPer1M: number, currency: string, asOf: string }} ModelPrice
  */
 
+/** @type {string | null} Node 单测回退 */
+let priceMemoryStore = null;
+
+function priceStorageGet() {
+  try {
+    if (typeof localStorage !== "undefined" && localStorage) {
+      return localStorage.getItem(PRICE_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
+  return priceMemoryStore;
+}
+
+function priceStorageSet(value) {
+  try {
+    if (typeof localStorage !== "undefined" && localStorage) {
+      localStorage.setItem(PRICE_KEY, value);
+      return;
+    }
+  } catch {
+    /* ignore */
+  }
+  priceMemoryStore = value;
+}
+
 /** @returns {ModelPrice[]} */
 export function loadModelPrices() {
   try {
-    const raw =
-      typeof localStorage !== "undefined"
-        ? localStorage.getItem(PRICE_KEY)
-        : null;
+    const raw = priceStorageGet();
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -317,12 +340,71 @@ export function loadModelPrices() {
 /** @param {ModelPrice[]} prices */
 export function saveModelPrices(prices) {
   try {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(PRICE_KEY, JSON.stringify(prices.slice(0, 40)));
-    }
+    priceStorageSet(JSON.stringify((prices || []).slice(0, 40)));
   } catch {
     /* ignore */
   }
+}
+
+/** 已保存单价的统一币种；空表示尚无快照。CNY/USD 不得混加。 */
+export function lockedPriceCurrency(prices = loadModelPrices()) {
+  const set = new Set(
+    (prices || [])
+      .map((p) => String(p?.currency || "").toUpperCase())
+      .filter((c) => c === "CNY" || c === "USD"),
+  );
+  if (set.size === 0) return "";
+  if (set.size > 1) return "MIXED";
+  return [...set][0];
+}
+
+/**
+ * @param {ModelPrice[]} prices
+ * @param {ModelPrice} entry
+ * @returns {{ ok: true, prices: ModelPrice[] } | { ok: false, error: string }}
+ */
+export function upsertModelPrice(prices, entry) {
+  const model = String(entry?.model || "").trim();
+  const currency = String(entry?.currency || "").toUpperCase();
+  if (!model) return { ok: false, error: "请选择模型" };
+  if (currency !== "CNY" && currency !== "USD") {
+    return { ok: false, error: "币种仅支持 CNY 或 USD" };
+  }
+  // 同模型覆盖时排除自身，便于唯一条目改币种；其余条目仍锁币种
+  const others = (prices || []).filter((p) => p.model !== model);
+  const locked = lockedPriceCurrency(others);
+  if (locked === "MIXED") {
+    return { ok: false, error: "已有 CNY/USD 混用快照，请先删除一侧后再保存" };
+  }
+  if (locked && locked !== currency) {
+    return {
+      ok: false,
+      error: `已有 ${locked} 单价，勿与 ${currency} 混加；请改币种或删除现有快照`,
+    };
+  }
+  const inputPer1M = Number(entry.inputPer1M);
+  const outputPer1M = Number(entry.outputPer1M);
+  if (!(inputPer1M >= 0) || !(outputPer1M >= 0)) {
+    return { ok: false, error: "单价须为非负数" };
+  }
+  const nextEntry = {
+    model,
+    inputPer1M,
+    outputPer1M,
+    currency,
+    asOf: entry.asOf || new Date().toISOString().slice(0, 10),
+  };
+  const next = [nextEntry, ...others];
+  saveModelPrices(next);
+  return { ok: true, prices: next };
+}
+
+/** @param {ModelPrice[]} prices @param {string} model */
+export function removeModelPrice(prices, model) {
+  const want = String(model || "").trim();
+  const next = (prices || []).filter((p) => p.model !== want);
+  saveModelPrices(next);
+  return next;
 }
 
 /**
