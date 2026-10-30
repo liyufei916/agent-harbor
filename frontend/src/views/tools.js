@@ -5,6 +5,7 @@
  */
 import * as api from "../api.js";
 import { openFormModal } from "../form-modal.js";
+import { markTutorialStep } from "../tutorial-progress.js";
 
 export function mountTools(root, ctx, opts = {}) {
   let mode = "token"; // oauth | token | stdio
@@ -127,11 +128,10 @@ export function mountTools(root, ctx, opts = {}) {
   function paint() {
     const list = ctx.state.mcpAccounts || [];
     root.innerHTML = `
-      <div class="page-head row" style="justify-content:space-between">
+      <div class="page-head row page-head-spread">
         <div>
           <h2>工具</h2>
-          <p class="sub">给 Agent 一双手（MCP）。可跨 Claude/Codex/dsh 挂载。模型可在「模型」页勾选多 Agent 共用。</p>
-          <p class="meta warn">MCP：<strong>远程 HTTP</strong>（Token / OAuth）或<strong>宿主 stdio</strong>（本机进程，经回环桥；密钥不进沙箱）。须预装 Agent CLI；隔离仅 <strong>macOS Darwin 25 · arm64 · 非 root</strong>。</p>
+          <p class="sub">给 Agent 一双手（MCP）。支持远程 HTTP 与宿主 stdio；密钥不进沙箱。</p>
         </div>
         <button type="button" class="btn primary" id="btn-add-mcp">+ 自定义添加</button>
       </div>
@@ -176,7 +176,7 @@ export function mountTools(root, ctx, opts = {}) {
     });
     list.forEach((a) => {
       const row = document.createElement("article");
-      row.className = "card session-card";
+      row.className = "list-row session-card";
       const confirming = pendingDelete === a.id;
       const toolsHint =
         Array.isArray(a.tools) && a.tools.length
@@ -185,7 +185,7 @@ export function mountTools(root, ctx, opts = {}) {
             ? " · 无工具列表（请编辑重连）"
             : "";
       row.innerHTML = `
-        <div class="row" style="justify-content:space-between">
+        <div class="row page-head-spread">
           <div>
             <strong>${a.name}</strong>
             <span class="meta">${a.transport === "stdio" ? "stdio" : a.authMode || "token"} · ${a.transport === "stdio" ? a.command || "host" : a.host || a.profileId}${toolsHint} · ${a.offlineHint ? "○ 桥未就绪" : "● 已连接"}</span>
@@ -339,6 +339,7 @@ export function mountTools(root, ctx, opts = {}) {
       return;
     }
     presetStatus = `<span class="ok">已添加：${preset.name}</span>`;
+    markTutorialStep(2);
     ctx.onAccountsChanged?.();
     if (resumeWizard()) return;
     await load();
@@ -359,6 +360,7 @@ export function mountTools(root, ctx, opts = {}) {
     ctx.state.mcpAccounts = accounts || [];
     if (added[0]) ctx.state.mcpAccount = added[0];
     else if (ctx.state.mcpAccounts[0]) ctx.state.mcpAccount = ctx.state.mcpAccounts[0];
+    markTutorialStep(2);
     ctx.onAccountsChanged?.();
     if (resumeWizard()) return;
     await load();
@@ -559,6 +561,7 @@ export function mountTools(root, ctx, opts = {}) {
           if (envEl) envEl.value = "";
           editing = null;
           closeFormModal();
+          markTutorialStep(2);
           ctx.onAccountsChanged?.();
           if (resumeWizard()) return;
           await load();

@@ -103,7 +103,7 @@
 | 架构路径（Gate/stdio/Runtime） | [ARCHITECTURE](ARCHITECTURE.md)、[DESIGN](DESIGN.md) 相关开放问题、模块 README |
 | 产品页能力 / 边界文案 | [PAGE-DESIGN](PAGE-DESIGN.md)、[README](../README.md)、`frontend/src/usage-guide.js`、[demos/README](../demos/README.md) |
 | 装配 / OAuth / 发布 | [DEV-B](DEV-B.md)、[DECISIONS](DECISIONS.md)、Release/CI 说明 |
-| 验收证据 | [ACCEPTANCE](ACCEPTANCE.md)、`demos/*evidence*` |
+| 验收证据 | [ACCEPTANCE](ACCEPTANCE.md)、[demos/evidence/](../demos/evidence/)、[evidence-template](../demos/evidence-template.md) |
 | 目录新增包 | [DIRECTORY-STRUCTURE](DIRECTORY-STRUCTURE.md)、[internal/README](../internal/README.md) |
 
 ---

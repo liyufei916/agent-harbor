@@ -21,7 +21,7 @@
       <header class="titlebar" id="titlebar">
         <strong class="titlebar-brand">Agent Harbor</strong>
         <span class="titlebar-tagline">密钥留在本机 · Agent 隔离运行</span>
-        <span id="mode-badge" class="badge mock">模拟模式</span>
+        <span id="mode-badge" class="badge mock hidden" hidden>模拟模式</span>
         <span id="isolation-badge" class="badge isolation-badge isolation-seatbelt" title="当前隔离后端">Seatbelt</span>
         <button type="button" class="btn titlebar-help hidden" id="btn-restart-app" title="重启应用使隔离后端生效">重启应用</button>
         <span class="spacer"></span>
@@ -30,12 +30,7 @@
           <select id="session-switch" aria-label="切换会话"></select>
         </label>
         <span id="perm-pending-badge" class="badge perm-pending hidden" title="有待决定的扩权请求">待扩权</span>
-        <button type="button" class="btn titlebar-help" id="tutorial-btn" title="使用教程">
-          使用教程
-        </button>
-        <button type="button" class="btn titlebar-help" id="usage-guide-btn" title="使用说明">
-          使用说明
-        </button>
+        <button type="button" class="btn titlebar-help" id="tutorial-btn" title="使用教程">使用教程</button>
       </header>
       <aside class="sidebar" id="sidebar">
         <nav class="sidebar-nav" id="sidebar-nav">

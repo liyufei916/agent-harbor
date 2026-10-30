@@ -51,6 +51,13 @@ func Catalog() []Info {
 			NeedsAPIKey: false,
 		},
 		{
+			ID:          "harbor-demo-boundary",
+			Name:        "演示边界（阻拦/扩权）",
+			Description: "stdio 演示边界（可选）；扩权演示优先用工作区 EXPAND-TASK / Gate 注入的 harbor_demo_ask。",
+			Kind:        "stdio",
+			NeedsAPIKey: false,
+		},
+		{
 			ID:          "context7",
 			Name:        "Context7 文档",
 			Description: "远程只读文档检索；须自备 Token（HTTPS）。",
@@ -83,7 +90,7 @@ func Prepare(id, destDir, workspaceRoot string) (Launch, error) {
 		out.Origin = info.Origin
 		out.ProfileID = "custom"
 		return out, nil
-	case "harbor-time", "harbor-filesystem":
+	case "harbor-time", "harbor-filesystem", "harbor-demo-boundary":
 		py, err := resolvePython3()
 		if err != nil {
 			return Launch{}, err
@@ -92,8 +99,11 @@ func Prepare(id, destDir, workspaceRoot string) (Launch, error) {
 			return Launch{}, err
 		}
 		scriptName := "time_server.py"
-		if id == "harbor-filesystem" {
+		switch id {
+		case "harbor-filesystem":
 			scriptName = "filesystem_server.py"
+		case "harbor-demo-boundary":
+			scriptName = "demo_boundary_server.py"
 		}
 		scriptPath, err := installScript(destDir, scriptName)
 		if err != nil {

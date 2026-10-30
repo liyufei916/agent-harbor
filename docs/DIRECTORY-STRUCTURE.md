@@ -25,7 +25,7 @@ agent-harbor/
 │   ├── contracts/               # A/B 确定，C 核对：前端可见 DTO、事件、错误码
 │   │   ├── dto.go
 │   │   └── events.go
-│   ├── orchestrator/            # A：会话生命周期（目标多会话≤2、clone、PTY）、回滚及模块集成
+│   ├── orchestrator/            # A：会话生命周期（目标多会话≤5、clone、PTY）、回滚及模块集成
 │   │   ├── session.go
 │   │   └── session_test.go
 │   ├── runtime/                 # A：操作系统隔离与进程树管理（P1 Seatbelt / P2 Docker）
@@ -70,9 +70,9 @@ agent-harbor/
 │   ├── checks.py · seatbelt_probe.py
 │   ├── test_checks.py · test_sandbox_profile.py  # 可移植 deny-default 等
 │   └── fixtures/
-├── demos/                       # C：演示话术、导回证据、工作区
-│   ├── README.md · syncback-evidence.md · evidence-template.md
-│   └── workspace/
+├── demos/                       # C：演示话术、证据、工作区
+│   ├── README.md · B6-SUCCESS-DEMO.md · permission-live-test.md · evidence/
+│   └── workspace/               # EXPAND-TASK / BLOCK-TASK / hello / 导回样例
 ├── docs/
 │   ├── DIRECTORY-STRUCTURE.md   # 本文
 │   ├── MODULE-DESIGN.md         # 当前模块边界、依赖、替身与并行安排

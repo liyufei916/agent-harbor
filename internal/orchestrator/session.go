@@ -18,6 +18,9 @@ import (
 	"github.com/liyufei916/agent-harbor/internal/runtime"
 )
 
+// MaxActiveSessions 同时非终态会话上限（含 provisioning / running / stopping）。
+const MaxActiveSessions = 5
+
 type Service struct {
 	mu               sync.Mutex
 	app              context.Context
@@ -134,7 +137,7 @@ func (o *Service) Create(ctx context.Context, spec contracts.SessionSpec) (contr
 			return contracts.SessionSnapshot{}, publicError("WORKSPACE_BUSY")
 		}
 	}
-	if activeCount >= 2 {
+	if activeCount >= MaxActiveSessions {
 		return contracts.SessionSnapshot{}, publicError("SESSION_LIMIT")
 	}
 	spec.Workspace = workspace
@@ -411,7 +414,7 @@ func (o *Service) Start(ctx context.Context, id string) (contracts.SessionSnapsh
 			return contracts.SessionSnapshot{}, publicError("WORKSPACE_BUSY")
 		}
 	}
-	if activeCount >= 2 {
+	if activeCount >= MaxActiveSessions {
 		return contracts.SessionSnapshot{}, publicError("SESSION_LIMIT")
 	}
 	if s.retainedClone != "" {

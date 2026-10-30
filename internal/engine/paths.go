@@ -32,7 +32,13 @@ func (c *Colima) binDir() string {
 	return filepath.Join(c.root(), binDirName)
 }
 
+// colimaHomeDir 放短路径：Lima 在 COLIMA_HOME/_lima/<profile>/ssh.sock.<suffix>
+// 总长须 < UNIX_PATH_MAX(104)。Application Support/.../engine/colima 会超限（实测 117）。
 func (c *Colima) colimaHomeDir() string {
+	home, err := os.UserHomeDir()
+	if err == nil && home != "" {
+		return filepath.Join(home, "Library", "Caches", "AgentHarbor", colimaHome)
+	}
 	return filepath.Join(c.root(), colimaHome)
 }
 

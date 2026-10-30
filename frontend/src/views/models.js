@@ -8,6 +8,7 @@ import { defaultAgentsForProfile, modelCompatLabel } from "../agent-compat.js";
 import { fixedProfileHint } from "../agent-env-hints.js";
 import { openFormModal } from "../form-modal.js";
 import { showToast } from "../toast.js";
+import { markTutorialStep } from "../tutorial-progress.js";
 
 const AGENT_OPTS = [
   { id: "claude", label: "Claude" },
@@ -105,7 +106,7 @@ export function mountModels(root, ctx, opts = {}) {
   function paint() {
     const list = ctx.state.modelAccounts || [];
     root.innerHTML = `
-      <div class="page-head row" style="justify-content:space-between">
+      <div class="page-head row page-head-spread">
         <div>
           <h2>模型</h2>
           <p class="sub">给 Agent 一把「嘴」。可勾选兼容多个 Agent（须上游同时支持对应协议）；列表显示可用范围。</p>
@@ -131,10 +132,10 @@ export function mountModels(root, ctx, opts = {}) {
     const listEl = root.querySelector("#model-list");
     list.forEach((a) => {
       const row = document.createElement("article");
-      row.className = "card session-card";
+      row.className = "list-row session-card";
       const confirming = pendingDelete === a.id;
       row.innerHTML = `
-        <div class="row" style="justify-content:space-between">
+        <div class="row page-head-spread">
           <div>
             <strong>${a.name}</strong>
             <span class="meta">${a.host || a.profileId || ""} · ${modelCompatLabel(a)}</span>
@@ -435,6 +436,7 @@ export function mountModels(root, ctx, opts = {}) {
         editing = null;
         fixedProfileId = null;
         closeFormModal();
+        markTutorialStep(1);
         ctx.onAccountsChanged?.();
         if (resumeWizard(res.account?.id)) return;
         await load();

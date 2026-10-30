@@ -114,11 +114,11 @@ export function mountRecords(root, ctx, opts = {}) {
       <h2>记录</h2>
       <p class="sub">仅存本机，不外传。导出为脱敏 JSON（会话 ID 截断）；桌面会弹出「另存为」并在访达中显示文件。</p>
 
-      <div class="row records-tabs" role="tablist" style="gap:8px;margin:12px 0;flex-wrap:wrap">
-        <button type="button" class="btn ${tab === "usage" ? "primary" : ""}" data-tab="usage" role="tab">用量</button>
-        <button type="button" class="btn ${tab === "blocks" ? "primary" : ""}" data-tab="blocks" role="tab">阻拦</button>
-        <button type="button" class="btn ${tab === "permissions" ? "primary" : ""}" data-tab="permissions" role="tab">扩权</button>
-        <button type="button" class="btn ${tab === "diagnose" ? "primary" : ""}" data-tab="diagnose" role="tab">诊断</button>
+      <div class="row records-tabs" role="tablist">
+        <button type="button" class="tab ${tab === "usage" ? "on" : ""}" data-tab="usage" role="tab" aria-selected="${tab === "usage"}">用量</button>
+        <button type="button" class="tab ${tab === "blocks" ? "on" : ""}" data-tab="blocks" role="tab" aria-selected="${tab === "blocks"}">阻拦</button>
+        <button type="button" class="tab ${tab === "permissions" ? "on" : ""}" data-tab="permissions" role="tab" aria-selected="${tab === "permissions"}">扩权</button>
+        <button type="button" class="tab ${tab === "diagnose" ? "on" : ""}" data-tab="diagnose" role="tab" aria-selected="${tab === "diagnose"}">诊断</button>
       </div>
 
       <section class="card ${tab === "usage" ? "" : "hidden"}" data-panel="usage">

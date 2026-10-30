@@ -47,7 +47,8 @@ func buildProfile(input kits.KitInput, model string, conversation bool) ([]runti
 		if i > 0 {
 			id += "-" + strconv.Itoa(i+1)
 		}
-		add(id, "dsh-mcp-client", map[string]any{"serverName": kits.MCPName(i), "transport": "streamable-http", "url": endpoint, "headers": map[string]string{"Authorization": "Bearer " + input.Sentinel}, "failOnStartupError": true, "reconnect": map[string]any{"enabled": false}})
+		// failOnStartupError=false：多挂载时单个 MCP 协商/启动失败不应拖垮整趟 Agent。
+		add(id, "dsh-mcp-client", map[string]any{"serverName": kits.MCPName(i), "transport": "streamable-http", "url": endpoint, "headers": map[string]string{"Authorization": "Bearer " + input.Sentinel}, "failOnStartupError": false, "reconnect": map[string]any{"enabled": false}})
 	}
 
 	if conversation {

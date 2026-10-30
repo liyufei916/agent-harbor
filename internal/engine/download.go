@@ -209,6 +209,9 @@ func (c *Colima) installArtifact(ctx context.Context, fetch fetchFunc, a pinnedA
 						_ = os.WriteFile(limaDest, data, 0755)
 					}
 				}
+				if err := c.ensureLimaShareLink(); err != nil {
+					return err
+				}
 			}
 			break
 		}

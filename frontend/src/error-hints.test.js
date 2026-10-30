@@ -5,7 +5,7 @@ import { hostsForTier, normalizeTier } from "./security-tier.js";
 import { classifySyncPath, ingressFindings } from "./ingress-check.js";
 
 test("hintForError maps known codes", () => {
-  assert.match(hintForError("SESSION_LIMIT"), /最多 2/);
+  assert.match(hintForError("SESSION_LIMIT"), /最多 5/);
   assert.match(formatErrorWithHint({ code: "WORKSPACE_BUSY", message: "busy" }), /同工作区/);
 });
 

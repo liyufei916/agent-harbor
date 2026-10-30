@@ -13,6 +13,18 @@ import { healthAllowsStart, healthBlockReason } from "../health-ready.js";
 
 const STEPS = ["workspace", "agent", "model", "tools"];
 
+function isolationIsDocker(ctx) {
+  const v = String(ctx?.state?.uiPrefs?.isolationBackend || "").toLowerCase();
+  return v === "docker" || v === "p2" || v === "container";
+}
+
+function agentStepHint(docker) {
+  if (docker) {
+    return `<p class="meta warn">Docker 隔离：检测<strong>镜像内</strong>预装 CLI（Claude / Codex / dsh），不依赖本机 PATH。灰显时请先构建 <code>deploy/docker</code> 镜像并确认引擎就绪。</p>`;
+  }
+  return `<p class="meta warn">须本机 PATH 可调用对应 CLI（Claude：<code>claude</code>；Codex：<code>codex</code>+<code>node</code>；dsh：固定预览版）。Seatbelt 隔离仅 Darwin 25 · arm64 · 非 root。</p>`;
+}
+
 export function mountWizard(root, ctx, opts = {}) {
   if (opts.fresh) {
     ctx.state.wizardResume = null;
@@ -120,18 +132,21 @@ export function mountWizard(root, ctx, opts = {}) {
             `<li class="${a.available ? "meta" : "bad"}">${a.name || a.id}：${a.available ? "● 可用" : "○ 未安装"} ${a.version || ""}</li>`,
         )
         .join("");
+      const docker = isolationIsDocker(ctx);
       body = `
         <h2>选择工作区</h2>
-        <p class="sub">选择要隔离运行的项目文件夹。开会话前须至少一台本机 Agent CLI。</p>
+        <p class="sub">选择要隔离运行的项目文件夹。开会话前须至少一台可用 Agent${docker ? "（镜像内）" : " CLI"}。</p>
         <div class="card" style="margin-bottom:12px">
-          <h3>本机 Agent CLI（先检）</h3>
+          <h3>${docker ? "镜像内 Agent（先检）" : "本机 Agent CLI（先检）"}</h3>
           <ul class="audit-list">${agentBits || "<li class='bad'>尚未检测到 Agent</li>"}</ul>
           ${
             anyAgent
-              ? `<p class="meta">已有可用 CLI，可继续选工作区。</p>`
-              : `<p class="meta bad">当前无可用 Agent：请先安装 Claude / Codex / dsh 之一后再开新会话（下一步亦会拦截）。</p>`
+              ? `<p class="meta">已有可用 Agent，可继续选工作区。</p>`
+              : docker
+                ? `<p class="meta bad">镜像内无可用 Agent：请构建/更新 Docker 镜像后再开新会话（下一步亦会拦截）。</p>`
+                : `<p class="meta bad">当前无可用 Agent：请先安装 Claude / Codex / dsh 之一后再开新会话（下一步亦会拦截）。</p>`
           }
-          <button type="button" class="btn" id="wz-redetect-early">重新检测 CLI</button>
+          <button type="button" class="btn" id="wz-redetect-early">重新检测</button>
         </div>
         <div class="card drop-zone">
           <button type="button" class="btn primary" id="wz-pick">${api.isMock() ? "选择文件夹（mock）" : "选择文件夹"}</button>
@@ -150,10 +165,11 @@ export function mountWizard(root, ctx, opts = {}) {
       `;
     } else if (step === 1) {
       const agents = ctx.state.agents || [];
+      const docker = isolationIsDocker(ctx);
       body = `
         <h2>选择 Agent</h2>
-        <p class="sub">预置列表；未安装灰显。<button type="button" class="btn" id="wz-redetect">重新检测</button></p>
-        <p class="meta warn">须本机 PATH 可调用对应 CLI（Claude：<code>claude</code>；Codex：<code>codex</code>+<code>node</code>；dsh：固定预览版）。隔离仅 Darwin 25 · arm64 · 非 root。</p>
+        <p class="sub">预置列表；${!docker ? "未安装" : "镜像内不可用"}灰显。<button type="button" class="btn" id="wz-redetect">重新检测</button></p>
+        ${agentStepHint(docker)}
         <div class="agent-grid" id="wz-agents">
           ${agents
             .map((a) => {
@@ -162,11 +178,11 @@ export function mountWizard(root, ctx, opts = {}) {
             <div class="agent-card-wrap">
               <button type="button" class="agent-card ${draft.agentId === a.id ? "on" : ""} ${a.available ? "" : "disabled"}" data-id="${a.id}" ${a.available ? "" : "disabled"}>
                 <strong>${a.name}</strong>
-                <span class="meta">${a.available ? "● 可用" : "○ 未安装"} ${a.version || ""}</span>
-                ${a.available ? "" : `<span class="meta">${a.reason || "请安装后重试"}</span>`}
+                <span class="meta">${a.available ? "● 可用" : docker ? "○ 镜像内不可用" : "○ 未安装"} ${a.version || ""}</span>
+                ${a.available ? "" : `<span class="meta">${a.reason || (docker ? "请构建镜像后重试" : "请安装后重试")}</span>`}
               </button>
               ${
-                !a.available && install
+                !a.available && install && !docker
                   ? `<button type="button" class="btn" data-copy-install="${a.id}">复制安装命令</button>`
                   : ""
               }
@@ -379,7 +395,7 @@ export function mountWizard(root, ctx, opts = {}) {
           let hint = "";
           let cta = "";
           if (res.error.code === "SESSION_LIMIT") {
-            hint = "运行中已满 2 个。回 HOME 停止其中一个后再试。";
+            hint = "运行中已满 5 个。回 HOME 停止其中一个后再试。";
             cta = `<button type="button" class="btn" id="wz-to-home">回 HOME</button>`;
           } else if (res.error.code === "WORKSPACE_BUSY") {
             hint = api.isMock()
@@ -415,7 +431,7 @@ export function mountWizard(root, ctx, opts = {}) {
         ctx.state.lastTask = draft.task;
         ctx.state.wizardResume = null;
         ctx.state.returnAfterAccount = null;
-        markTutorialStep(2);
+        markTutorialStep(3);
         ctx.onSessionCreated(res.session, createSpec);
       };
       wrap.querySelector("#wz-skip").onclick = () => start(true);

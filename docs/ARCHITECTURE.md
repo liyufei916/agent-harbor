@@ -137,7 +137,7 @@
 
 | 规则 | 值 |
 |---|---|
-| 同时 running 上限 | **2** |
+| 同时 running 上限 | **5** |
 | 同工作区双开 | **禁止**（绝对路径规范化后冲突即拒） |
 | 同壳不同工作区 | **允许** |
 | 隔离 | 每会话独立 `session_id`、Sentinel、Policy、Runtime、审计；Gate 按会话路由 |
@@ -153,7 +153,7 @@
 用户点「开始」
   → Orchestrator 校验：
        隔离 OK？工作区存在？Agent 可用？model_account 已连接？
-       running 数 < 2？该工作区无其它 running？
+       running 数 < 5？该工作区无其它 running？
   → Policy 快照：{ workspace, mount_mode, allow_domains[], mcp_ids[], agent, model_account_id }
   → Runtime.create(policy.fs)
   → Gate.start(session_id, policy.network, policy.mcp, model_account_id, …)

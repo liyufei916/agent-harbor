@@ -4,7 +4,7 @@
 |---|---|
 | 2026-10-30 | **eng 代码面已齐**；正式关单仍靠 [ACCEPTANCE](ACCEPTANCE.md) live 证据。本页不把单测/mock 升级为 I1–I11 通过。 |
 | 2026-10-30b | **可复验交付补丁**：修 `gofmt` / 非法 `release.yml`（HEREDOC 顶格）；CI Artifact 附 SHA256；`SaveTextFile`/`PromptPermission`/`SelectWorkspace` 断言；根目录 MIT LICENSE。绿 CI 与可下载产物以本提交后 Actions 为准。 |
-| 2026-10-30c | **可落地优化**：MCP 兼容矩阵；向导第 1 步 CLI 前检；ports 声明 PermissionAsker；MCP 协议接受 2024-11-05/2025-06-18；Gate usage 旁路扫描；dsh Detect stub 单测；失败 Top→改进表。 |
+| 2026-10-30c | **可落地优化**：MCP 兼容矩阵；向导第 1 步 CLI 前检；ports 声明 PermissionAsker；MCP 协议接受 2024-11-05/2025-06-18；Gate usage 旁路扫描；dsh Detect stub 单测。 |
 | 2026-10-30d | **UX/Detect**：扩权 toast 带主机；SyncBack 成功访达显示源目录；用量空态缩短；dsh 默认安装路径 `ResolvePaths`（无 `HARBOR_DSH_*` 亦可 Detect）；工作台 `stream-display` 解析 dsh `ready`/`text-delta`/`final`；亮点 mock 截图 `demos/screenshots/`。 |
 | 2026-10-30e | **P2 起步**：确认 Docker（非 microVM）；分支 `feat/p2-docker-runtime`；`NewSelected` + `Docker` Health/Create/Destroy；Exec 待 Agent 镜像。见 [P2-DOCKER](P2-DOCKER.md)。 |
 | 2026-10-30f | **P2 切片 1**：`Exec`/Interactive、guest 路径与 Gate `host.docker.internal` 改写；`deploy/docker` 开发镜像（Node 20 alpine）。 |
@@ -35,6 +35,9 @@
 | 2026-10-30ae | **P2 网关可达**：去掉 `--internal`（Desktop 阻断 harbor.gate）；Claude CLI 用 wireModel，Gate 改写账号模型。 |
 | 2026-10-30af | **文档/文案对齐**：使用说明、README 亮点、PAGE-DESIGN、FIRST-RUN/stranger、阻断与引导「Docker」用语；演示路径 B 标明仅 mock。 |
 | 2026-10-30ag | **P2 资产落地（不合 main）**：mock 截图 13–16；`docker-p2-smoke` 证据入 `demos/evidence/`；stranger §P2 A 冒烟勾选。 |
+| 2026-10-30ah | **P2 live 证据**：`HARBOR_RUNTIME=docker` 下 claude/codex/dsh marker 全绿（`p2-docker-agents-*.txt`）；Codex 关 plugins（防 Gate 外 git fetch）；harness 任务去掉 demos/workspace 相对路径歧义。 |
+| 2026-10-30ai | **P2 §B Colima**：`COLIMA_HOME` 改 `~/Library/Caches/AgentHarbor/colima`（UNIX_PATH_MAX）；`engine/share`→`lima/share` guestagent；Ensure/Health 证据 `p2-colima-ensure-*.txt`（Desktop 已安装但未用）。 |
+| 2026-10-30aj | **扩权演示收敛**：Gate `tools/list` 注入 `harbor_demo_ask`；工作区 `EXPAND-TASK`/`BLOCK-TASK`；删不可用 shell 触发脚本与冗余 demos md。 |
 
 ## eng-complete（代码已接线）
 
@@ -44,7 +47,7 @@
 | Claude 多轮 | `--input-format stream-json` + EncodeInput |
 | dsh 多轮（桌面） | `dsh.NewConversation` 固定受信会话驱动；默认路径自动 Detect；对话区解析 conversation JSONL |
 | Codex Kit | 已注册；`app-server` + turn bridge 多轮 |
-| clone / SyncBack | Runtime 副本 + 导回 + Destroy 清理；桌面导回成功后访达显示源目录 |
+| clone / SyncBack | Runtime 副本 + 导回 + Destroy 清理；导回成功 toast 提示路径（不自动开访达） |
 | PTY / Resize | WritePty；Terminal 模式 `pty.Setsize` |
 | SwitchModel | 同 profileId + Host；工作台仅列兼容账号 |
 | OAuth / stdio MCP | 回环 OAuth、宿主 stdio 桥 |
@@ -62,7 +65,7 @@
 | I1–I11 / B6 live | **通过（2026-10-30 全量重跑）** | harness + 平台探针 + `bin/AgentHarbor.app` 启停；见 ACCEPTANCE |
 | 扩权 302 异常项（可选） | **backlog** | 主路径改为 `PromptPermission` ask + 白名单；302 不挡验收 |
 | Apple 公证 / 分发签名 | **blocked（账号）** | 需 Apple Developer；清单见 [`scripts/notarize-prep.md`](../scripts/notarize-prep.md) |
-| Docker Runtime（P2） | **代码面齐；冒烟证据已落** | Runtime 0–16；引擎 M2–M4；`demos/evidence/p2-docker-smoke-*.txt`；**桌面 Health/首任务 + 无 Desktop §B 仍待 live**；不合 main 前不关正式单 |
+| Docker Runtime（P2） | **API live 已绿；GUI/陌生机仍待** | Runtime+引擎；冒烟/`p2-docker-agents`（三 Agent）/`p2-colima-ensure`（§B Colima sock）已入 `demos/evidence/`；**桌面 GUI 点选 + 真·无 Desktop 陌生机**仍待；不合 main 前不关正式单 |
 | microVM | **backlog（后于 Docker）** | 不挡 P2 容器；预研另立 |
 | 官方 MCP SDK | **backlog** | 现用 `net/http` 转发；待真实上游后再换 SDK |
 | Linux Seatbelt | **N/A** | Runtime 非 Darwin → `ISOLATION_UNAVAILABLE`；无 Linux Seatbelt 目标 |

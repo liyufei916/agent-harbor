@@ -203,7 +203,7 @@ python3 -m http.server 5173
 | 工具页宿主 stdio 表单 + 能力边界文案 | **已做** |
 | OAuth IdP 自助说明 / 失败建议 | **已做** |
 | 设置：复制安装命令、运行模式；侧栏「记录」三 Tab | **已做** |
-| 使用说明 / demos 口播与导回证据稿 | **已做**（`usage-guide.js`、`demos/syncback-evidence.md`） |
+| 使用说明 / demos 口播与导回证据稿 | **已做**（`usage-guide.js`、`demos/B6-SUCCESS-DEMO.md`） |
 | 文档同步纪律 | 见 [GO-CHECKLIST §7](GO-CHECKLIST.md) |
 
 ---

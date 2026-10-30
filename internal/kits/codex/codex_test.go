@@ -48,7 +48,7 @@ func TestBuildUsesResponsesProviderAndPrivateCodexHome(t *testing.T) {
 		t.Fatalf("Codex 配置路径错误: %+v", launch.ConfigFiles)
 	}
 	config := string(launch.ConfigFiles[0].Content)
-	for _, required := range []string{"wire_api = \"responses\"", "env_key = \"OPENAI_API_KEY\"", "[mcp_servers.harbor]", "http://127.0.0.1:41002/mcp", `base_url = "http://127.0.0.1:41001/v1"`, `sandbox_mode = "danger-full-access"`, `approval_policy = "never"`} {
+	for _, required := range []string{"wire_api = \"responses\"", "env_key = \"OPENAI_API_KEY\"", "[mcp_servers.harbor]", "http://127.0.0.1:41002/mcp", `base_url = "http://127.0.0.1:41001/v1"`, `sandbox_mode = "danger-full-access"`, `approval_policy = "never"`, "[features]", "plugins = false"} {
 		if !strings.Contains(config, required) {
 			t.Fatalf("Codex 配置缺少 %q: %s", required, config)
 		}

@@ -120,7 +120,28 @@ func (c *Colima) Ensure(ctx context.Context) error {
 	if _, err := c.resolveBin("limactl"); err != nil {
 		return errEngine("未找到 limactl（Colima 依赖）。可开启自动下载，或将二进制放入引擎 bin 目录。")
 	}
+	// 已安装场景也补 share 链接（bin/limactl 符号链接按 ../share 找 guestagent）。
+	if err := c.ensureLimaShareLink(); err != nil {
+		return err
+	}
 	c.report(75, "引擎组件已就绪")
+	return nil
+}
+
+func (c *Colima) ensureLimaShareLink() error {
+	prefix := filepath.Join(c.root(), "lima")
+	shareTarget := filepath.Join(prefix, "share")
+	if st, err := os.Stat(shareTarget); err != nil || !st.IsDir() {
+		return nil // 无解压树则跳过；下载安装路径会再建
+	}
+	shareLink := filepath.Join(c.root(), "share")
+	if dest, err := os.Readlink(shareLink); err == nil && dest == shareTarget {
+		return nil
+	}
+	_ = os.RemoveAll(shareLink)
+	if err := os.Symlink(shareTarget, shareLink); err != nil {
+		return errEngine("无法链接 Lima share（guestagent）目录。")
+	}
 	return nil
 }
 

@@ -97,7 +97,7 @@ Runtime.Health() → ok | fail_closed
 
 | # | 工作项 | 说明 | 验收 |
 |---|---|---|---|
-| A1 | Orchestrator 状态机 | `switchModel`；running≤2；同工作区互斥 | 单测 |
+| A1 | Orchestrator 状态机 | `switchModel`；running≤5；同工作区互斥 | 单测 |
 | A2 | Policy 快照 | workspace、mount、domains、mcp、agent、model | 可序列化 |
 | A3 | Secrets（钥匙串/主机密钥库） | 模型 Key；不回显 | 测 + 手工 |
 | A4 | Credential Proxy | Anthropic/OpenAI/GitHub；审计无密钥 | 沙箱无真 Key |
@@ -166,7 +166,7 @@ Runtime.Health() → ok | fail_closed
 | P2.4 | 入口模型（若云化） | 一容器一 index/URL 或一会话一入口；反代到工作台/API | 文档 + 演示 |
 | P2.5 | 切换开关 | 设置 `isolationBackend=seatbelt\|docker`；改后重启；`HARBOR_RUNTIME` 优先 | fail-closed |
 | P2.6 | 逃逸面回归 | 容器内 reboot ≠ 宿主机 reboot；无 docker.sock | 红队脚本 |
-| P2.7 | 资源与并发 | CPU/内存配额；与 running≤2 策略对齐或上调 | 压测笔记 |
+| P2.7 | 资源与并发 | CPU/内存配额；与 running≤5 策略对齐或上调 | 压测笔记 |
 | P2.8 | 引擎 B→C | 托管 Colima 或本机 Docker | Ensure/Health |
 
 **退出**：用户可选 P2；默认仍 Seatbelt；P2 失败不得无隔离开跑。

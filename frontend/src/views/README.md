@@ -5,7 +5,7 @@
 | 文件 | 状态 | 内容 |
 |---|---|---|
 | [onboarding.js](onboarding.js) | stub | 首次引导；隔离失败不可进 |
-| [home.js](home.js) | stub | 会话中心（文案 x/2；接 `listSessions`） |
+| [home.js](home.js) | stub | 会话中心（文案 x/5；接 `listSessions`） |
 | [wizard.js](wizard.js) | stub | 四步向导（默认 clone；mock 路径 A/B） |
 | [models.js](models.js) / [tools.js](tools.js) / [settings.js](settings.js) | stub | OpenAPI 模型；工具 OAuth 轮询/Token；设置 |
 | [block.js](block.js) | stub | 隔离不可用阻断 |

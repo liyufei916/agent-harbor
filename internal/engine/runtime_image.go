@@ -19,11 +19,24 @@ func RuntimeImageName() string {
 // EnsureRuntimeImage builds the guest image when missing.
 // dockerBin is an absolute docker CLI path or "docker"; env is optional process env for the build.
 func EnsureRuntimeImage(ctx context.Context, dockerBin string, env []string, dockerfileDir string, report ProgressFunc) error {
+	return ensureRuntimeImage(ctx, defaultRun, dockerBin, env, dockerfileDir, report)
+}
+
+func ensureRuntimeImage(
+	ctx context.Context,
+	run func(context.Context, string, []string, []string) (string, error),
+	dockerBin string,
+	env []string,
+	dockerfileDir string,
+	report ProgressFunc,
+) error {
+	if run == nil {
+		run = defaultRun
+	}
 	image := RuntimeImageName()
 	if report != nil {
 		report(Progress{Percent: 93, Label: "检查运行时镜像…"})
 	}
-	run := defaultRun
 	inspectCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	_, err := run(inspectCtx, dockerBin, []string{"image", "inspect", "--format", "{{.Id}}", image}, env)
 	cancel()

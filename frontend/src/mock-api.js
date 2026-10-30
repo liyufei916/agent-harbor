@@ -2,7 +2,7 @@
  * 浏览器独立 mock transport（CONTRACT.md v1.2）
  * 固定数据：claude / mock-model+demo-model / mock-mcp+demo-mcp / /demo/project
  * 场景：normal | auth | busy | isolation | cleanup
- * 多会话：running+preparing ≤2；同工作区禁双开；PTY/OAuth 可演示
+ * 多会话：running+preparing ≤5；同工作区禁双开；PTY/OAuth 可演示
  */
 
 const FIXED = {
@@ -204,7 +204,7 @@ export async function getRuntimeHealth() {
   if (backend === "docker" || backend === "p2" || backend === "container") {
     return {
       available: true,
-      reason: "P2 Docker（mock · harbor.gate · 镜像内 Agent）",
+      reason: "Docker（mock · harbor.gate · 镜像内 Agent）",
       isolationLevel: "docker",
       error: null,
     };
@@ -990,12 +990,12 @@ export async function createSession(spec) {
   }
 
   const active = activeSessions();
-  if (active.length >= 2) {
+  if (active.length >= 5) {
     return {
       session: null,
       error: err(
         "SESSION_LIMIT",
-        "已有 2 个会话在运行，请先停止其中一个（模拟）",
+        "已有 5 个会话在运行，请先停止其中一个（模拟）",
       ),
     };
   }
@@ -1177,7 +1177,7 @@ export async function startSession(sessionId) {
       };
     }
   }
-  if (active >= 2) {
+  if (active >= 5) {
     return {
       session: null,
       error: err("SESSION_LIMIT", "已达到同时运行的会话上限"),

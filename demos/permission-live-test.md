@@ -10,7 +10,8 @@
 |---|---|---|
 | 白名单种子 | 安全档位 → ExtraHosts | 设置档位 → 新会话 → 权限一览含档位主机 |
 | 工具白名单 | MCP 仅登记工具 | 权限一览 `mcpSummary`；未授权工具应 denied（Gate） |
-| 主动 ask | `PromptPermission` → Modal | 工作台「请求扩权」→ 三选一；**无全网**；点选后 toast 须含主机（如 `已允许 host · 仅本次`） |
+| 主动 ask | `PromptPermission` → Modal | 工作台「请求扩权」→ 三选一；**无全网**；toast 须含主机 |
+| Agent 话术 | MCP `harbor_demo_ask` / 未授权工具 | 粘贴 `EXPAND-TASK.txt` / `BLOCK-TASK.txt`（须重建桌面；Gate 注入 ask 工具） |
 | 记住 / 撤销 | project 作用域 | project 后「已记住」可见；撤销后再请求应再弹 |
 
 ### 前置

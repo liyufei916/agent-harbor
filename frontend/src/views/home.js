@@ -1,8 +1,21 @@
 /**
- * PAGE-DESIGN §5.2 HOME — 会话中心 running x/2
+ * PAGE-DESIGN §5.2 HOME — 会话中心 running x/N
  */
 import { askConfirm } from "../confirm-dialog.js";
 import { healthAllowsStart, healthBlockReason } from "../health-ready.js";
+import { sessionStateLabel, shortPath } from "../session-state.js";
+import { MAX_ACTIVE_SESSIONS } from "../session-limits.js";
+
+function modelLabelFor(ctx, modelAccountId) {
+  if (!modelAccountId) return "";
+  const accounts = [
+    ...(ctx.state.accounts || []),
+    ...(ctx.state.modelAccounts || []),
+  ];
+  const hit = accounts.find((a) => a?.id === modelAccountId);
+  if (!hit) return "";
+  return hit.name || hit.host || hit.profileId || "";
+}
 
 export function mountHome(root, ctx) {
   const list = ctx.state.sessionHistory || [];
@@ -10,13 +23,13 @@ export function mountHome(root, ctx) {
     ["provisioning", "running", "stopping"].includes(s.state),
   ).length;
   const healthOk = healthAllowsStart(ctx.state.health);
-  const atLimit = running >= 2;
+  const atLimit = running >= MAX_ACTIVE_SESSIONS;
 
   root.innerHTML = `
-    <div class="page-head row" style="justify-content:space-between">
+    <div class="page-head row page-head-spread">
       <div>
         <h2>我的会话</h2>
-        <p class="sub">运行中 ${running}/2${atLimit ? " · 已达上限" : ""}</p>
+        <p class="sub">运行中 ${running}/${MAX_ACTIVE_SESSIONS}${atLimit ? " · 已达上限" : ""}</p>
       </div>
       <button type="button" class="btn primary" id="btn-new-session" ${healthOk ? "" : "disabled"}>
         + 新会话
@@ -37,7 +50,7 @@ export function mountHome(root, ctx) {
     ${
       atLimit
         ? `<div class="banner warn-banner">
-            <strong>已达上限（2/2）</strong>
+            <strong>已达上限（${running}/${MAX_ACTIVE_SESSIONS}）</strong>
             <p class="meta">请先停止一个会话再开新的。同工作区不能双开——若提示 WORKSPACE_BUSY，请打开已有会话或另选文件夹。</p>
           </div>`
         : ""
@@ -46,8 +59,8 @@ export function mountHome(root, ctx) {
     ${
       list.length === 0
         ? `<div class="empty-state">
-            <p>还没有会话。先在「模型」「工具」添加账号，再创建隔离会话。</p>
-            <p class="meta">前提：Darwin 25 · arm64；预装 Agent CLI；MCP 仅远程 HTTP。未安装 Agent 可到「设置」复制安装命令。</p>
+            <p>还没有会话。先配置模型与工具，再创建隔离会话。</p>
+            <p class="meta">未安装 Agent 可到「设置」复制安装命令。</p>
             <div class="actions">
               <button type="button" class="btn" id="empty-models">去模型</button>
               <button type="button" class="btn" id="empty-tools">去工具</button>
@@ -73,21 +86,26 @@ export function mountHome(root, ctx) {
   list.forEach((s) => {
     const terminal = ["stopped", "failed"].includes(s.state) && s.cleanupComplete;
     const card = document.createElement("article");
-    card.className = "card session-card";
+    card.className = "list-row session-card";
+    const path =
+      s.projectWorkspace || s.sourceWorkspace || s.workspace || "";
+    const modelName = modelLabelFor(ctx, s.modelAccountId);
+    const mount =
+      s.mountMode === "clone" ? "安全副本" : s.mountMode || "直接编辑";
     card.innerHTML = `
-      <div class="row" style="justify-content:space-between">
+      <div class="row page-head-spread">
         <div>
           <strong>${s.agentId || "—"}</strong>
-          <span class="status-pill ${s.state || ""}">${s.state || "unknown"}</span>
-          <p class="meta">${s.projectWorkspace || s.sourceWorkspace || s.workspace || ""} · 挂载:${s.mountMode === "clone" ? "安全副本" : s.mountMode || "direct"} · ${s.sessionId || ""}</p>
+          <span class="status-pill ${s.state || ""}">${sessionStateLabel(s.state)}</span>
+          <p class="meta">${modelName ? `${modelName} · ` : ""}${shortPath(path)} · ${mount}</p>
           <p class="meta">工具: ${(s.mcpIds || []).length ? (s.mcpIds || []).join(", ") : "无"}</p>
         </div>
         <div class="row">
           ${
             terminal
-              ? `<button type="button" class="btn" data-again="${s.sessionId}">再次开始</button>
+              ? `<button type="button" class="btn primary" data-again="${s.sessionId}">再次开始</button>
                  <button type="button" class="btn danger" data-destroy="${s.sessionId}">销毁</button>`
-              : `<button type="button" class="btn" data-open="${s.sessionId}">打开工作台</button>
+              : `<button type="button" class="btn primary" data-open="${s.sessionId}">打开工作台</button>
                  <button type="button" class="btn danger" data-stop="${s.sessionId}">停止</button>`
           }
         </div>

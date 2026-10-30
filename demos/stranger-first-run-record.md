@@ -76,14 +76,19 @@ dsh：`bash scripts/install-dsh.sh` 默认路径下桌面可自动 Detect，**�
 1. bash scripts/docker-p2-smoke.sh → PASS（见 demos/evidence/p2-docker-smoke-2026-10-30.txt）
 2. 设置 → 隔离后端 → **Docker（P2）** → 重启（或 HARBOR_RUNTIME=docker）
 3. 设置「重新检测隔离」应显示 isolationLevel=docker（Docker 七项文案）
-☑ 冒烟 PASS（2026-10-30 · commit 15df2f5+ · agent-harbor/runtime:dev · harbor.gate 可达）
-□ Health docker（桌面 live 待勾）  □ 首任务（脱敏 · 待勾）
+☑ 冒烟 PASS（2026-10-30 · agent-harbor/runtime:dev · harbor.gate 可达）
+☑ Health docker（API harness · isolationLevel=docker · 见 p2-docker-agents-2026-10-30.txt）
+☑ 首任务（脱敏）：HARBOR_RUNTIME=docker 下 claude/codex/dsh 均 marker 通过（同文件）
+   claude: 通过 session=ea1a6c34… marker=harbor-agent-claude-64773
+   codex: 通过 session=d5fe2a1c… marker=harbor-agent-codex-64778
+   dsh: 通过 session=3efa2c5d… marker=harbor-agent-dsh-64815
+□ 桌面 GUI 点选 Docker 后端 live（仍待人工）
 ```
 
 ### B · 无 Docker Desktop（产品主路径 B→C / M4）
 
-**前置**：本机未装 Docker Desktop；`which docker` 可无或不可用。勿要求用户先装 Desktop。  
-**状态（2026-10-30）**：UI mock 已拍引擎/一键安装（`demos/screenshots/14-…`）；**陌生机无 Desktop live 仍待勾**（本机开发环境有 Docker，不能冒充 B）。
+**前置（理想）**：本机未装 Docker Desktop。  
+**本机开发机（2026-10-30）**：Desktop **已安装但未用**；以 Harbor Colima `DOCKER_HOST` 证明（见 `demos/evidence/p2-colima-ensure-2026-10-30.txt`）。陌生机无 Desktop 仍建议另机复验。
 
 ```text
 1. 设置 → 容器引擎来源 = Harbor 托管 Colima（默认）
@@ -92,8 +97,11 @@ dsh：`bash scripts/install-dsh.sh` 默认路径下桌面可自动 Detect，**�
 3. 引擎状态 ready 后重启应用（设置/标题栏「重启应用使生效」）
 4. 侧栏/设置「重新检测隔离」→ isolationLevel=docker；失败须 fail-closed（无「仍要继续」）
 5. （可选）新会话用镜像内 Agent CLI
-本机 Docker Desktop：□ 未安装  □ 已安装但未用
-□ Ensure/自动启用成功  □ Health docker  □ 无 Desktop 仍可用（或失败文案可理解）
+本机 Docker Desktop：□ 未安装  ☑ 已安装但未用
+☑ Ensure/自动启用成功（profile agent-harbor · COLIMA_HOME=~/Library/Caches/AgentHarbor/colima）
+☑ Health docker（Colima sock · Server=27.4.0 OS=Ubuntu · Name=colima-agent-harbor；非 Desktop sock）
+☑ 无 Desktop 仍可用（本机用 Colima DOCKER_HOST 证明；Desktop 对照 Name=docker-desktop）
+□ 陌生机无 Desktop 端到端 GUI（仍待）
 ```
 
 ## 失败时

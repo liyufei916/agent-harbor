@@ -1,16 +1,16 @@
 /**
- * 顶栏「使用说明」弹窗：面向桌面用户的操作说明（非研发文档）。
+ * 「使用说明」弹窗：由顶栏「使用教程」内入口打开（非研发文档）。
  */
 
 const GUIDE_HTML = `
   <h3>这是什么</h3>
   <p>Agent Harbor 是桌面 Agent <strong>安全沙箱</strong>：API Key 只在本机录入；Agent 在隔离环境中跑；模型与 MCP 出站都经 Harbor Gate（安全闸口）。</p>
-  <p class="meta">顶栏「真实绑定」表示已接桌面后端；「模拟模式」仅浏览器 mock，不能当作真实验收。完整说明可随时点顶栏右侧「使用说明」。</p>
+  <p class="meta">浏览器打开时顶栏会标「模拟模式」（不能当作真实验收）；桌面 App 为真实后端，不单独显示「真实绑定」。上手步骤在顶栏「使用教程」。</p>
 
   <h3>能力边界（请先读）</h3>
   <ul>
     <li>隔离运行目标机：<strong>macOS Darwin 25 · arm64 · 非 root</strong>；不满足则阻断开跑（无「仍要继续」）。</li>
-    <li>隔离后端二选一（设置）：默认 <strong>Seatbelt</strong>（P1）；可选 <strong>Docker</strong>（P2，一会话一容器、镜像内 CLI）。改后端后须<strong>重启应用</strong>才生效（设置/标题栏有「重启应用」）。</li>
+    <li>隔离后端二选一（设置）：默认 <strong>Seatbelt</strong>；可选 <strong>Docker</strong>（一会话一容器、镜像内 CLI）。改后端后须<strong>重启应用</strong>才生效（设置/标题栏有「重启应用」）。</li>
     <li>Docker 引擎：无 Docker Desktop 时用「Harbor 托管 Colima」并一键安装；本机已有 Docker 可选「本机 Docker」。引擎与「隔离后端」是两件事——选 Seatbelt 时不必装引擎。</li>
     <li>Agent 须本机预装 CLI（Seatbelt），或使用 Docker 镜像内 Claude / Codex / dsh。</li>
     <li>MCP：远程 HTTP（Token / OAuth）、宿主 stdio，或工具页<strong>预置一键添加</strong>（本机时间 / 演示 filesystem / Context7）。</li>
@@ -35,7 +35,7 @@ const GUIDE_HTML = `
 
   <h3>各入口做什么</h3>
   <ul>
-    <li><strong>HOME</strong>：会话中心；同时运行中最多 2 个；打开工作台 / 停止 / 销毁。</li>
+    <li><strong>HOME</strong>：会话中心；同时运行中最多 5 个；打开工作台 / 停止 / 销毁。</li>
     <li><strong>模型</strong>：自定义账号可多选 Agent（上游须同时支持）；Claude 用 Messages，Codex 用 Responses。勿对仅 Anthropic 兼容的 DeepSeek 勾选 Codex。</li>
     <li><strong>工具</strong>：预置 MCP、远程（OAuth/Token）或宿主 stdio；可编辑 / 删除。</li>
     <li><strong>记录</strong>（工具与设置之间）：用量 / 阻拦 / 扩权三 Tab；仅本机，不外传；可清除。</li>
@@ -51,7 +51,7 @@ const GUIDE_HTML = `
 
   <h3>会话与工作区</h3>
   <ul>
-    <li>同时 running（含准备中）≤ 2；达上限会报 <code>SESSION_LIMIT</code>。</li>
+    <li>同时 running（含准备中）≤ 5；达上限会报 <code>SESSION_LIMIT</code>。</li>
     <li>同一工作区不能双开 → <code>WORKSPACE_BUSY</code>；请换目录或打开已有会话。</li>
     <li>默认 <strong>clone</strong>：在副本里改文件；工作台可<strong>一键导回</strong>合并写回原目录。也可选直接编辑（会改原文件，有警告）。</li>
     <li>销毁会清隔离运行数据；本机已保存的密钥保留。</li>
@@ -60,8 +60,8 @@ const GUIDE_HTML = `
   <h3>工作台与扩权</h3>
   <ul>
     <li>对话区展示可读回复；下方输入 Enter 发下一轮（Claude / Codex / dsh 均支持同会话多轮）。</li>
-    <li>Agent 访问未授权主机时弹出扩权：拒绝 / 仅本次 / 本项目始终允许。<strong>没有「全网放行」</strong>。</li>
-    <li>「本项目始终允许」可在权限一览或设置「已记住的网站」中撤销。</li>
+    <li>扩权：工作台「请求扩权」，或粘贴工作区 <code>EXPAND-TASK.txt</code>（Agent 调 <code>harbor_demo_ask</code>）。三选一：拒绝 / 仅本次 / 本项目；<strong>没有「全网放行」</strong>。</li>
+    <li>「本项目始终允许」可在权限一览或设置「已记住的网站」中撤销。阻拦演示见 <code>BLOCK-TASK.txt</code>（无弹窗，记入「记录→阻拦」）。</li>
   </ul>
 
   <h3>Agent 简要</h3>

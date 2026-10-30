@@ -26,6 +26,7 @@ import {
   loadTutorialProgress,
   markTutorialStep,
   resetTutorial,
+  skipOptionalTutorialStep,
   skipTutorial,
   tutorialSteps,
 } from "./tutorial-progress.js";
@@ -36,7 +37,6 @@ import { requestAppRestart } from "./restart-app.js";
 const badge = document.getElementById("mode-badge");
 const isolationBadge = document.getElementById("isolation-badge");
 const restartAppBtn = document.getElementById("btn-restart-app");
-const usageGuideBtn = document.getElementById("usage-guide-btn");
 const sidebar = document.getElementById("sidebar");
 const healthDot = document.getElementById("health-dot");
 const healthText = document.getElementById("health-text");
@@ -138,7 +138,7 @@ const ctx = {
   },
   onSessionCreated(snapshot, createSpec) {
     api.activateSession?.(snapshot);
-    markTutorialStep(2);
+    markTutorialStep(3);
     ctx.state.sessionId = snapshot.sessionId;
     ctx.state.lastSnapshot = snapshot;
     if (createSpec?.task) ctx.state.lastTask = createSpec.task;
@@ -253,7 +253,13 @@ function syncSessionSwitch() {
 
 function syncBadge() {
   const banner = document.getElementById("mode-banner");
+  if (!badge) {
+    syncIsolationBadge();
+    return;
+  }
   if (api.isMock()) {
+    // 仅 mock 顶栏提示；桌面真连不展示「真实绑定」（对用户无信息量）
+    badge.classList.remove("hidden");
     badge.textContent = "模拟模式";
     badge.className = "badge mock";
     if (banner) {
@@ -261,9 +267,9 @@ function syncBadge() {
       banner.textContent = "模拟模式：仅看 UI，不能记入 I1–I11 真实验收。";
     }
   } else {
-    badge.textContent = "真实绑定";
-    badge.className = "badge live";
-    // 桌面真连不再展示开发期 UNIMPLEMENTED 横幅；说明见顶栏「使用说明」
+    badge.classList.add("hidden");
+    badge.textContent = "";
+    badge.className = "badge live hidden";
     banner?.classList.add("hidden");
   }
   syncIsolationBadge();
@@ -322,10 +328,6 @@ if (restartAppBtn) {
   });
 }
 
-if (usageGuideBtn) {
-  usageGuideBtn.addEventListener("click", () => showUsageGuide());
-}
-
 function updatePermissionBadge() {
   const el = document.getElementById("perm-pending-badge");
   if (!el) return;
@@ -339,25 +341,53 @@ function showTutorialPanel() {
   if (!modal) return;
   const prog = loadTutorialProgress();
   const steps = tutorialSteps();
+  const current = !prog.completed && !prog.skipped ? steps[prog.step] || null : null;
   const lis = steps
     .map((s, i) => {
       const done = prog.completed || prog.step > i;
-      return `<li class="${done ? "meta" : ""}">${done ? "✓" : "○"} ${s.label}</li>`;
+      const on = !prog.completed && !prog.skipped && prog.step === i;
+      const mark = done ? "✓" : on ? "●" : "○";
+      const cls = done ? "tut-step done" : on ? "tut-step on" : "tut-step";
+      return `<li class="${cls}"><span class="tut-mark">${mark}</span><span>${s.label}${s.optional ? " <span class=\"meta\">可选</span>" : ""}</span></li>`;
     })
     .join("");
+  const status = prog.completed
+    ? "已完成上手步骤。细节可随时打开「使用说明」。"
+    : prog.skipped
+      ? "已跳过；可重新开始。"
+      : `进度 ${Math.min(prog.step, steps.length)}/${steps.length}`;
+  const focus = current
+    ? `<div class="tut-focus">
+        <h3>${current.label}</h3>
+        <div class="meta tut-hint">${current.hint}</div>
+        <div class="actions">
+          <button type="button" class="btn primary" id="tut-go-step">${current.goLabel || "前往"}</button>
+          ${
+            current.secondaryRoute
+              ? `<button type="button" class="btn" id="tut-go-secondary">${current.secondaryLabel || "前往"}</button>`
+              : ""
+          }
+          ${current.optional ? `<button type="button" class="btn" id="tut-skip-optional">跳过本步</button>` : ""}
+        </div>
+      </div>`
+    : prog.completed
+      ? `<p class="meta">主路径已走通。扩权弹窗、Docker 引擎等见「使用说明」。</p>`
+      : "";
   modal.classList.remove("hidden");
   modal.innerHTML = `
-    <div class="modal-card permission-overview-card" role="dialog" aria-modal="true">
-      <div class="row" style="justify-content:space-between;gap:12px">
-        <h2 style="margin:0">使用教程</h2>
+    <div class="modal-card tutorial-card" role="dialog" aria-modal="true" aria-labelledby="tut-title">
+      <div class="row page-head-spread">
+        <h2 id="tut-title" style="margin:0">使用教程</h2>
         <button type="button" class="btn" id="tut-close">关闭</button>
       </div>
-      <p class="meta">${prog.completed ? "已完成上手步骤。" : prog.skipped ? "已跳过；可重新开始。" : `当前进度 ${Math.min(prog.step, steps.length)}/${steps.length}`}</p>
-      <ol class="audit-list">${lis}</ol>
-      <div class="actions">
+      <p class="meta">${status}</p>
+      <ol class="tut-list">${lis}</ol>
+      ${focus}
+      <div class="actions tut-footer">
+        <button type="button" class="btn" id="tut-guide">使用说明</button>
         <button type="button" class="btn" id="tut-skip">稍后体验</button>
         <button type="button" class="btn" id="tut-reset">重新学习</button>
-        <button type="button" class="btn primary" id="tut-go">去 HOME</button>
+        <button type="button" class="btn" id="tut-home">HOME</button>
       </div>
     </div>`;
   const close = () => {
@@ -375,9 +405,43 @@ function showTutorialPanel() {
     close();
     showTutorialPanel();
   });
-  modal.querySelector("#tut-go")?.addEventListener("click", () => {
+  modal.querySelector("#tut-home")?.addEventListener("click", () => {
     close();
     navigate("home");
+  });
+  modal.querySelector("#tut-guide")?.addEventListener("click", () => {
+    close();
+    showUsageGuide();
+  });
+  const goRoute = (route) => {
+    close();
+    if (route === "wizard") navigate("wizard", { fresh: true });
+    else if (route === "session") {
+      if (ctx.state.sessionId) navigate("session");
+      else {
+        showToast("请先开一条运行中的会话，再在工作台右侧点「请求扩权」", "ok", {
+          durationMs: 5000,
+        });
+        navigate("home");
+      }
+    } else navigate(route || "home");
+  };
+  modal.querySelector("#tut-go-step")?.addEventListener("click", () => {
+    if (current?.action === "complete") {
+      markTutorialStep(prog.step);
+      close();
+      showTutorialPanel();
+      return;
+    }
+    goRoute(current?.route);
+  });
+  modal.querySelector("#tut-go-secondary")?.addEventListener("click", () => {
+    goRoute(current?.secondaryRoute);
+  });
+  modal.querySelector("#tut-skip-optional")?.addEventListener("click", () => {
+    skipOptionalTutorialStep();
+    close();
+    showTutorialPanel();
   });
 }
 

@@ -10,6 +10,18 @@ import (
 	"testing"
 )
 
+func TestColimaHomeDirKeepsLimaSocketUnderUNIXPathMax(t *testing.T) {
+	c := NewColima()
+	// Lima 形如 COLIMA_HOME/_lima/colima-<profile>/ssh.sock.<16 digits>
+	sock := filepath.Join(c.colimaHomeDir(), "_lima", "colima-"+ProfileName, "ssh.sock.1234567890123456")
+	if len(sock) >= 104 {
+		t.Fatalf("COLIMA_HOME 过长会导致 Lima 无法建 ssh.sock：len=%d path=%s", len(sock), sock)
+	}
+	if strings.Contains(c.colimaHomeDir(), "Application Support") {
+		t.Fatalf("Colima 数据不应落在 Application Support：%s", c.colimaHomeDir())
+	}
+}
+
 func TestColimaEnsureRequiresBinaries(t *testing.T) {
 	t.Setenv("HARBOR_ENGINE_AUTO_DOWNLOAD", "0")
 	c := NewColima()

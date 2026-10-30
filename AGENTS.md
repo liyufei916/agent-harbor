@@ -41,7 +41,7 @@
 - 核心闭环：宿主机界面连接模型与工具 → 选择工作区并提交任务 → 隔离启动真实 Agent → 经 Gate 调模型和认证 MCP → 展示结果 → 停止清理并可再次运行。
 - 以单一 macOS/CPU 环境为目标，优先 Claude Code；一个已验证的模型协议组合、一个远程 Streamable HTTP 认证 MCP，同时仅一个会话，每会话一个非交互任务。
 - 使用专用非敏感工作区，direct 模式明确提示会修改原文件；真实凭据只存宿主机内存，重启需重新输入。模型使用显式 Base URL 反向代理，不实现通用 HTTPS MITM。
-- 历史「两天必交」曾裁剪多项；**当前 main 已合入全量 PAGE**：Codex/dsh、OAuth、宿主 stdio MCP、多会话≤2、clone/导回、Keychain、PTY/对话区等以 CONTRACT / PAGE-DESIGN 为准（勿再按旧两天裁剪砍功能）。
+- 历史「两天必交」曾裁剪多项；**当前 main 已合入全量 PAGE**：Codex/dsh、OAuth、宿主 stdio MCP、多会话≤5、clone/导回、Keychain、PTY/对话区等以 CONTRACT / PAGE-DESIGN 为准（勿再按旧两天裁剪砍功能）。
 - 不因赶工删除真实 Agent、唯一认证 MCP、操作系统强制隔离、凭据外置或可靠清理；静态原型、curl 成功、模拟 MCP 不能冒充核心闭环验收。
 - 首小时冻结目标环境、Agent/模型/MCP 组合、接口与演示任务；随后验证隔离、上游接入、Wails 构建/绑定/事件。首日结束前三人完成真实联调，第二天下午冻结功能并回归。
 - 决策、接口和验收入口已建立：[DECISIONS.md](docs/DECISIONS.md)、[CONTRACT.md](docs/CONTRACT.md)、[ACCEPTANCE.md](docs/ACCEPTANCE.md)。版本、外部接入与隔离能力仍须实测，当前真实验证均待执行，不能凭设计推定通过。
@@ -66,7 +66,7 @@ Agent Harbor 是安全优先的桌面 Agent 沙箱：在隔离环境中运行 Cl
 | [产品总纲](docs/DESIGN.md) / [架构](docs/ARCHITECTURE.md) / [实现列表](docs/IMPLEMENTATION.md) | 威胁模型、控制/执行面、长期分期 |
 | [文档归档](docs/archive/README.md) | Spike / 两天裁剪 / 旧任务卡 / 一次性联调；**不以归档为准开工** |
 
-文档口径：隔离分期按 `IMPLEMENTATION.md` 与 `DESIGN.md` §7.4 / §7.6；**并发上限 2**、挂载含 `clone`、工具含 OAuth、工作台含对话区/WritePty，见 PAGE-DESIGN / CONTRACT v1.2。遇到未消解冲突先澄清，不自行把 MVP「延后」列当成已定砍法。
+文档口径：隔离分期按 `IMPLEMENTATION.md` 与 `DESIGN.md` §7.4 / §7.6；**并发上限 5**、挂载含 `clone`、工具含 OAuth、工作台含对话区/WritePty，见 PAGE-DESIGN / CONTRACT v1.2。遇到未消解冲突先澄清，不自行把 MVP「延后」列当成已定砍法。
 
 ### 两平面与组件边界
 
@@ -91,7 +91,7 @@ Agent Harbor 是安全优先的桌面 Agent 沙箱：在隔离环境中运行 Cl
 
 - **启动**：校验隔离能力、工作区、Agent、模型账号、并发与工作区冲突 → 生成 Policy 快照（workspace、mount_mode、allow_domains、mcp_ids、agent、model_account_id）→ 创建 Runtime → 启动 Gate → Kit 注入 Sentinel 与网关地址 → 执行 Agent。Runtime、Gate、注入全部就绪后才进入 `running`。
 - **状态机**：`idle → provisioning → running → stopping → stopped → destroyed`；准备失败进入 `failed` 并回滚。扩权等待**不**增加快照态：会话保持 `running`，用 `permission_needed` 事件 + `ResolvePermission`（见 [CONTRACT](docs/CONTRACT.md)）。`stopped` 可保留运行数据并再次启动；销毁删除会话运行数据，保留宿主机密钥。
-- **并发**：V1 同时运行最多 2 条（含扩权等待中的 `running`）；工作区解析为绝对路径并解析符号链接后互斥，同工作区禁止双开。同 Agent、不同工作区可并行，每会话独立 session_id、Sentinel、Policy、Runtime 与审计。
+- **并发**：V1 同时运行最多 5 条（含扩权等待中的 `running`）；工作区解析为绝对路径并解析符号链接后互斥，同工作区禁止双开。同 Agent、不同工作区可并行，每会话独立 session_id、Sentinel、Policy、Runtime 与审计。
 - **切换模型**：`switchModel(session_id, model_account_id)` 校验已连接账号，更新 Gate 绑定，仅影响后续出站；默认不重建沙箱、不改变 Agent 与工作区。
 - **HTTP(S)**：执行面只能连接 Gate；Proxy 检查域名白名单，需要凭据时验证本会话 Sentinel，再由 Secrets 解析并代填真实密钥。不在白名单的访问触发扩权流程，未经批准不得转发。
 - **MCP**：Agent 仅配置统一 Gateway URL 与 Sentinel；Gateway 校验会话和 MCP 挂载列表后持证访问上游。支持**远程 Streamable HTTP**（Token/OAuth）与**宿主侧 stdio**（本机进程 + 回环 HTTP 桥，`internal/mcpstdio`；密钥与进程留在宿主机，沙箱仍只见 Gateway）。禁止在沙箱内直接拉起 stdio 或写入真实密钥。

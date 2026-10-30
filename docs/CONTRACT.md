@@ -469,11 +469,11 @@ type Runtime interface {
 | SelectWorkspace | 系统目录面板，绝对路径 | 取消：cancelled=true、path=""、error=null |
 | ConnectModel | 10s 内测上游，成功才存账号 | **固定 profile**：Origin 空，ProfileID∈已登记；**自定义**：Origin 必填 HTTPS（可带 BasePath），ProfileID 空或 `custom`；禁止 query/fragment；失败清候选，account=null |
 | ConnectMcp | Token / **stdio** 探测并保存；自定义 Origin 见下 | **HTTP**：Origin HTTPS…；**stdio**：`transport=stdio` + 绝对路径 command（宿主桥）；成功宜写入 `AccountInfo.tools`；**工具发现失败/空列表仍可保存**（`OfflineHint` 提示「可继续但工具受限」）；OAuth 轨走 StartMcpOAuth |
-| ListMcpPresets | 返回首批预置目录（无密钥） | 固定：`harbor-time` / `harbor-filesystem` / `context7` |
+| ListMcpPresets | 返回首批预置目录（无密钥） | 固定：`harbor-time` / `harbor-filesystem` / `harbor-demo-boundary`（可选）/ `context7` |
 | AddMcpPreset | 一键添加预置并 Connect | stdio：物化脚本+python3；filesystem 锁 demos/workspace 或样例目录；`context7` 须 `apiKey`，Origin=`https://mcp.context7.com` |
 | ListAccounts | 返回已保存账号元信息（无 Key） | kind 过滤；空列表 `[]` |
 | RemoveAccount | 删除账号与密钥 | 会话仍引用该账号 → `SESSION_BUSY`；未知 → `ACCOUNT_NOT_FOUND` |
-| CreateSession | 占会话槽，返回 provisioning | running+preparing 总数 **≤2**，否则 `SESSION_LIMIT`；同规范化工作区已有非终态 → `WORKSPACE_BUSY`；mountMode∈direct\|clone；mcpIds 0..8 |
+| CreateSession | 占会话槽，返回 provisioning | running+preparing 总数 **≤5**，否则 `SESSION_LIMIT`；同规范化工作区已有非终态 → `WORKSPACE_BUSY`；mountMode∈direct\|clone；mcpIds 0..8 |
 | SwitchModel | 仅影响之后模型出站 | 仅 running 可切换；未知会话/账号 → 对应错误；必须为相同 profile 与 Host 的模型账号，不兼容 → INVALID_ARGUMENT；不改工作区/Agent |
 | StartMcpOAuth / CancelMcpOAuth | 打开浏览器完成 MCP 登录 | 回调成功后出现在 ListAccounts；取消清 pending；优先 DCR，否则 env/`agent-harbor`；可设 `HARBOR_MCP_OAUTH_REDIRECT_PORT` 固定回调端口；响应带回 `redirectUri`/`clientId`/`clientSource` 供 UI 自助 |
 | WritePty / ResizePty | 向焦点会话 PTY 写输入/改尺寸 | 无 PTY 或未 running → `INVALID_ARGUMENT` |
@@ -482,7 +482,7 @@ type Runtime interface {
 | StartSession | 原 session_id 回到 provisioning | 仅 `stopped`/`failed` 且 cleanupComplete=true；否则 `INVALID_ARGUMENT` 或 `CLEANUP_FAILED`；并发与同工作区规则同 CreateSession；未知 → `SESSION_NOT_FOUND`。不新建会话。进程起来后等待下一轮输入，不再自动送入创建时的任务 |
 | ListSessions | 本应用生命周期内会话摘要 | 含终态直至 Destroy；空 `[]` |
 | DestroySession | 移除终态会话记录 | 非 stopped/failed 或 cleanupComplete=false → `INVALID_ARGUMENT`；未知 → `SESSION_NOT_FOUND`；并删除停止后保留的 clone 副本 |
-| SyncBackWorkspace | 将 clone 副本合并写回 `sourceWorkspace` | 仅 `mountMode=clone`；覆盖同名常规文件，不删原目录多余项；成功后桌面在访达中显示源目录；无副本/direct → `INVALID_ARGUMENT`；未知 → `SESSION_NOT_FOUND` |
+| SyncBackWorkspace | 将 clone 副本合并写回 `sourceWorkspace` | 仅 `mountMode=clone`；覆盖同名常规文件，不删原目录多余项；成功后 toast 提示路径（不自动打开访达）；无副本/direct → `INVALID_ARGUMENT`；未知 → `SESSION_NOT_FOUND` |
 | GetRuntimeHealth | 隔离/Runtime 探测 | available=false 时 reason 必填；可选 `vaultNotice` 提示凭据介质告警；不因此自动放行无隔离启动 |
 | GetContainerEngineHealth | P2 容器引擎探测 | ready=false 时 message 必填；不启停引擎；禁密钥 |
 | EnsureContainerEngine | 用户一键安装：下载/启动引擎并尽量建镜像 | 失败 fail-closed；成功可写 `DOCKER_HOST`；不因切后端自动触发 |
@@ -492,6 +492,8 @@ type Runtime interface {
 | RevokeRememberedHost | 撤销 project/session 记住项 | 未知 host 成功幂等（error=null） |
 | ResolvePermission | 处理扩权挂起 | decision∈deny\|once\|project；无挂起 → `INVALID_ARGUMENT`；**禁止**全网允许 |
 | PromptPermission | 主动挂起出站扩权（ask） | 仅 running；目标为主机名；异步发 `permission_needed`，等 Resolve；**不依赖**上游 302 |
+
+扩权演示（live）：工作台「请求扩权」，或粘贴 `demos/workspace/EXPAND-TASK.txt` 让 Agent 调 MCP **`harbor_demo_ask`**（Gate 在任意挂载的 `tools/list` 注入该工具名，并对 `tools/call` **先于白名单**拦截 → `RequestPermission`）。阻拦演示：`BLOCK-TASK.txt`（未授权工具名 → audit denied，**无**三选一弹窗）。
 | SaveTextFile | 系统另存为写入文本 | 建议名+内容；可选 reveal 在访达显示；取消 → cancelled；**不得**用于密钥 |
 | RestartApp | 拉起同路径新进程后退出本进程 | Force=false 且有 running/provisioning/stopping → `SESSION_BUSY` + busySessions；成功 `restarting=true`；经退出门清理 |
 | GetUIPrefs / SetUIPrefs | 读写本机 UI 偏好 | **不得**存 Key；缺文件返回默认值 |
@@ -500,7 +502,7 @@ AgentID 仅允许已验证项；Task 限 1–32768 UTF-8 字节。ConnectInput �
 
 工具白名单：**固定 MCP profile** 用登记 `Tools`；**自定义 MCP** 用连接探测写入的 `AccountInfo.tools`（UI/策略种子）；**会话内 `tools/call` 仍按挂载白名单动态校验**。自定义 MCP 账号 `tools` 为空时仍可 `CreateSession`（挂载空白名单 → 可继续但工具受限；call 全拒）。Policy 失败勿一律映为 `WORKSPACE_DENIED`。
 
-远程 HTTP MCP **initialize**：客户端优先提出 `2025-03-26`；钉扎接受 `2025-06-18` / `2025-03-26` / `2024-11-05`；**空版本**或形如 `YYYY-MM-DD` 的其它修订走宽松协商（见 [mcp-compat-matrix](../demos/mcp-compat-matrix.md)）。
+远程 HTTP MCP **initialize**：客户端优先提出 `2025-03-26`；钉扎接受 `2025-06-18` / `2025-03-26` / `2024-11-05`；**空版本**或形如 `YYYY-MM-DD` 的其它修订走宽松协商（见 [mcp-compat-matrix](../demos/mcp-compat-matrix.md)）。现代客户端的 `server/discover` era 探针：stdio 桥本地回 JSON-RPC Method not found（HTTP 200）；Gate 对上游 5xx/不可达同样软回落。dsh 多挂载时 `failOnStartupError=false`。
 
 SessionSnapshot.state：`provisioning`|`running`|`stopping`|`stopped`|`failed`（扩权等待 **不** 新增 state；用 `permission_needed` 事件表示挂起，会话保持 `running`）。cleanupComplete 语义同 v1。AccountInfo.kind 仅 model/mcp。
 
@@ -534,7 +536,7 @@ Go 绑定统一 `error` 字段；未实现的新方法返回 `UNIMPLEMENTED`。�
 | AGENT_EXIT_FAILED | 非零退出，无已知更具体错误 | false |
 | CANCELLED | 用户取消连接等操作；正常停止不算失败 | false |
 | CLEANUP_FAILED / INTERNAL_ERROR | 清理或未知内部故障 | false |
-| SESSION_LIMIT | Create 时活动会话数已达上限（2） | false |
+| SESSION_LIMIT | Create 时活动会话数已达上限（5） | false |
 | WORKSPACE_BUSY | 同工作区已有非终态会话 | false |
 | UNIMPLEMENTED | DesktopAPI 新方法尚未接线 | false |
 

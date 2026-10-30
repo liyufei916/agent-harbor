@@ -15,10 +15,24 @@ func TestCatalogHasFirstBatch(t *testing.T) {
 	for _, p := range c {
 		ids[p.ID] = true
 	}
-	for _, id := range []string{"harbor-time", "harbor-filesystem", "context7"} {
+	for _, id := range []string{"harbor-time", "harbor-filesystem", "harbor-demo-boundary", "context7"} {
 		if !ids[id] {
 			t.Fatal(id)
 		}
+	}
+}
+
+func TestPrepareDemoBoundary(t *testing.T) {
+	dest := t.TempDir()
+	launch, err := Prepare("harbor-demo-boundary", dest, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if launch.Transport != "stdio" || launch.Command == "" || len(launch.Args) != 1 {
+		t.Fatalf("%+v", launch)
+	}
+	if _, err := os.Stat(launch.Args[0]); err != nil {
+		t.Fatal(err)
 	}
 }
 

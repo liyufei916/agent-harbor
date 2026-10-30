@@ -107,8 +107,10 @@ func runOneAgent(api *desktop.DesktopAPI, ws string, agents []contracts.AgentInf
 	}
 
 	marker := fmt.Sprintf("harbor-agent-%s-%d", agentID, time.Now().Unix()%100000)
+	// 任务勿写「demos/workspace」相对路径：Docker guest 工作区已是该目录的 clone（挂在 /workspace），
+	// 再提 demos/workspace 会让 Agent 去找不存在的子目录并漏写 marker。
 	task := fmt.Sprintf(
-		"只读检查 demos/workspace：确认 hello.txt 存在；把一行摘要写入 summary.txt，内容须含 %s。不要使用 Bash 访问工作区外路径。",
+		"确认工作区根目录下 hello.txt 存在；把一行摘要写入工作区根目录的 summary.txt，内容须含 %s。不要使用 Bash 访问工作区外路径。",
 		marker,
 	)
 

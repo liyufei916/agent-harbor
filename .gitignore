@@ -31,6 +31,15 @@
 __pycache__/
 *.pyc
 
-# 演示工作区运行产物（保留 README；Agent 可覆盖 hello.txt）
+# 演示工作区：只提交说明与演示脚本；运行产物 / Agent 垃圾不入库
 /demos/workspace/**
 !/demos/workspace/README.md
+!/demos/workspace/hello.txt
+!/demos/workspace/ONLY_IN_SOURCE.txt
+!/demos/workspace/SYNCBACK_DEMO.md
+!/demos/workspace/EXPAND-TASK.txt
+!/demos/workspace/BLOCK-TASK.txt
+
+# 本地冒烟临时目录 / 下划线草稿不入库
+/demos/evidence/_*/
+/demos/evidence/_*

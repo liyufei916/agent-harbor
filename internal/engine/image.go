@@ -20,7 +20,11 @@ func (c *Colima) EnsureImage(ctx context.Context, dockerfileDir string) error {
 	if err != nil {
 		return err
 	}
-	return EnsureRuntimeImage(ctx, docker, c.dockerEnv(), dockerfileDir, c.OnProgress)
+	run := c.run
+	if run == nil {
+		run = defaultRun
+	}
+	return ensureRuntimeImage(ctx, run, docker, c.dockerEnv(), dockerfileDir, c.OnProgress)
 }
 
 // EnsureImage builds the Harbor guest image using the host docker CLI (本机 Docker).

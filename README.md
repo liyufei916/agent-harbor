@@ -18,15 +18,17 @@
 
 | 亮点 | 说明 |
 |---|---|
-| **密钥不进沙箱** | Key 只在本机录入与保存；执行面经 Gate 出站，Agent 环境只有 Sentinel |
-| **Seatbelt 或 Docker 隔离** | 默认 macOS Seatbelt；设置可选 **Docker**（P2：一会话一容器、镜像内 CLI、`harbor.gate`）；改后端须重启；不可用时阻断开跑（无「仍要继续」） |
+| **密钥不进沙箱** | Key 只在本机录入；macOS **Keychain** fail-closed 保存；执行面经 Gate 出站，Agent 环境只有 Sentinel |
+| **Seatbelt 或 Docker 隔离** | 默认 macOS Seatbelt；设置可选 **Docker**（一会话一容器、镜像内 CLI、`harbor.gate`）；改后端须重启 |
+| **首次引导 + 逐条检测** | 一屏引导与隔离七项检测；不可用时**阻断页**禁开跑（无「仍要继续」）；侧栏状态灯与阻断一致 |
 | **托管引擎（可选）** | 无 Docker Desktop 时 Harbor 托管 Colima；或选用本机 Docker；设置一键安装 / 启用 |
 | **安全副本 / 一键导回** | 默认 `clone` 在副本改文件；工作台 **导回原文件夹** 合并写回；也可选直接编辑 |
 | **Harbor Gate 出站** | 模型 / MCP 只走白名单主机；扩权三选一（拒绝 / 仅本次 / 本项目），**无全网放行** |
-| **主动扩权 ask** | 工作台「请求扩权」走 `PromptPermission`（不依赖上游 302）；点选后可记本项目主机并撤销 |
-| **多会话 ≤2** | HOME 会话中心；同工作区禁双开；停止后可 **再次开始**（同一条会话重新拉起，不新建、不重跑初始任务）；返回 HOME 再进入仍保留已展示的输入输出 |
-| **工作台对话** | 边界条 + 过滤协议 JSON 的可读输出 + 下方输入发下一轮；Claude / Codex / dsh 同会话多轮 |
-| **多 Agent** | Claude Code / DeepSeek dsh / OpenAI Codex；向导**第一步即检 CLI**；同一模型可勾选多 Agent（须上游协议匹配） |
+| **主动扩权 + 可撤销** | 「请求扩权」或工作区 `EXPAND-TASK.txt`（Agent 调 `harbor_demo_ask`）；**权限一览**可撤销本项目主机；**无全网** |
+| **多会话 ≤5** | HOME 会话中心；同工作区禁双开；停止后可 **再次开始**（同一条会话重新拉起，不新建、不重跑初始任务）；返回 HOME 再进入仍保留已展示的输入输出 |
+| **工作台对话** | 边界条 + 过滤协议 JSON 的可读输出 + 下方输入发下一轮；Claude / Codex / dsh 同会话多轮；可**切换同 profile 模型** |
+| **模型自由添加** | 「模型」页自填 Origin + Key（提交后清空）；可勾选多 Agent 共用（须上游协议匹配）；亦支持预置 profile |
+| **多 Agent** | Claude Code / DeepSeek dsh / OpenAI Codex；向导**第一步即检**本机或镜像内 CLI |
 | **MCP 预置 + 双轨** | 工具页勾选预置（时间 / filesystem / Context7）；远程 HTTP（Token / OAuth）或宿主 stdio；白名单见 [mcp-compat-matrix](demos/mcp-compat-matrix.md) |
 | **本机「记录」** | 用量 / 阻拦 / 扩权 / 诊断；Gate 可采 input/output token 粗算费用；参考单价可改可删（CNY/USD 勿混）；导出脱敏 JSON（另存为 + 访达显示） |
 | **可校验分发** | Releases / CI 提供 `AgentHarbor-macos.zip` + **SHA256**；MIT 许可；首次打开需 Gatekeeper 放行（未公证时常见） |
@@ -205,20 +207,20 @@ HARBOR_NO_COMMIT=1 ./scripts/github-push.sh
 
 | 入口 | 作用 |
 |---|---|
-| HOME | 会话中心；运行中 x/2；新会话 / 打开工作台 / 停止 / 销毁 |
+| HOME | 会话中心；运行中 x/5；新会话 / 打开工作台 / 停止 / 销毁 |
 | 新会话 Wizard | 四步：工作区（含 **CLI 先检**）→ Agent → 模型 → 工具（可跳过）；挂载默认安全副本（clone） |
 | 工作台 | 边界条 + 「请求扩权」ask + 当前模型切换 + 对话区（过滤协议 JSON）+ 摘要；顶栏切换焦点会话 |
 | 模型 | 自定义 Origin+Key（可多选 Agent），或预置 profile（`demo-model` / `dsh-model` / `codex-model`）；Key 提交后清空 |
 | 工具 | MCP **双轨**：浏览器 OAuth/SSO **或** Token；编辑 / 删除；stdio 标更高信任 |
 | 记录 | 用量（token/单价粗算）/ 阻拦 / 扩权 / 诊断；脱敏 JSON **另存为**并访达显示（本机不外传） |
 | 设置 | Agent 检测、默认挂载、结束与清理、侧栏偏好、记住的网站、关于（重检时展开逐条，完成后收起） |
-| 顶栏 | 模式徽章；会话切换；**使用说明**弹窗（应用内操作文档） |
+| 顶栏 | 模式徽章；会话切换；**使用教程**（内链使用说明） |
 | Onboarding | 一屏三句 + **逐条隔离检测**（可「下次启动重新显示引导」再跑） |
 | 系统打断 | 扩权 Modal；隔离不可用**阻断页**（逐条重检；无「仍要继续」） |
 
 **会话与并发**
 
-- 同时 running（含 provisioning）**≤ 2**；达上限 `SESSION_LIMIT`。
+- 同时 running（含 provisioning）**≤ 5**；达上限 `SESSION_LIMIT`。
 - **同工作区禁止双开** → `WORKSPACE_BUSY`；换目录或打开已有会话。
 - 销毁二次确认：清隔离运行数据，本机密钥保留。
 

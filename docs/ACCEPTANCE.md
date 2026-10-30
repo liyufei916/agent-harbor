@@ -118,7 +118,7 @@ $ grep -n harbor-live-i2 demos/workspace/summary.txt
 1:harbor-live-i2: …
 ```
 
-仍开放：Apple 公证；扩权 GUI **人工补镜**（toast 已带主机结果文案；须 live 录屏）；302 异常项按需。导回成功后桌面自动访达显示源目录。口播见 [B6-SUCCESS-DEMO](../demos/B6-SUCCESS-DEMO.md)。亮点 mock 截图：[screenshots](../demos/screenshots/)。
+仍开放：Apple 公证；扩权 GUI **人工补镜**（toast 已带主机结果文案；须 live 录屏）；302 异常项按需。导回成功 toast 提示源路径（不自动开访达）。口播见 [B6-SUCCESS-DEMO](../demos/B6-SUCCESS-DEMO.md)。亮点 mock 截图：[screenshots](../demos/screenshots/)。
 
 ## Codex / dsh 真实短任务（固定提交 · 本机 harness）
 

@@ -92,12 +92,12 @@ export function mountSettings(root, ctx, opts = {}) {
     </section>
 
     <section class="card ${focusIsolation ? "settings-focus-isolation" : ""}" style="margin-top:12px" id="settings-isolation">
-      <h3>隔离后端（P2）</h3>
-      <p class="meta">二选一：<strong>Seatbelt</strong>（P1 默认，macOS 沙箱）或 <strong>Docker</strong>（P2，一会话一容器）。Colima / 本机 Docker 只是 Docker 后端的<strong>引擎</strong>，选 Seatbelt 时不必选引擎。<strong>改后端后需重启</strong>；<code>HARBOR_RUNTIME</code> 优先。</p>
+      <h3>隔离后端</h3>
+      <p class="meta">二选一：<strong>Seatbelt</strong>（默认，macOS 沙箱）或 <strong>Docker</strong>（一会话一容器）。Colima / 本机 Docker 只是 Docker 后端的<strong>引擎</strong>，选 Seatbelt 时不必选引擎。<strong>改后端后需重启</strong>；<code>HARBOR_RUNTIME</code> 优先。</p>
       <label class="field">后端
         <select id="set-isolation-backend">
-          <option value="seatbelt">Seatbelt（P1 · 默认）</option>
-          <option value="docker">Docker（P2）</option>
+          <option value="seatbelt">Seatbelt（默认）</option>
+          <option value="docker">Docker</option>
         </select>
       </label>
       <div class="actions" id="isolation-restart-row" hidden>

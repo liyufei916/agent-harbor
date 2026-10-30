@@ -27,6 +27,7 @@ def write_message(obj):
 
 
 def main():
+    init_count = 0
     while True:
         msg = read_message()
         if msg is None:
@@ -34,6 +35,10 @@ def main():
         method = msg.get("method")
         req_id = msg.get("id")
         if method == "initialize":
+            init_count += 1
+            # 真实 stdio MCP 常只能 init 一次；二次会弄死进程（Codex 经 Gate 再连时会再发）。
+            if init_count > 1:
+                sys.exit(1)
             write_message(
                 {
                     "jsonrpc": "2.0",
