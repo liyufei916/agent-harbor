@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,7 +25,8 @@ func defaultFetch(ctx context.Context, url string, w io.Writer) error {
 		return err
 	}
 	req.Header.Set("User-Agent", "agent-harbor-engine/1")
-	client := &http.Client{Timeout: 10 * time.Minute}
+	// GitHub release assets can be slow on some networks; allow long transfer.
+	client := &http.Client{Timeout: 20 * time.Minute}
 	res, err := client.Do(req)
 	if err != nil {
 		return err
@@ -86,7 +88,14 @@ func (c *Colima) installArtifact(ctx context.Context, fetch fetchFunc, a pinnedA
 	w := io.MultiWriter(f, hash)
 	if err := fetch(ctx, a.URL, w); err != nil {
 		_ = f.Close()
-		return errEngine("下载引擎组件失败：" + a.Name + "。")
+		detail := strings.TrimSpace(err.Error())
+		if detail == "" {
+			detail = "网络错误"
+		}
+		if errors.Is(err, context.DeadlineExceeded) || strings.Contains(detail, "context deadline") {
+			detail = "超时（GitHub 较慢时可重试，或手动放入引擎 bin）"
+		}
+		return errEngine("下载引擎组件失败：" + a.Name + "（" + detail + "）。")
 	}
 	if err := f.Close(); err != nil {
 		return errEngine("无法关闭下载文件。")

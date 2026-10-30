@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,6 +22,27 @@ func TestColimaEnsureRequiresBinaries(t *testing.T) {
 	msg := err.Error()
 	if !strings.Contains(msg, "colima") && !strings.Contains(msg, "自动下载") && !strings.Contains(msg, "缺少") {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestColimaHealthDoesNotDownload(t *testing.T) {
+	c := NewColima()
+	c.Root = t.TempDir()
+	c.lookPath = func(string) (string, error) { return "", errors.New("missing") }
+	fetched := false
+	c.fetch = func(context.Context, string, io.Writer) error {
+		fetched = true
+		return errors.New("should not fetch")
+	}
+	st, err := c.Health(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Ready || fetched {
+		t.Fatalf("ready=%v fetched=%v msg=%s", st.Ready, fetched, st.Message)
+	}
+	if !strings.Contains(st.Message, "启用容器引擎") {
+		t.Fatalf("msg=%s", st.Message)
 	}
 }
 

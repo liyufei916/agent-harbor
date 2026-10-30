@@ -180,8 +180,15 @@ func (c *Colima) Stop(ctx context.Context) error {
 }
 
 func (c *Colima) Health(ctx context.Context) (Status, error) {
-	if err := c.Ensure(ctx); err != nil {
-		return Status{Ready: false, Source: SourceHarborColima, Message: err.Error()}, nil
+	// Health 只探测，不下载/启停（下载留给 Ensure；避免 20s 探测超时误报「下载失败」）。
+	for _, name := range []string{"colima", "docker", "limactl"} {
+		if _, err := c.resolveBin(name); err != nil {
+			return Status{
+				Ready:   false,
+				Source:  SourceHarborColima,
+				Message: "引擎组件未就绪（缺 " + name + "）。请点「启用容器引擎」下载并启动。",
+			}, nil
+		}
 	}
 	docker, err := c.resolveBin("docker")
 	if err != nil {
@@ -193,7 +200,7 @@ func (c *Colima) Health(ctx context.Context) (Status, error) {
 		return Status{
 			Ready:      false,
 			Source:     SourceHarborColima,
-			Message:    "Harbor Colima 未运行或 daemon 不可用。",
+			Message:    "Harbor Colima 未运行或 daemon 不可用。请点「启用容器引擎」。",
 			DockerHost: c.DockerHost(),
 		}, nil
 	}

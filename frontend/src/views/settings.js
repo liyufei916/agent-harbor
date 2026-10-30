@@ -99,7 +99,7 @@ export function mountSettings(root, ctx) {
         <button type="button" class="btn" id="btn-engine-health">检测引擎</button>
         <button type="button" class="btn primary" id="btn-engine-ensure">启用容器引擎</button>
       </div>
-      <p class="meta" id="engine-action-status"></p>
+      <p class="meta" id="engine-action-status">首次启用需从 GitHub 下载约数十 MB，网络慢时请耐心等待（勿反复点「检测」）。</p>
     </section>
 
     <section class="card" style="margin-top:12px">
