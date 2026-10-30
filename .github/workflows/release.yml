@@ -38,8 +38,9 @@ jobs:
           export PATH="$GOBIN:$PATH"
           go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.34
           npm ci --prefix frontend
-          npm run build --prefix frontend
+          # 先生成 bindings，再构建前端（live-api 依赖 desktopapi）
           wails3 generate bindings ./...
+          npm run build --prefix frontend
           wails3 build
           wails3 task darwin:package
           plutil -lint bin/AgentHarbor.app/Contents/Info.plist
