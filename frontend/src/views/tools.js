@@ -20,7 +20,9 @@ export function mountTools(root, ctx, opts = {}) {
   /** @type {Array<{id:string,name:string,description:string,kind:string,needsApiKey:boolean,origin?:string}>} */
   let presets = [];
   let presetStatus = "";
-  let addingPreset = "";
+  let addingPresets = false;
+  /** @type {Set<string>} */
+  let selectedPresetIds = new Set();
   /** @type {{ body: HTMLElement, setTitle: Function, close: Function } | null} */
   let formModal = null;
 
@@ -89,26 +91,33 @@ export function mountTools(root, ctx, opts = {}) {
 
   function paintPresets() {
     if (!presets.length) return "";
+    const connectedNames = new Set(
+      (ctx.state.mcpAccounts || []).map((a) => a.name).filter(Boolean),
+    );
     return `
       <section class="card" id="mcp-presets" style="margin-bottom:16px">
-        <h3>预置 MCP（一键添加）</h3>
-        <p class="meta">首批：本机时间、演示工作区文件（stdio，无密钥）、Context7 文档（须 Token）。添加后可在「新会话」勾选。</p>
-        <div class="session-list">
+        <h3>预置 MCP</h3>
+        <p class="meta">勾选要接入的预置，再点「添加所选」。须 Token 的项会弹出填写框。添加后可在「新会话」挂载。</p>
+        <div id="preset-checks">
           ${presets
             .map((p) => {
-              const busy = addingPreset === p.id;
+              const already = connectedNames.has(p.name);
+              const checked = !already && selectedPresetIds.has(p.id);
               return `
-            <article class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;padding:8px 0;border-bottom:1px solid var(--border, #333)">
-              <div>
-                <strong>${p.name}</strong>
-                <p class="meta">${p.description}</p>
-              </div>
-              <button type="button" class="btn primary" data-preset="${p.id}" ${busy ? "disabled" : ""}>
-                ${busy ? "添加中…" : p.needsApiKey ? "添加…" : "添加"}
-              </button>
-            </article>`;
+            <label class="check-row" style="align-items:flex-start">
+              <input type="checkbox" data-preset-check="${p.id}" ${checked ? "checked" : ""} ${already || addingPresets ? "disabled" : ""}/>
+              <span>
+                <strong>${p.name}</strong>${p.needsApiKey ? ` <span class="meta">· 须 Token</span>` : ""}${already ? ` <span class="meta ok">· 已在列表</span>` : ""}
+                <p class="meta" style="margin:2px 0 0">${p.description}</p>
+              </span>
+            </label>`;
             })
             .join("")}
+        </div>
+        <div class="actions" style="margin-top:12px">
+          <button type="button" class="btn primary" id="btn-add-presets" ${addingPresets ? "disabled" : ""}>
+            ${addingPresets ? "添加中…" : "添加所选"}
+          </button>
         </div>
         ${presetStatus ? `<p class="meta" id="preset-status">${presetStatus}</p>` : ""}
       </section>`;
@@ -136,12 +145,23 @@ export function mountTools(root, ctx, opts = {}) {
       ${listStatus ? `<p class="meta" id="mcp-list-status">${listStatus}</p>` : ""}
       ${
         list.length === 0 && editing !== "new"
-          ? `<div class="empty-state"><p>还没有工具。可用上方预置一键添加，或自定义远程 HTTP / 宿主 stdio。</p>
+          ? `<div class="empty-state"><p>还没有工具。可勾选上方预置后「添加所选」，或自定义远程 HTTP / 宿主 stdio。</p>
              <div class="actions"><button type="button" class="btn primary" id="empty-add-mcp">+ 自定义添加</button></div></div>`
           : ""
       }
     `;
     const listEl = root.querySelector("#mcp-list");
+    root.querySelectorAll("[data-preset-check]").forEach((el) => {
+      el.onchange = () => {
+        const id = el.getAttribute("data-preset-check") || "";
+        if (!id) return;
+        if (el.checked) selectedPresetIds.add(id);
+        else selectedPresetIds.delete(id);
+      };
+    });
+    root.querySelector("#btn-add-presets")?.addEventListener("click", () => {
+      void addSelectedPresets();
+    });
     list.forEach((a) => {
       const row = document.createElement("article");
       row.className = "card session-card";
@@ -190,18 +210,6 @@ export function mountTools(root, ctx, opts = {}) {
       clearReturn();
       ctx.navigate("wizard");
     });
-    root.querySelectorAll("[data-preset]").forEach((btn) => {
-      btn.onclick = async () => {
-        const id = btn.getAttribute("data-preset") || "";
-        const preset = presets.find((p) => p.id === id);
-        if (!preset) return;
-        if (preset.needsApiKey) {
-          openPresetKeyModal(preset);
-          return;
-        }
-        await addPreset(preset, "");
-      };
-    });
     listEl.querySelectorAll("[data-edit]").forEach((btn) => {
       btn.onclick = () => {
         editing = btn.getAttribute("data-edit");
@@ -249,52 +257,108 @@ export function mountTools(root, ctx, opts = {}) {
     if (editing) paintForm();
   }
 
-  async function addPreset(preset, apiKey) {
-    addingPreset = preset.id;
-    presetStatus = `<span class="meta">正在添加「${preset.name}」…</span>`;
-    paint();
-    const res = await api.addMcpPreset({ presetId: preset.id, apiKey });
-    addingPreset = "";
-    if (res?.error) {
-      presetStatus = `<span class="bad">${res.error.code}: ${res.error.message}</span>`;
-      paint();
-      return false;
-    }
-    presetStatus = `<span class="ok">已添加「${preset.name}」</span>`;
-    ctx.onAccountsChanged?.();
-    if (resumeWizard()) return true;
-    await load();
-    return true;
+  function selectedPresetList() {
+    return presets.filter((p) => selectedPresetIds.has(p.id));
   }
 
-  function openPresetKeyModal(preset) {
-    closeFormModal();
-    const modal = openFormModal({
-      title: `添加预置 · ${preset.name}`,
-      onClose: () => {},
-    });
-    if (!modal?.body) return;
-    modal.body.innerHTML = `
-      <p class="meta">${preset.description || ""}</p>
-      <label class="field">Token<input id="preset-key" type="password" autocomplete="off" placeholder="粘贴 Token"/></label>
-      <div class="actions">
-        <button type="button" class="btn" id="preset-cancel">取消</button>
-        <button type="button" class="btn primary" id="preset-save">添加</button>
-      </div>
-      <p class="meta" id="preset-modal-status" role="status"></p>`;
-    modal.body.querySelector("#preset-cancel").onclick = () => modal.close();
-    modal.body.querySelector("#preset-save").onclick = async () => {
-      const key = modal.body.querySelector("#preset-key")?.value?.trim() || "";
-      const st = modal.body.querySelector("#preset-modal-status");
-      if (!key) {
-        st.innerHTML = `<span class="bad">请填写 Token</span>`;
+  function askPresetKeys(needKeyList) {
+    return new Promise((resolve) => {
+      if (!needKeyList.length) {
+        resolve({});
         return;
       }
-      st.textContent = "正在添加…";
-      const ok = await addPreset(preset, key);
-      if (ok) modal.close();
-      else if (st) st.innerHTML = presetStatus;
-    };
+      let settled = false;
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
+      closeFormModal();
+      const modal = openFormModal({
+        title: "预置 MCP · 填写 Token",
+        onClose: () => finish(null),
+      });
+      if (!modal?.body) {
+        finish(null);
+        return;
+      }
+      modal.body.innerHTML = `
+        <p class="meta">以下预置需要 Token 才能连接。</p>
+        ${needKeyList
+          .map(
+            (p) => `
+          <label class="field">${p.name}
+            <input type="password" data-preset-key="${p.id}" autocomplete="off" placeholder="粘贴 Token"/>
+          </label>`,
+          )
+          .join("")}
+        <div class="actions">
+          <button type="button" class="btn" id="preset-keys-cancel">取消</button>
+          <button type="button" class="btn primary" id="preset-keys-ok">继续添加</button>
+        </div>
+        <p class="meta" id="preset-keys-status" role="status"></p>`;
+      modal.body.querySelector("#preset-keys-cancel").onclick = () => modal.close();
+      modal.body.querySelector("#preset-keys-ok").onclick = () => {
+        const keys = {};
+        const st = modal.body.querySelector("#preset-keys-status");
+        for (const p of needKeyList) {
+          const v =
+            modal.body.querySelector(`[data-preset-key="${p.id}"]`)?.value?.trim() ||
+            "";
+          if (!v) {
+            st.innerHTML = `<span class="bad">请填写「${p.name}」的 Token</span>`;
+            return;
+          }
+          keys[p.id] = v;
+        }
+        finish(keys);
+        modal.close();
+      };
+    });
+  }
+
+  async function addSelectedPresets() {
+    const chosen = selectedPresetList();
+    if (!chosen.length) {
+      presetStatus = `<span class="bad">请先勾选要添加的预置</span>`;
+      paint();
+      return;
+    }
+    const needKey = chosen.filter((p) => p.needsApiKey);
+    const keys = await askPresetKeys(needKey);
+    if (keys === null) return;
+
+    addingPresets = true;
+    const added = [];
+    const failed = [];
+    for (const p of chosen) {
+      presetStatus = `<span class="meta">正在添加「${p.name}」…</span>`;
+      paint();
+      const res = await api.addMcpPreset({
+        presetId: p.id,
+        apiKey: keys[p.id] || "",
+      });
+      if (res?.error) {
+        failed.push(`${p.name}（${res.error.message}）`);
+      } else {
+        added.push(p.name);
+        selectedPresetIds.delete(p.id);
+      }
+    }
+    addingPresets = false;
+    if (failed.length && !added.length) {
+      presetStatus = `<span class="bad">添加失败：${failed.join("；")}</span>`;
+      paint();
+      return;
+    }
+    if (failed.length) {
+      presetStatus = `<span class="ok">已添加：${added.join("、")}</span> <span class="bad">失败：${failed.join("；")}</span>`;
+    } else {
+      presetStatus = `<span class="ok">已添加：${added.join("、")}</span>`;
+    }
+    ctx.onAccountsChanged?.();
+    if (resumeWizard()) return;
+    await load();
   }
 
   function newOAuthAccounts(accounts) {
