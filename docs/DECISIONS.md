@@ -62,7 +62,7 @@
 |---|---|
 | 选型 | **Docker 容器**为 P2 主路径；**microVM 延后预研**，不挡二期 |
 | 默认 | 桌面仍 P1 Seatbelt；设置隔离后端选 **Docker** 后才用 P2 |
-| 分支 | `feat/p2-docker-runtime`；计划见 [P2-DOCKER.md](P2-DOCKER.md) |
+| 落地 | **已合入 `main`**（`1a5db77`）；计划/切片见 [P2-DOCKER.md](P2-DOCKER.md) |
 | 硬约束 | 不挂 `docker.sock` 进 Agent 容器；无 daemon → fail-closed；Gate/UI 契约不变 |
 
 ### P2 容器引擎主路径 B→C（2026-10-30；用户确认）

@@ -131,7 +131,7 @@ $ grep -n harbor-live-i2 demos/workspace/summary.txt
 | dsh | **通过（2026-10-30 Docker）** | `HARBOR_RUNTIME=docker` → `session=3efa2c5d… marker=harbor-agent-dsh-64815 srcSummary=true SyncBack=ok`（同证据文件）。Seatbelt 路径可另补。 |
 | claude | **通过（2026-10-30 Docker）** | `HARBOR_RUNTIME=docker` → `session=ea1a6c34… marker=harbor-agent-claude-64773 srcSummary=true SyncBack=ok` |
 
-### P2 Docker / Colima（分支 `feat/p2-docker-runtime` · 不合 main）
+### P2 Docker / Colima（已合入 `main` · `1a5db77`）
 
 | 项 | 状态 | 证据 |
 |---|---|---|

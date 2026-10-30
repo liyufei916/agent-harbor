@@ -39,8 +39,9 @@
 | 2026-10-30ai | **P2 §B Colima**：`COLIMA_HOME` 改 `~/Library/Caches/AgentHarbor/colima`（UNIX_PATH_MAX）；`engine/share`→`lima/share` guestagent；Ensure/Health 证据 `p2-colima-ensure-*.txt`（Desktop 已安装但未用）。 |
 | 2026-10-30aj | **扩权演示收敛**：Gate `tools/list` 注入 `harbor_demo_ask`；工作区 `EXPAND-TASK`/`BLOCK-TASK`；删不可用 shell 触发脚本与冗余 demos md。 |
 | 2026-10-30ak | **P2 桌面 GUI Docker live**：`bin/AgentHarbor.app` 无 `HARBOR_RUNTIME`；顶栏 Docker + 侧栏隔离就绪截图 `17-desktop-docker-health.png`；UIPrefs `GetRuntimeHealth` 证据 `p2-docker-gui-*.txt`；stranger §P2 A GUI 勾选。 |
-| 2026-10-30al | **陌生人首跑表代填**：步骤 1–9 + Agent 矩阵 + §P2 A/B（除「陌生机无 Desktop GUI」）按 Release/live 证据勾选；公证/302/MCP SDK/microVM 本轮不推进。 |
+| 2026-10-30al | **陌生人首跑表**：步骤 1–9 + Agent 矩阵 + §P2 A/B（除「陌生机无 Desktop GUI」）按 Release/live 证据勾选；公证/302/MCP SDK/microVM 本轮不推进。 |
 | 2026-10-30am | **代填自检收紧**：步骤 1–2/Gatekeeper/扩权 GUI/§B「无 Desktop」标明代填或 API 口径，避免冒充陌生机重下或 GUI 补镜。 |
+| 2026-10-30an | **`feat/p2-docker-runtime` → `main`**：`1a5db77`；文档去掉「不合 main」口径。 |
 
 ## eng-complete（代码已接线）
 
@@ -68,7 +69,7 @@
 | I1–I11 / B6 live | **通过（2026-10-30 全量重跑）** | harness + 平台探针 + `bin/AgentHarbor.app` 启停；见 ACCEPTANCE |
 | 扩权 302 异常项（可选） | **backlog** | 主路径改为 `PromptPermission` ask + 白名单；302 不挡验收 |
 | Apple 公证 / 分发签名 | **blocked（账号）** | 需 Apple Developer；清单见 [`scripts/notarize-prep.md`](../scripts/notarize-prep.md) |
-| Docker Runtime（P2） | **API + 桌面 GUI live 已绿；陌生机无 Desktop 仍待** | Runtime+引擎；冒烟/`p2-docker-agents`/`p2-colima-ensure`/`p2-docker-gui`（顶栏 Docker·隔离就绪截图）已入 `demos/evidence/`；§B 陌生机无 Desktop 端到端 GUI 仍待；不合 main 前不关正式单 |
+| Docker Runtime（P2） | **已合 main；API + 桌面 GUI live 已绿；真无 Desktop 另机仍待** | 代码与证据已在 `main`（`1a5db77`）；冒烟/三 Agent/`p2-colima-ensure`/`p2-docker-gui` 见 `demos/evidence/`；§B 真无 Desktop 端到端 GUI 仍待另机 |
 | microVM | **backlog（后于 Docker）** | 不挡 P2 容器；预研另立 |
 | 官方 MCP SDK | **backlog** | 现用 `net/http` 转发；待真实上游后再换 SDK |
 | Linux Seatbelt | **N/A** | Runtime 非 Darwin → `ISOLATION_UNAVAILABLE`；无 Linux Seatbelt 目标 |
