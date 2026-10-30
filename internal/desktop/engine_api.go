@@ -238,6 +238,10 @@ func (d *DesktopAPI) EnsureContainerEngine() contracts.ContainerEngineHealthResp
 		d.app.setEngineProgress(100, "本机 Docker 可用", false)
 	} else {
 		d.app.setEngineProgress(100, "安装完成", false)
+		// 安装完成后立刻挂 DOCKER_HOST + engine/bin PATH，便于「重新检测隔离」无需先依赖重启。
+		if c, ok := eng.(*engine.Colima); ok && st.Ready {
+			_ = c.ApplyDockerHost()
+		}
 	}
 	return enrichEngineHealth(d.app, mapEngineStatus(st))
 }

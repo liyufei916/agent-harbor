@@ -100,8 +100,41 @@ func TestColimaStartIdempotentWhenHealthy(t *testing.T) {
 	if os.Getenv("DOCKER_HOST") == "" {
 		t.Fatal("expected DOCKER_HOST applied")
 	}
+	if !strings.HasPrefix(os.Getenv("PATH"), bin+string(os.PathListSeparator)) && os.Getenv("PATH") != bin {
+		t.Fatalf("engine bin not prepended to PATH: %s", os.Getenv("PATH"))
+	}
 	if len(calls) < 1 {
 		t.Fatal("expected health probe")
+	}
+}
+
+func TestApplyDockerHostPrependsBinPATH(t *testing.T) {
+	root := t.TempDir()
+	bin := filepath.Join(root, "bin")
+	_ = os.MkdirAll(bin, 0700)
+	c := NewColima()
+	c.Root = root
+	prev := os.Getenv("PATH")
+	t.Cleanup(func() {
+		_ = os.Setenv("PATH", prev)
+		_ = os.Unsetenv("DOCKER_HOST")
+		_ = os.Unsetenv("COLIMA_HOME")
+		_ = os.Unsetenv("COLIMA_PROFILE")
+	})
+	_ = os.Setenv("PATH", "/usr/bin")
+	if err := c.ApplyDockerHost(); err != nil {
+		t.Fatal(err)
+	}
+	want := bin + string(os.PathListSeparator) + "/usr/bin"
+	if os.Getenv("PATH") != want {
+		t.Fatalf("PATH=%q want %q", os.Getenv("PATH"), want)
+	}
+	// idempotent
+	if err := c.ApplyDockerHost(); err != nil {
+		t.Fatal(err)
+	}
+	if os.Getenv("PATH") != want {
+		t.Fatalf("PATH grew on second apply: %s", os.Getenv("PATH"))
 	}
 }
 

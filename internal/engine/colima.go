@@ -230,6 +230,8 @@ func (c *Colima) Health(ctx context.Context) (Status, error) {
 }
 
 // ApplyDockerHost sets process DOCKER_HOST so subsequent docker CLI (Runtime) hits Colima.
+// Also prepends Harbor engine/bin to PATH so LookPath("docker") finds the pinned CLI
+// (Runtime / Kit 探测不认 Application Support 绝对路径，只查 PATH)。
 func (c *Colima) ApplyDockerHost() error {
 	host := c.DockerHost()
 	if err := os.Setenv("DOCKER_HOST", host); err != nil {
@@ -237,7 +239,27 @@ func (c *Colima) ApplyDockerHost() error {
 	}
 	_ = os.Setenv("COLIMA_HOME", c.colimaHomeDir())
 	_ = os.Setenv("COLIMA_PROFILE", ProfileName)
+	c.prependBinToPATH()
 	return nil
+}
+
+func (c *Colima) prependBinToPATH() {
+	bin := c.binDir()
+	if bin == "" {
+		return
+	}
+	cur := os.Getenv("PATH")
+	sep := string(os.PathListSeparator)
+	for _, p := range strings.Split(cur, sep) {
+		if p == bin {
+			return
+		}
+	}
+	if cur == "" {
+		_ = os.Setenv("PATH", bin)
+		return
+	}
+	_ = os.Setenv("PATH", bin+sep+cur)
 }
 
 var _ Engine = (*Colima)(nil)
