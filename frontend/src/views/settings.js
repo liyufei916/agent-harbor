@@ -89,11 +89,11 @@ export function mountSettings(root, ctx) {
         </select>
       </label>
       <div id="engine-panel" class="engine-panel" hidden>
-        <p class="meta">先选引擎来源，再点<strong>一键安装并启用</strong>才会下载/启动（切后端本身不下载）。Harbor Colima 可停止；本机 Docker 仅取消安装，不会关 Desktop。</p>
+        <p class="meta"><strong>无 Docker Desktop</strong> → 用「Harbor 托管 Colima」并<strong>一键安装</strong>（才下载）。<strong>本机已有 Docker</strong> → 选「本机 Docker」，只检测连接、<strong>不下载托管组件</strong>。</p>
         <label class="field">容器引擎来源
           <select id="set-engine-source">
-            <option value="harbor-colima">Harbor 托管 Colima（推荐）</option>
-            <option value="system-docker">本机已有 Docker（高级）</option>
+            <option value="harbor-colima">Harbor 托管 Colima（无 Desktop 时推荐）</option>
+            <option value="system-docker">本机 Docker（高级）</option>
           </select>
         </label>
         <p class="meta" id="engine-desktop-status" role="status">Docker Desktop：检测中…</p>
@@ -109,7 +109,7 @@ export function mountSettings(root, ctx) {
           <button type="button" class="btn primary" id="btn-engine-ensure">一键安装并启用</button>
           <button type="button" class="btn" id="btn-engine-stop">停止 / 取消</button>
         </div>
-        <p class="meta" id="engine-action-status">选好 Colima 或本机 Docker 后，点一键安装才开始下载（约数十 MB，显示进度）。</p>
+        <p class="meta" id="engine-action-status">未装 Desktop 时选 Colima 再安装；有本机 Docker 时改选「本机 Docker」后点连接即可。</p>
       </div>
     </section>
 
@@ -310,24 +310,49 @@ export function mountSettings(root, ctx) {
     lab.textContent = label ? `${pct}% · ${label}` : `${pct}%`;
   }
 
+  function currentEngineSource() {
+    return normalizeEngineSource(root.querySelector("#set-engine-source")?.value);
+  }
+
+  function syncEnsureButton(h) {
+    const btn = root.querySelector("#btn-engine-ensure");
+    const stopBtn = root.querySelector("#btn-engine-stop");
+    const hint = root.querySelector("#engine-action-status");
+    if (!btn) return;
+    const src = currentEngineSource();
+    const system = src === "system-docker";
+    if (system) {
+      btn.textContent = h?.ready ? "重新检测本机 Docker" : "连接本机 Docker";
+      if (stopBtn) stopBtn.textContent = "取消连接";
+      if (hint && !h?.installing) {
+        hint.textContent = "本机 Docker：不下载 Colima，只检测本机 docker CLI / daemon 是否可用。";
+      }
+    } else {
+      if (h?.ready) btn.textContent = "重新启用 Colima";
+      else if (h?.componentsInstalled) btn.textContent = "启动 Colima";
+      else btn.textContent = "一键安装并启用";
+      if (stopBtn) stopBtn.textContent = "停止 / 取消";
+      if (hint && !h?.installing) {
+        hint.textContent = h?.dockerDesktopInstalled
+          ? "已有 Desktop 时可改选「本机 Docker」。无 Desktop 或不想用 Desktop 时，一键安装 Harbor Colima。"
+          : "未检测到 Docker Desktop：请用 Harbor Colima 一键安装（才会下载）。";
+      }
+    }
+  }
+
   function paintEngineHealth(h) {
     const el = root.querySelector("#engine-health-status");
     const desk = root.querySelector("#engine-desktop-status");
-    const btn = root.querySelector("#btn-engine-ensure");
     if (desk) {
       if (!h) {
         desk.textContent = "Docker Desktop：—";
       } else if (h.dockerDesktopInstalled) {
-        desk.innerHTML = `<span class="ok">已检测到 Docker Desktop（仍可用 Harbor Colima，不强制）</span>`;
+        desk.innerHTML = `<span class="ok">已检测到 Docker Desktop · 可直接选「本机 Docker」，无需装托管 Colima</span>`;
       } else {
-        desk.innerHTML = `<span class="warn">未检测到 Docker Desktop · 可一键安装 Harbor 托管引擎</span>`;
+        desk.innerHTML = `<span class="warn">未检测到 Docker Desktop · 请用 Harbor Colima 一键安装</span>`;
       }
     }
-    if (btn) {
-      if (h?.ready) btn.textContent = "重新启用引擎";
-      else if (h?.componentsInstalled) btn.textContent = "启用容器引擎";
-      else btn.textContent = "一键安装并启用";
-    }
+    syncEnsureButton(h);
     if (!el) return;
     if (!h) {
       el.textContent = "引擎状态：—";
@@ -335,7 +360,7 @@ export function mountSettings(root, ctx) {
     }
     const src = h.source || "";
     if (h.installing || (h.progressPercent > 0 && h.progressPercent < 100 && !h.ready)) {
-      paintEngineProgress(h.progressPercent, h.progressLabel || "安装中…", true);
+      paintEngineProgress(h.progressPercent, h.progressLabel || "进行中…", true);
     }
     if (h.ready) {
       el.innerHTML = `<span class="ok">引擎就绪 · ${src}${h.message ? " · " + h.message : ""}</span>`;
@@ -453,7 +478,13 @@ export function mountSettings(root, ctx) {
   root.querySelector("#set-ask-clear").onchange = savePrefs;
   root.querySelector("#set-security-tier")?.addEventListener("change", savePrefs);
   root.querySelector("#set-isolation-backend")?.addEventListener("change", savePrefs);
-  root.querySelector("#set-engine-source")?.addEventListener("change", savePrefs);
+  root.querySelector("#set-engine-source")?.addEventListener("change", () => {
+    syncEnsureButton(null);
+    savePrefs();
+    if (normalizeIsolationBackend(root.querySelector("#set-isolation-backend")?.value) === "docker") {
+      refreshEngineHealth().catch(() => paintEngineHealth(null));
+    }
+  });
   root.querySelectorAll('input[name="clear-default"]').forEach((el) => {
     el.onchange = savePrefs;
   });
@@ -494,24 +525,29 @@ export function mountSettings(root, ctx) {
     btn.disabled = true;
     if (healthBtn) healthBtn.disabled = true;
     if (stopBtn) stopBtn.disabled = false;
-    paintEngineProgress(1, "开始安装…", true);
-    if (st) st.textContent = "一键安装中（下载 / 启动）…可点「停止 / 取消」";
-    showToast("正在一键安装容器引擎…", "ok");
+    const system = currentEngineSource() === "system-docker";
+    paintEngineProgress(1, system ? "连接本机 Docker…" : "开始安装…", true);
+    if (st) {
+      st.textContent = system
+        ? "正在检测本机 Docker…"
+        : "一键安装中（下载 / 启动 Colima）…可点「停止 / 取消」";
+    }
+    showToast(system ? "正在连接本机 Docker…" : "正在一键安装 Harbor Colima…", "ok");
     try {
       const h = await api.ensureContainerEngine();
       paintEngineHealth(h);
       if (h?.ready) {
-        paintEngineProgress(100, "安装完成", false);
+        paintEngineProgress(100, system ? "本机 Docker 可用" : "安装完成", false);
         if (st) st.innerHTML = `<span class="ok">引擎已就绪 · 请重启应用使容器隔离生效</span>`;
         showToast("容器引擎已就绪，请重启应用", "ok");
       } else {
         if (st)
-          st.innerHTML = `<span class="bad">${h?.message || h?.error?.message || "安装失败"}</span>`;
+          st.innerHTML = `<span class="bad">${h?.message || h?.error?.message || "失败"}</span>`;
         showToast(h?.message || "容器引擎未就绪", "bad");
       }
     } catch (e) {
-      if (st) st.innerHTML = `<span class="bad">安装失败</span>`;
-      showToast("一键安装失败", "bad");
+      if (st) st.innerHTML = `<span class="bad">${system ? "连接失败" : "安装失败"}</span>`;
+      showToast(system ? "连接本机 Docker 失败" : "一键安装失败", "bad");
     } finally {
       btn.disabled = false;
       if (healthBtn) healthBtn.disabled = false;

@@ -176,11 +176,16 @@ func (d *DesktopAPI) EnsureContainerEngine() contracts.ContainerEngineHealthResp
 	ctx, cancel := d.app.beginEngineInstall()
 	defer d.app.endEngineInstall(cancel)
 
-	d.app.setEngineProgress(0, "开始安装 Harbor 容器引擎…", true)
+	src := normalizeEngineSource(d.app.getPrefs().EngineSource)
+	if src == engine.SourceSystemDocker {
+		d.app.setEngineProgress(10, "检测本机 Docker（不下载托管组件）…", true)
+	} else {
+		d.app.setEngineProgress(0, "开始安装 Harbor Colima…", true)
+	}
 	defer func() {
 		installing, pct, _ := d.app.engineProgressSnapshot()
 		if installing {
-			d.app.setEngineProgress(pct, "安装结束", false)
+			d.app.setEngineProgress(pct, "结束", false)
 		}
 	}()
 
@@ -217,16 +222,23 @@ func (d *DesktopAPI) EnsureContainerEngine() contracts.ContainerEngineHealthResp
 	if err := eng.Start(ctx); err != nil {
 		return fail(err)
 	}
-	if c, ok := eng.(*engine.Colima); ok {
-		if dir := resolveDockerfileDir(); dir != "" {
-			_ = c.EnsureImage(ctx, dir) // best-effort
+	// 仅 Harbor Colima 构建 runtime 镜像；本机 Docker 路径不下载托管组件。
+	if src == engine.SourceHarborColima {
+		if c, ok := eng.(*engine.Colima); ok {
+			if dir := resolveDockerfileDir(); dir != "" {
+				_ = c.EnsureImage(ctx, dir) // best-effort
+			}
 		}
 	}
 	st, err := eng.Health(ctx)
 	if err != nil {
 		return fail(err)
 	}
-	d.app.setEngineProgress(100, "安装完成", false)
+	if src == engine.SourceSystemDocker {
+		d.app.setEngineProgress(100, "本机 Docker 可用", false)
+	} else {
+		d.app.setEngineProgress(100, "安装完成", false)
+	}
 	return enrichEngineHealth(d.app, mapEngineStatus(st))
 }
 
