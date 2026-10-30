@@ -52,6 +52,7 @@ type App struct {
 	hosts        map[string]contracts.RememberedHost // key: workspace\x00host
 	oauth        map[string]*oauthPending
 	stdioBridges map[string]*mcpstdio.Bridge
+	stdioFailed  map[string]string // accountID → 脱敏失败原因（桥未就绪）
 	ready        bool
 }
 
@@ -90,6 +91,7 @@ func NewAppWithDataDir(dataDir string) *App {
 	app.gate = gate.New(store, pol)
 	app.conn = gate.NewConnections(store, pol).WithStdioKeeper(app)
 	app.stdioBridges = make(map[string]*mcpstdio.Bridge)
+	app.stdioFailed = make(map[string]string)
 	// 持久化 stdio 账号：应用重启后按 Keychain/文件库中的 command/args/env 重拉回环桥并更新 Host。
 	restoreCtx, cancelRestore := context.WithTimeout(context.Background(), 45*time.Second)
 	_ = app.RestoreStdioBridges(restoreCtx)
@@ -110,7 +112,52 @@ func (a *App) AdoptStdioBridge(accountID string, bridge *mcpstdio.Bridge) {
 		_ = old.Close()
 	}
 	a.stdioBridges[accountID] = bridge
+	if a.stdioFailed != nil {
+		delete(a.stdioFailed, accountID)
+	}
 	a.mu.Unlock()
+}
+
+func (a *App) markStdioFailed(accountID, reason string) {
+	if a == nil || accountID == "" {
+		return
+	}
+	a.mu.Lock()
+	if a.stdioFailed == nil {
+		a.stdioFailed = make(map[string]string)
+	}
+	if reason == "" {
+		reason = "宿主 stdio 桥未就绪，请在工具页重新探测。"
+	}
+	a.stdioFailed[accountID] = reason
+	a.mu.Unlock()
+}
+
+func (a *App) clearStdioFailed(accountID string) {
+	if a == nil {
+		return
+	}
+	a.mu.Lock()
+	delete(a.stdioFailed, accountID)
+	a.mu.Unlock()
+}
+
+func (a *App) hasStdioBridge(accountID string) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.stdioBridges[accountID] != nil
+}
+
+func (a *App) stdioOfflineHint(accountID string) string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.stdioBridges[accountID] != nil {
+		return ""
+	}
+	if msg := a.stdioFailed[accountID]; msg != "" {
+		return msg
+	}
+	return "宿主 stdio 桥未在本进程拉起，请重新探测或重启应用。"
 }
 
 // RestoreStdioBridges 从 Secrets 重拉所有 transport=stdio 的宿主桥；失败账号保留，用户可在工具页重新探测。
@@ -132,10 +179,12 @@ func (a *App) RestoreStdioBridges(ctx context.Context) int {
 		}
 		raw, err := a.secrets.Resolve(ctx, acc.ID)
 		if err != nil || len(raw) == 0 {
+			a.markStdioFailed(acc.ID, "无法读取已存 stdio 命令，请重新添加。")
 			continue
 		}
 		spec, err := mcpstdio.DecodeSecret(raw)
 		if err != nil {
+			a.markStdioFailed(acc.ID, "stdio 凭据格式无效，请删除后重连。")
 			continue
 		}
 		if strings.TrimSpace(spec.Command) == "" {
@@ -145,11 +194,13 @@ func (a *App) RestoreStdioBridges(ctx context.Context) int {
 		bridge, err := mcpstdio.Start(oneCtx, spec)
 		cancel()
 		if err != nil {
+			a.markStdioFailed(acc.ID, "无法启动宿主 stdio 进程，请确认命令仍可用后重新探测。")
 			continue
 		}
 		hostPort := strings.TrimPrefix(bridge.Origin, "http://")
 		if err := a.secrets.UpdateEndpoint(ctx, acc.ID, hostPort, bridge.Tools); err != nil {
 			_ = bridge.Close()
+			a.markStdioFailed(acc.ID, "桥已启动但未能更新账号端口，请重新探测。")
 			continue
 		}
 		a.AdoptStdioBridge(acc.ID, bridge)
@@ -162,6 +213,7 @@ func (a *App) closeStdioBridge(accountID string) {
 	a.mu.Lock()
 	bridge := a.stdioBridges[accountID]
 	delete(a.stdioBridges, accountID)
+	delete(a.stdioFailed, accountID)
 	a.mu.Unlock()
 	if bridge != nil {
 		_ = bridge.Close()

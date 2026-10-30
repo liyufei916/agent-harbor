@@ -89,11 +89,13 @@ export function mountTools(root, ctx, opts = {}) {
         <div class="row" style="justify-content:space-between">
           <div>
             <strong>${a.name}</strong>
-            <span class="meta">${a.transport === "stdio" ? "stdio" : a.authMode || "token"} · ${a.transport === "stdio" ? a.command || "host" : a.host || a.profileId}${toolsHint} · ● 已连接</span>
+            <span class="meta">${a.transport === "stdio" ? "stdio" : a.authMode || "token"} · ${a.transport === "stdio" ? a.command || "host" : a.host || a.profileId}${toolsHint} · ${a.offlineHint ? "○ 桥未就绪" : "● 已连接"}</span>
             ${
-              a.transport === "stdio"
-                ? `<p class="meta">宿主桥：应用重启后按已存命令自动重拉（端口可能变化）。密钥与进程留在宿主机。</p>`
-                : ""
+              a.offlineHint
+                ? `<p class="meta warn">${a.offlineHint}</p>`
+                : a.transport === "stdio"
+                  ? `<p class="meta">宿主桥：重启后自动重拉（端口可能变化）。密钥与进程留在宿主机。</p>`
+                  : ""
             }
           </div>
           <div class="row">

@@ -191,7 +191,7 @@ wails3 dev
 
 **打包产物全量走查清单**（启动自检 → 模型/工具 → 向导/工作台 → 多会话/设置）：[DESKTOP-PACKAGE-TEST.md](DESKTOP-PACKAGE-TEST.md)。
 
-I1/I2 本机步骤：[I1-I2-LIVE.md](I1-I2-LIVE.md)。历史详尽手册：[MANUAL-INTEGRATION-TEST.md](../docs/archive/MANUAL-INTEGRATION-TEST.md)。  
+I1/I2 本机步骤：[I1-I2-LIVE.md](I1-I2-LIVE.md)。B6 成功态：[B6-SUCCESS-DEMO.md](B6-SUCCESS-DEMO.md)。历史详尽手册：[MANUAL-INTEGRATION-TEST.md](../docs/archive/MANUAL-INTEGRATION-TEST.md)。  
 C 实现笔记：[DEV-C.md](../docs/DEV-C.md)。
 
 ---

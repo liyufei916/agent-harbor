@@ -58,6 +58,10 @@ func TestRestoreStdioBridgesReloadsHostPort(t *testing.T) {
 	if len(info.Tools) != 1 || info.Tools[0] != "echo" {
 		t.Fatalf("tools=%v", info.Tools)
 	}
+	listed := NewDesktopAPI(app).ListAccounts("mcp")
+	if len(listed.Accounts) != 1 || listed.Accounts[0].OfflineHint != "" {
+		t.Fatalf("live bridge should clear offlineHint: %+v", listed.Accounts)
+	}
 
 	// 模拟二次重启：关掉桥后再 Restore，端口应再次变化或至少仍可达。
 	oldHost := info.Host
@@ -84,6 +88,30 @@ func TestRestoreStdioBridgesReloadsHostPort(t *testing.T) {
 	app.mu.Unlock()
 	if left != 0 {
 		t.Fatalf("bridges after shutdown: %d", left)
+	}
+}
+
+func TestListAccountsMarksFailedStdioBridge(t *testing.T) {
+	app := NewApp()
+	ctx := context.Background()
+	secret, err := mcpstdio.EncodeSecret(mcpstdio.Spec{Command: "/nonexistent/harbor-stdio-fixture", Args: nil})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := app.secrets.Put(ctx, contracts.AccountInfo{
+		Kind: "mcp", Name: "dead", ProfileID: policy.ProfileCustom,
+		Host: "127.0.0.1:1", Transport: "stdio", Command: "/nonexistent/harbor-stdio-fixture", AuthMode: "stdio",
+		Tools: []string{"echo"},
+	}, secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := app.RestoreStdioBridges(ctx); n != 0 {
+		t.Fatalf("expected 0 restores, got %d", n)
+	}
+	listed := NewDesktopAPI(app).ListAccounts("mcp")
+	if len(listed.Accounts) != 1 || listed.Accounts[0].ID != id || listed.Accounts[0].OfflineHint == "" {
+		t.Fatalf("want offlineHint, got %+v", listed.Accounts)
 	}
 }
 

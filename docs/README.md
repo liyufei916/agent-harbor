@@ -28,6 +28,7 @@
 |---|---|
 | [DSH-INTEGRATION.md](DSH-INTEGRATION.md) / [CODEX-INTEGRATION.md](CODEX-INTEGRATION.md) | Kit 真实接入 |
 | [demos/I1-I2-LIVE.md](../demos/I1-I2-LIVE.md) | 真实验收操作清单（关 I1/I2） |
+| [demos/B6-SUCCESS-DEMO.md](../demos/B6-SUCCESS-DEMO.md) | 60 秒任务成功 + 导回演示 |
 | [DESIGN.md](DESIGN.md) | 威胁模型与长期范围 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 控制/执行面契约 |
 | [IMPLEMENTATION.md](IMPLEMENTATION.md) | P1→P2 路线图 |

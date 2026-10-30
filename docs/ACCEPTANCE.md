@@ -36,14 +36,11 @@
 
 D1–D5 支持并行开发与联调；I1–I11 支持本次真实闭环判断。首日结束前优先通过 I1/I2，第二日补齐安全与生命周期；尚未验证的项目应直接报告，不宣称“全部模块无阻塞”或“安全已保证”。
 
-## 4. 2026-10-24 首批执行记录
+## 4. 2026-10-24 首批执行记录（历史）
 
-- D1：Go 共享类型及消费接口编译通过；Wails 绑定尚未生成，完整 D1 待 B 接续。
-- D2：通过；`go test -race ./...` 验证同契约替身编排，`go vet ./...` 通过。
-- I4/I5：仅完成诊断模板七项探测，生产 Runtime 尚未实现，完整验收仍待执行。
-- D3、D5、I1–I11 的真实集成项：待执行。
+> 当时 D1 绑定未生成、Runtime 未实现。**现行**：D1–D4（mock）与平台探针已前进；I1–I11 **live** 仍以 §「2026-10-25 P0」与 §「2026-10-30 I3/I4/I5」为准，勿用本节「全部待执行」覆盖现状。
 
-环境、命令、证据范围和下一步详见 [研发 A 开发记录](DEV-A.md)，不得将诊断模板或 fake 计入真实 Agent 核心闭环。
+环境与命令见 [DEV-A](DEV-A.md)；诊断/fake 不得计入真实闭环。
 
 ## 4.1 2026-10-24 D4 证据（产品 C / mock）
 
@@ -105,9 +102,9 @@ D1 的绑定生成已执行；原生 WebView 冒烟通过生成绑定校验 DTO�
 | I4 | **平台探针通过 / live 待补** | 2026-10-30 | `TestMacOSFileBoundaryAndNoFork`（`harbor_platform`）：工作区读写允许；区外文件/符号链接逃逸/fork → 退出 13。Darwin 25·arm64 本机：`go test -race -tags harbor_platform ./internal/runtime -run FileBoundary` | 真实 Claude 任务改工作区文件并尝试读区外路径，截脱敏审计 |
 | I5 | **平台探针通过 / live 待补** | 2026-10-30 | `TestMacOSExactGateNetwork`：仅允许的 loopback Gate 端口可达；其它端口 / unix socket 拒。同上 tags | live 会话诱导未授权出站，确认 Seatbelt 拒而非仅 Gate 业务层 |
 
-### 导回成功态（画面 + 一行日志）
+### 导回成功态 / B6（画面 + 一行日志）
 
-话术与填空见 [demos/syncback-evidence.md](../demos/syncback-evidence.md)。工程旁证：`TestSyncWorkspaceOverwritesAndKeepsExtra`。
+60 秒成功态脚本：[demos/B6-SUCCESS-DEMO.md](../demos/B6-SUCCESS-DEMO.md)；填空 [syncback-evidence.md](../demos/syncback-evidence.md)。工程旁证：`TestSyncWorkspaceOverwritesAndKeepsExtra`。**live 画面仍待补**（本项非正式关单）。
 
 示例日志（源目录确认，路径脱敏）：
 

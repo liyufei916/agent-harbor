@@ -46,7 +46,8 @@
 | 实现 | `internal/mcpstdio`：Content-Length stdio + `http://127.0.0.1:port/mcp` 回环桥；桌面 `AdoptStdioBridge` 保活 |
 | Policy | `AccountInfo.Host` 形如 `127.0.0.1:port`；仅 loopback http；`AllowInsecureLoopback` |
 | 安全 | 进程与 env 在宿主机；沙箱仍只连 Gateway；删除账号关闭桥 |
-| 重启 | `App.RestoreStdioBridges`：启动时按 vault 中 command/args/env 重拉桥并 `UpdateEndpoint` 换端口；失败账号保留，可在工具页重连 |
+| 重启 | `App.RestoreStdioBridges`：启动时按 vault 中 command/args/env 重拉桥并 `UpdateEndpoint` 换端口；失败账号保留 |
+| 可见性 | `AccountInfo.offlineHint`：桥未就绪时 ListAccounts / 工具页标「○ 桥未就绪」+ 原因；成功重拉后清空 |
 
 ### 发布与 CI 产物（B，2026-10-30）
 

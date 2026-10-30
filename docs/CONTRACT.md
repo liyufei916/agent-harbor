@@ -78,6 +78,7 @@ type AccountInfo struct {
     Transport string `json:"transport,omitempty"` // stdio | 空
     Command string `json:"command,omitempty"`
     AuthMode string `json:"authMode,omitempty"` // token | oauth | stdio
+    OfflineHint string `json:"offlineHint,omitempty"` // stdio 桥未就绪等；禁含密钥
 }
 // SessionSpec.MountMode："direct"（缺省）| "clone"。
 // MCPIDs 长度 0..8；0 表示本会话不挂 MCP。

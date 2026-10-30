@@ -58,6 +58,8 @@ type AccountInfo struct {
 	Transport string   `json:"transport,omitempty"` // stdio | 空(http)
 	Command   string   `json:"command,omitempty"`   // stdio 可执行文件（绝对路径），无密钥
 	AuthMode  string   `json:"authMode,omitempty"`  // token | oauth | stdio
+	// OfflineHint：进程内状态提示（如 stdio 桥未就绪）；禁止含密钥。空=可用。
+	OfflineHint string `json:"offlineHint,omitempty"`
 }
 
 // SessionSpec 是创建会话的前端请求。

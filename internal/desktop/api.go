@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/liyufei916/agent-harbor/internal/contracts"
@@ -134,13 +135,20 @@ func unimplemented() *contracts.AppError {
 	return contracts.NewAppError(contracts.ErrUnimplemented, "该方法尚未实现，形状已按契约占位。", false)
 }
 
-// ListAccounts 列出已保存账号元信息（无密钥）。
+// ListAccounts 列出已保存账号元信息（无密钥）。stdio 账号附带 OfflineHint（桥是否在本进程就绪）。
 func (d *DesktopAPI) ListAccounts(kind string) contracts.AccountsResponse {
 	accounts := d.app.secrets.List(context.Background(), kind)
 	if accounts == nil {
 		accounts = []contracts.AccountInfo{}
 	}
-	return contracts.AccountsResponse{Accounts: accounts}
+	out := make([]contracts.AccountInfo, len(accounts))
+	for i, acc := range accounts {
+		out[i] = acc
+		if strings.EqualFold(strings.TrimSpace(acc.Transport), "stdio") {
+			out[i].OfflineHint = d.app.stdioOfflineHint(acc.ID)
+		}
+	}
+	return contracts.AccountsResponse{Accounts: out}
 }
 
 // RemoveAccount 删除账号及其内存凭据。
