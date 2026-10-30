@@ -61,9 +61,27 @@
 | 项 | 约定 |
 |---|---|
 | 选型 | **Docker 容器**为 P2 主路径；**microVM 延后预研**，不挡二期 |
-| 默认 | 桌面仍 P1 Seatbelt；显式 `HARBOR_RUNTIME=docker`（或 `p2` / `container`）才切 Docker |
+| 默认 | 桌面仍 P1 Seatbelt；显式切 Docker / 容器隔离后才用 P2 |
 | 分支 | `feat/p2-docker-runtime`；计划见 [P2-DOCKER.md](P2-DOCKER.md) |
-| 硬约束 | 不挂 `docker.sock`；无 daemon → fail-closed；Gate/UI 契约不变 |
+| 硬约束 | 不挂 `docker.sock` 进 Agent 容器；无 daemon → fail-closed；Gate/UI 契约不变 |
+
+### P2 容器引擎主路径 B→C（2026-10-30；用户确认）
+
+**产品选择**：不要求用户安装 Docker Desktop。主路径为 **Harbor 托管轻量引擎**；系统已有 Docker 仅作高级兼容。
+
+| 项 | 约定 |
+|---|---|
+| 主路径 | **B→C**：安装/首启部署轻量引擎 → 用户无感「没有 Docker」 |
+| 引擎 | **Colima + docker CLI**（macOS arm64 优先）；版本钉扎，随 Harbor 升级策略另表 |
+| 落盘 | `~/Library/Application Support/AgentHarbor/engine/`（cli、colima、数据目录）；不写入系统 `/usr/local` 强依赖 |
+| 控制面 | 仅 Harbor 宿主机进程调用 `Ensure/Start/Stop/Health`；**不对 Agent 暴露**管理面与 sock |
+| Runtime | 现有 P2 `internal/runtime` Docker 实现不变语义；经 `DOCKER_HOST`（或等价）指向托管 daemon |
+| 镜像 | 仍构建/使用 `agent-harbor/runtime:dev`（三 CLI 预装，一会话一容器） |
+| Desktop | **非主路径**；探测到本机可用 Docker 时可「使用已有 Docker」，文案降为高级选项 |
+| 默认隔离 | 仍为 **Seatbelt**；启用容器隔离失败 → fail-closed，禁止无隔离直跑 |
+| 不做 | 安装包内嵌 Docker Desktop；把 `docker.sock` 挂进 Guest；跳过引擎假装已隔离 |
+| 包体 | 优先「首启按需下载钉扎产物 + 校验和」；随包附带为可选优化，公证体积另估 |
+| 里程碑 | M2 引擎启停+建镜像；M3 设置接来源；M4 默认无感路径 + 陌生机证据（见 P2-DOCKER） |
 
 ## 2026-10-24 开发环境观测
 

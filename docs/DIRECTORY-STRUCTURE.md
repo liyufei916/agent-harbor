@@ -31,6 +31,7 @@ agent-harbor/
 │   ├── runtime/                 # A：操作系统隔离与进程树管理（P1 Seatbelt / P2 Docker）
 │   │   ├── runtime.go           # 后端接口与句柄
 │   │   ├── docker*.go           # P2 容器 Runtime（见 docs/P2-DOCKER.md）
+│   ├── engine/                  # A：P2 托管 Colima/引擎（B→C；见 DECISIONS）
 │   │   ├── macos.go             # macOS Seatbelt 实现
 │   │   ├── default_darwin.go    # NewDefault → NewMacOS
 │   │   ├── default_stub.go      # 非 Darwin：ISOLATION_UNAVAILABLE

@@ -22,6 +22,7 @@
 | 2026-10-30r | **P2 切片 14**：Health 清理 `label=agent-harbor=1` 且已退出的孤儿容器；设置「关于」显示隔离后端偏好。 |
 | 2026-10-30s | **P2 切片 15**：`HARBOR_DOCKER_*` 配额格式校验；设置保存后刷新关于栏后端文案。 |
 | 2026-10-30t | **P2 切片 16**：`scripts/docker-p2-up.sh` 一键构建+冒烟；目录结构注明 docker*.go。 |
+| 2026-10-30u | **P2 引擎 B0**：确认主路径 **B→C**（托管 Colima，不逼装 Desktop）；DECISIONS + `internal/engine` 接口骨架。 |
 
 ## eng-complete（代码已接线）
 
@@ -49,7 +50,7 @@
 | I1–I11 / B6 live | **通过（2026-10-30 全量重跑）** | harness + 平台探针 + `bin/AgentHarbor.app` 启停；见 ACCEPTANCE |
 | 扩权 302 异常项（可选） | **backlog** | 主路径改为 `PromptPermission` ask + 白名单；302 不挡验收 |
 | Apple 公证 / 分发签名 | **blocked（账号）** | 需 Apple Developer；清单见 [`scripts/notarize-prep.md`](../scripts/notarize-prep.md) |
-| Docker Runtime（P2） | **进行中（分支可用）** | `feat/p2-docker-runtime` 切片 0–16；Desktop 残留：其它路径仍可能触及宿主机 loopback；真机 daemon 冒烟待本机 Docker |
+| Docker Runtime（P2） | **Runtime 底座完成；引擎 B→C 进行中** | Runtime 切片 0–16；**主路径托管 Colima（B0 已定）**，不逼装 Desktop；M2 起实现 `internal/engine` |
 | microVM | **backlog（后于 Docker）** | 不挡 P2 容器；预研另立 |
 | 官方 MCP SDK | **backlog** | 现用 `net/http` 转发；待真实上游后再换 SDK |
 | Linux Seatbelt | **N/A** | Runtime 非 Darwin → `ISOLATION_UNAVAILABLE`；无 Linux Seatbelt 目标 |
