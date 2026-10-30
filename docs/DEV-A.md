@@ -131,7 +131,7 @@ Runtime 新增 `InteractiveProcess` 和 `LaunchSpec.Interactive`。交互 Kit �
 Claude 使用 `--input-format stream-json`，由 Kit 的 EncodeInput 将首轮和后续轮次编码为独立 user JSONL 消息，正文换行不会成为额外协议记录。同一进程保留对话上下文，但真实模型上下文连续性仍须 **live 验收**（I1–I11 仍开放）。
 
 - **dsh**：官方 headless `-` 仍为 EOF 单任务（`dsh.New` 回归路径）。**桌面装配**使用 `dsh.NewConversation` 固定受信 `conversation.mjs` 驱动，经官方 Agent API 保留同一实例/Session，支持同会话多轮；不装载任务指定代码、不开动态插件。
-- **Codex**：`turn_bridge` + `codex app-server` 同 thread 多轮并流式 delta。
+- **Codex**：`turn_bridge` + `codex app-server` 同 thread 多轮并流式 delta。ChatGPT.app 原生二进制若支持 `app-server`，同样走常驻桥；只认单轮 `exec` 时首轮结束进程退出，会话会被打成 stopped。
 - **Resize**：非 Terminal 模式（JSONL 管道）`terminal==nil` 时仍返回 `UNIMPLEMENTED`。macOS **Terminal 模式**（`LaunchSpec.Terminal`）在 `terminal!=nil` 时经 `pty.Setsize` 改窗口尺寸；JSONL 通道不冒充真实 PTY。
 
 Runtime 输入串行化，阻塞写入响应 context 取消/超时；写入中断可能产生半条消息，编排会取消并清理会话。进程能力发布在编排锁内完成。验证：消息转义、并发写入、阻塞取消、真实受限 helper 两轮/resize 等单测通过；**不等于**远程模型多轮或 Agent TUI live 关单。

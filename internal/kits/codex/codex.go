@@ -27,13 +27,16 @@ type Kit struct {
 	executable string
 	model      string
 	inspect    func(context.Context, string, []string) (string, error)
+	lookupNode func() (string, error)
 }
 
 type launchSpec struct {
-	Command  string
-	Args     []string
-	ReadOnly []string
-	Label    string
+	Command      string
+	Args         []string
+	ReadOnly     []string
+	Label        string
+	Node         string
+	NativeBridge bool
 }
 
 var _ kits.Kit = (*Kit)(nil)
@@ -46,7 +49,7 @@ func New(executable, model string) (*Kit, error) {
 	if executable == "" {
 		executable = "codex"
 	}
-	return &Kit{executable: executable, model: model, inspect: inspectExecutable}, nil
+	return &Kit{executable: executable, model: model, inspect: inspectExecutable, lookupNode: resolveNode}, nil
 }
 
 func kitError(code string) *contracts.AppError {
@@ -187,15 +190,23 @@ func packageRootForScript(script string) string {
 
 // resolveLaunch：Homebrew Codex 是 #!/usr/bin/env node 脚本；沙箱内 env 找不到 node。
 // 必须 node + codex.js，与 Claude Kit 同模式；ReadOnly 须覆盖整个 npm 包根（含 optional 原生二进制）。
-func (k *Kit) resolveLaunch() (launchSpec, error) {
+// ChatGPT.app 等原生 codex 若支持 app-server，同样经 node 跑 turn_bridge，再由桥直接拉起该二进制。
+func (k *Kit) resolveLaunch(ctx context.Context) (launchSpec, error) {
 	script, err := k.resolveScript()
 	if err != nil {
 		return launchSpec{}, err
 	}
 	if !isNodeScript(script) {
-		return launchSpec{Command: script, ReadOnly: []string{script}, Label: script}, nil
+		spec := launchSpec{Command: script, ReadOnly: []string{script}, Label: script}
+		node, nerr := k.nodeBinary()
+		if nerr == nil && k.supportsAppServer(ctx, script) {
+			spec.NativeBridge = true
+			spec.Node = node
+			spec.ReadOnly = append([]string{node, script}, brewRuntimeRoots(node)...)
+		}
+		return spec, nil
 	}
-	node, err := resolveNode()
+	node, err := k.nodeBinary()
 	if err != nil {
 		return launchSpec{}, err
 	}
@@ -210,12 +221,28 @@ func (k *Kit) resolveLaunch() (launchSpec, error) {
 	}, nil
 }
 
+func (k *Kit) nodeBinary() (string, error) {
+	if k.lookupNode == nil {
+		return resolveNode()
+	}
+	return k.lookupNode()
+}
+
+// supportsAppServer 识别可常驻的 app-server。探测失败保持单轮 exec，不把帮助文本失败当成安装失败。
+func (k *Kit) supportsAppServer(ctx context.Context, command string) bool {
+	if k.inspect == nil || ctx.Err() != nil {
+		return false
+	}
+	out, _ := k.inspect(ctx, command, []string{"app-server", "--help"})
+	return strings.Contains(out, "--listen") && strings.Contains(out, "stdio://")
+}
+
 func (k *Kit) Detect(ctx context.Context) (kits.KitInfo, error) {
 	info := kits.KitInfo{Agent: contracts.AgentInfo{ID: "codex", Name: "OpenAI Codex", ModelProfileID: "codex-model", Reason: "未安装或受限检测未通过。"}, ReadOnlyPaths: []string{}, NeedsChildProcesses: true, NeedsDescendants: true}
 	if ctx.Err() != nil {
 		return info, kitError("CANCELLED")
 	}
-	launch, err := k.resolveLaunch()
+	launch, err := k.resolveLaunch(ctx)
 	if err != nil {
 		return info, nil
 	}
@@ -297,7 +324,7 @@ func (k *Kit) Build(ctx context.Context, input kits.KitInput) (runtime.LaunchSpe
 	if urlErr != nil {
 		return runtime.LaunchSpec{}, kitError("INVALID_ARGUMENT")
 	}
-	launch, err := k.resolveLaunch()
+	launch, err := k.resolveLaunch(ctx)
 	if err != nil {
 		return runtime.LaunchSpec{}, err
 	}
@@ -322,25 +349,30 @@ func (k *Kit) Build(ctx context.Context, input kits.KitInput) (runtime.LaunchSpe
 	configs := []runtime.ConfigFile{{RelativePath: "codex/config.toml", Content: []byte(b.String())}}
 	env := map[string]string{"CODEX_HOME": filepath.Join(input.PrivateHome, "codex"), "OPENAI_API_KEY": input.Sentinel}
 
-	// 测试替身 / 原生二进制：保持单轮 exec（无常驻桥）。
-	if len(launch.Args) == 0 {
+	// 无 app-server 的测试替身仍走单轮 exec。支持 app-server 的原生二进制走下方常驻桥。
+	if len(launch.Args) == 0 && !launch.NativeBridge {
 		args := append(append([]string{}, launch.Args...), "exec", "--json", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox", "--model", modelName, "-")
 		return runtime.LaunchSpec{
 			Command: launch.Command, Args: args, Env: env, Stdin: []byte(input.Task), ConfigFiles: configs,
 		}, nil
 	}
 
-	// node + turn_bridge：多轮。codex.js 路径在 Label / Args[0]。
-	codexScript := launch.Label
-	if codexScript == "" && len(launch.Args) > 0 {
-		codexScript = launch.Args[0]
+	// node + turn_bridge：多轮。npm 脚本路径在 Label / Args[0]；原生二进制由桥直接 exec。
+	codexTarget := launch.Label
+	if codexTarget == "" && len(launch.Args) > 0 {
+		codexTarget = launch.Args[0]
 	}
+	command := launch.Command
 	bridgeRel := "codex/harbor-turn.mjs"
 	bridgePath := filepath.Join(input.PrivateHome, bridgeRel)
 	configs = append(configs, runtime.ConfigFile{RelativePath: bridgeRel, Content: turnBridgeJS})
-	args := []string{bridgePath, "--codex", codexScript, "--model", modelName}
+	args := []string{bridgePath, "--codex", codexTarget, "--model", modelName}
+	if launch.NativeBridge {
+		command = launch.Node
+		args = append(args, "--native")
+	}
 	return runtime.LaunchSpec{
-		Command:     launch.Command,
+		Command:     command,
 		Args:        args,
 		Env:         env,
 		Stdin:       []byte(input.Task),

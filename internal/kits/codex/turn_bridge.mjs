@@ -72,11 +72,17 @@ function mapItem(item) {
   };
 }
 
-const child = spawn(
-  process.execPath,
-  [codexScript, "app-server", "--listen", "stdio://"],
-  { cwd, env: process.env, stdio: ["pipe", "pipe", "pipe"] },
-);
+// --native：ChatGPT.app 等 Mach-O。直接 exec 该二进制；npm 脚本仍由当前 node 解释。
+const native = process.argv.includes("--native");
+const serverCmd = native ? codexScript : process.execPath;
+const serverArgs = native
+  ? ["app-server", "--listen", "stdio://"]
+  : [codexScript, "app-server", "--listen", "stdio://"];
+const child = spawn(serverCmd, serverArgs, {
+  cwd,
+  env: process.env,
+  stdio: ["pipe", "pipe", "pipe"],
+});
 
 child.on("error", (err) => {
   process.stderr.write(`harbor-turn: app-server spawn failed: ${err.message}\n`);
