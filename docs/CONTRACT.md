@@ -228,6 +228,7 @@ type DesktopAPI interface {
     CreateSession(SessionSpec) SessionResponse
     GetSession(string) SessionResponse
     StopSession(string) SessionResponse
+    StartSession(sessionID string) SessionResponse // 已清理的 stopped/failed 原会话重新拉起，不新建 session_id
     ListSessions() SessionsResponse
     DestroySession(sessionID string) SessionResponse
     SyncBackWorkspace(sessionID string) SessionResponse // clone → 原目录合并写回
@@ -428,6 +429,7 @@ type Runtime interface {
 | WritePty / ResizePty | 向焦点会话 PTY 写输入/改尺寸 | 无 PTY 或未 running → `INVALID_ARGUMENT` |
 | GetSession | 最新快照与 seq | 未知 → `SESSION_NOT_FOUND`；无任务正文/凭据 |
 | StopSession | 返回 stopping，事件报清理 | 终态幂等；未知 → `SESSION_NOT_FOUND` |
+| StartSession | 原 session_id 回到 provisioning | 仅 `stopped`/`failed` 且 cleanupComplete=true；否则 `INVALID_ARGUMENT` 或 `CLEANUP_FAILED`；并发与同工作区规则同 CreateSession；未知 → `SESSION_NOT_FOUND`。不新建会话。进程起来后等待下一轮输入，不再自动送入创建时的任务 |
 | ListSessions | 本应用生命周期内会话摘要 | 含终态直至 Destroy；空 `[]` |
 | DestroySession | 移除终态会话记录 | 非 stopped/failed 或 cleanupComplete=false → `INVALID_ARGUMENT`；未知 → `SESSION_NOT_FOUND`；并删除停止后保留的 clone 副本 |
 | SyncBackWorkspace | 将 clone 副本合并写回 `sourceWorkspace` | 仅 `mountMode=clone`；覆盖同名常规文件，不删原目录多余项；成功后桌面在访达中显示源目录；无副本/direct → `INVALID_ARGUMENT`；未知 → `SESSION_NOT_FOUND` |

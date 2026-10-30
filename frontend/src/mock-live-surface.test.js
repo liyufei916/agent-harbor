@@ -14,6 +14,7 @@ const LIVE_SURFACE = [
   "createSession",
   "getSession",
   "stopSession",
+  "startSession",
   "listAccounts",
   "removeAccount",
   "listSessions",

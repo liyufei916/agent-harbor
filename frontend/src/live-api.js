@@ -33,6 +33,7 @@ export function createLiveTransport() {
     createSession: (spec) => api.CreateSession(spec),
     getSession: (id) => api.GetSession(id),
     stopSession: (id) => api.StopSession(id),
+    startSession: bind("StartSession"),
     listAccounts: bind("ListAccounts"),
     removeAccount: bind("RemoveAccount"),
     listSessions: bind("ListSessions"),

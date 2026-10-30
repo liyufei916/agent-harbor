@@ -119,7 +119,7 @@
     │
     ▼
   stopped ──用户选销毁──► destroyed
-           └─保留盘────► stopped（可再次 start 同会话）
+           └─保留盘────► stopped（StartSession 再次拉起同一条会话，不新建 id，不重跑初始任务）
 ```
 
 状态含义（编排层对外）：

@@ -11,6 +11,9 @@ function plainTerm(host) {
     clear() {
       if (host) host.textContent = "";
     },
+    reset() {
+      if (host) host.textContent = "";
+    },
     focus() {},
     dispose() {},
     fit() {
@@ -61,6 +64,9 @@ export function createPtyTerm(host, { onData, onResize } = {}) {
     },
     clear() {
       term.clear();
+    },
+    reset() {
+      term.reset();
     },
     focus() {
       term.focus();

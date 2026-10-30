@@ -58,6 +58,13 @@ test(
       ctx.state.sessionId = response.session.sessionId;
       view.resetForNewSession(response.session);
       assert.match(nodes.get("#sess-pty").textContent, /开始执行任务/);
+      nodes.get("#sess-pty-input").value = "下一轮问题";
+      await nodes.get("#sess-pty-send").onclick();
+      assert.match(nodes.get("#sess-pty").textContent, /下一轮问题/);
+      nodes.get("#sess-pty").textContent = "";
+      view.showSnapshot(ctx.state.lastSnapshot);
+      assert.match(nodes.get("#sess-pty").textContent, /开始执行任务/);
+      assert.match(nodes.get("#sess-pty").textContent, /下一轮问题/);
       assert.equal(ctx.state.lastSnapshot.state, "running");
       await api.stopSession(ctx.state.sessionId);
       assert.equal(ctx.state.lastSnapshot.state, "stopping");
