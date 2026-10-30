@@ -19,6 +19,7 @@ func TestNewSelectedDefaultsToColima(t *testing.T) {
 }
 
 func TestColimaHealthFailClosedWithoutBinaries(t *testing.T) {
+	t.Setenv("HARBOR_ENGINE_AUTO_DOWNLOAD", "0")
 	c := NewColima()
 	c.Root = t.TempDir()
 	c.lookPath = func(string) (string, error) { return "", errors.New("missing") }

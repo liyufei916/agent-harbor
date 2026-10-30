@@ -10,11 +10,16 @@ import (
 )
 
 func TestColimaEnsureRequiresBinaries(t *testing.T) {
+	t.Setenv("HARBOR_ENGINE_AUTO_DOWNLOAD", "0")
 	c := NewColima()
 	c.Root = t.TempDir()
 	c.lookPath = func(string) (string, error) { return "", errors.New("missing") }
 	err := c.Ensure(context.Background())
-	if err == nil || !strings.Contains(err.Error(), "colima") {
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "colima") && !strings.Contains(msg, "自动下载") && !strings.Contains(msg, "缺少") {
 		t.Fatalf("got %v", err)
 	}
 }
@@ -25,7 +30,7 @@ func TestColimaEnsureFindsLocalBin(t *testing.T) {
 	if err := os.MkdirAll(bin, 0700); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"colima", "docker"} {
+	for _, name := range []string{"colima", "docker", "limactl"} {
 		p := filepath.Join(bin, name)
 		if err := os.WriteFile(p, []byte("#!/bin/sh\n"), 0755); err != nil {
 			t.Fatal(err)
@@ -46,7 +51,7 @@ func TestColimaStartIdempotentWhenHealthy(t *testing.T) {
 	root := t.TempDir()
 	bin := filepath.Join(root, "bin")
 	_ = os.MkdirAll(bin, 0700)
-	for _, name := range []string{"colima", "docker"} {
+	for _, name := range []string{"colima", "docker", "limactl"} {
 		_ = os.WriteFile(filepath.Join(bin, name), []byte("x"), 0755)
 	}
 	var calls []string
@@ -86,6 +91,7 @@ func TestColimaStartInvokesColima(t *testing.T) {
 	dockerBin := filepath.Join(bin, "docker")
 	_ = os.WriteFile(colimaBin, []byte("x"), 0755)
 	_ = os.WriteFile(dockerBin, []byte("x"), 0755)
+	_ = os.WriteFile(filepath.Join(bin, "limactl"), []byte("x"), 0755)
 
 	var sawStart bool
 	infoCalls := 0

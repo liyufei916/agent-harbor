@@ -31,8 +31,8 @@ Gate / Policy / 页面主契约不变，只换 `Runtime` 实现；引擎由 Harb
 |---|---|---|
 | **B0** | DECISIONS：Colima 主路径、目录、fail-closed、不做 Desktop 内嵌 | **完成** |
 | **M2a** | `internal/engine`：SystemDocker 适配 + Colima 占位（fail-closed） | **完成** |
-| **M2b** | Colima Start/Stop/Health（PATH 或 `engine/bin`）；`EnsureImage`；不抢全局 docker context | **本提交** |
-| **M2c** | 钉扎下载 colima/docker CLI 到 `engine/bin` | 待做 |
+| **M2b** | Colima Start/Stop/Health（PATH 或 `engine/bin`）；`EnsureImage`；不抢全局 docker context | **完成** |
+| **M2c** | 钉扎下载 colima + lima + docker CLI（SHA256）；`HARBOR_ENGINE_AUTO_DOWNLOAD` | **本提交** |
 | **M3** | 设置：引擎来源（Harbor / 本机 Docker）；`DOCKER_HOST` 接入 Runtime | 待做 |
 | **M4** | 默认无感路径（C）；陌生机无 Desktop 证据 | 待做 |
 
@@ -62,5 +62,6 @@ bash scripts/docker-p2-up.sh   # 构建镜像 + 边界冒烟（需已有 docker�
 | `HARBOR_DOCKER_IMAGE` | `agent-harbor/runtime:dev` | |
 | `HARBOR_DOCKER_MEMORY` / `_CPUS` / `_PIDS` | `2g` / `2` / `256` | 非法回落默认 |
 | `DOCKER_HOST` | （引擎子系统设置） | 指向 Harbor Colima 或本机 Docker |
+| `HARBOR_ENGINE_AUTO_DOWNLOAD` | 默认开启 | `0`/`false`/`off` 关闭钉扎下载 |
 
 对照：[deploy/docker](../deploy/docker/README.md) · [CONTRACT](CONTRACT.md) · [ENG-STATUS](ENG-STATUS.md) · [DECISIONS](DECISIONS.md)。

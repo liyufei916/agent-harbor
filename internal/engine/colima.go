@@ -5,18 +5,20 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"time"
 )
 
 // Colima is the product-primary managed engine (B→C).
-// M2b: use PATH or Root/bin binaries; start profile agent-harbor under COLIMA_HOME.
-// Pinned download of binaries is M2c.
+// Uses PATH or Root/bin; Ensure may auto-download pinned binaries (M2c).
 type Colima struct {
 	Root string // Application Support/.../engine; empty → default
 
 	lookPath func(string) (string, error)
 	run      func(ctx context.Context, name string, args []string, env []string) (string, error)
+	fetch    fetchFunc
 }
 
 func NewColima() *Colima {
@@ -49,8 +51,21 @@ func defaultRun(ctx context.Context, name string, args []string, env []string) (
 }
 
 func (c *Colima) baseEnv() []string {
-	env := os.Environ()
+	env := append([]string{}, os.Environ()...)
 	home := c.colimaHomeDir()
+	limaBin := filepath.Join(c.root(), "lima", "bin")
+	bin := c.binDir() + string(os.PathListSeparator) + limaBin
+	pathSet := false
+	for i, e := range env {
+		if strings.HasPrefix(e, "PATH=") {
+			env[i] = "PATH=" + bin + string(os.PathListSeparator) + strings.TrimPrefix(e, "PATH=")
+			pathSet = true
+			break
+		}
+	}
+	if !pathSet {
+		env = append(env, "PATH="+bin)
+	}
 	env = append(env,
 		"COLIMA_HOME="+home,
 		"COLIMA_PROFILE="+ProfileName,
@@ -72,11 +87,26 @@ func (c *Colima) Ensure(ctx context.Context) error {
 	if err := os.MkdirAll(c.colimaHomeDir(), 0700); err != nil {
 		return errEngine("无法创建 Colima 数据目录。")
 	}
+	needDownload := false
+	for _, name := range []string{"colima", "docker", "limactl"} {
+		if _, err := c.resolveBin(name); err != nil {
+			needDownload = true
+			break
+		}
+	}
+	if needDownload {
+		if err := c.ensurePinnedBins(ctx); err != nil {
+			return err
+		}
+	}
 	if _, err := c.resolveBin("colima"); err != nil {
-		return errEngine("未找到 colima。请安装 Colima，或将二进制放到引擎 bin 目录（钉扎下载见 M2c）。")
+		return errEngine("未找到 colima。可开启自动下载，或将二进制放入引擎 bin 目录。")
 	}
 	if _, err := c.resolveBin("docker"); err != nil {
-		return errEngine("未找到 docker CLI。请安装 Docker CLI（无需 Desktop），或放到引擎 bin 目录。")
+		return errEngine("未找到 docker CLI。可开启自动下载，或将二进制放入引擎 bin 目录。")
+	}
+	if _, err := c.resolveBin("limactl"); err != nil {
+		return errEngine("未找到 limactl（Colima 依赖）。可开启自动下载，或将二进制放入引擎 bin 目录。")
 	}
 	return nil
 }
@@ -103,6 +133,9 @@ func (c *Colima) Start(ctx context.Context) error {
 		"--memory", "2",
 		"--disk", "20",
 		"--activate=false", // do not steal user's global docker context
+	}
+	if goruntime.GOOS == "darwin" && goruntime.GOARCH == "arm64" {
+		args = append(args, "--vm-type", "vz", "--mount-type", "virtiofs")
 	}
 	if _, err := c.run(startCtx, colima, args, c.baseEnv()); err != nil {
 		return errEngine("无法启动 Harbor Colima 引擎。")

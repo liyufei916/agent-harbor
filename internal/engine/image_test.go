@@ -17,6 +17,7 @@ func TestEnsureImageBuildsWhenMissing(t *testing.T) {
 	colimaBin := filepath.Join(bin, "colima")
 	_ = os.WriteFile(dockerBin, []byte("x"), 0755)
 	_ = os.WriteFile(colimaBin, []byte("x"), 0755)
+	_ = os.WriteFile(filepath.Join(bin, "limactl"), []byte("x"), 0755)
 
 	dfDir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dfDir, "Dockerfile"), []byte("FROM scratch\n"), 0644); err != nil {

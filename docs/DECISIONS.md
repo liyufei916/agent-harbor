@@ -80,7 +80,8 @@
 | Desktop | **非主路径**；探测到本机可用 Docker 时可「使用已有 Docker」，文案降为高级选项 |
 | 默认隔离 | 仍为 **Seatbelt**；启用容器隔离失败 → fail-closed，禁止无隔离直跑 |
 | 不做 | 安装包内嵌 Docker Desktop；把 `docker.sock` 挂进 Guest；跳过引擎假装已隔离 |
-| 包体 | 优先「首启按需下载钉扎产物 + 校验和」；随包附带为可选优化，公证体积另估 |
+| 包体 | 优先「首启按需下载钉扎产物 + SHA256」；`HARBOR_ENGINE_AUTO_DOWNLOAD=0` 可关；随包附带为可选优化 |
+| 钉扎版本（初值） | colima `v0.8.1` · lima `v1.0.6` · docker CLI `27.5.1`（见 `internal/engine/versions.go`） |
 | 里程碑 | M2b 启停+建镜像（用 PATH/`engine/bin`）；M2c 钉扎下载；M3 设置接来源；M4 默认无感路径（见 P2-DOCKER） |
 | Colima 配置 | profile=`agent-harbor`；`COLIMA_HOME=<engine>/colima`；启动 `--activate=false`（不抢用户全局 context）；轻量默认 2CPU/2GiB/20GiB |
 

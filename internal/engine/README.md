@@ -20,8 +20,8 @@
 |---|---|
 | `Engine` 接口 / `NewSelected` | 已有；默认 `harbor-colima` |
 | `SystemDocker` | 已有（高级：本机 docker） |
-| `Colima` | **M2b**：PATH/`bin` 二进制；profile `agent-harbor`；`COLIMA_HOME` 落盘；`EnsureImage` |
-| 钉扎下载 | **M2c** 待做 |
+| `Colima` | PATH/`bin`；profile `agent-harbor`；`EnsureImage` |
+| 钉扎下载 | **M2c**：colima + lima + docker CLI；SHA256；默认自动下载 |
 
 ## 文件
 
