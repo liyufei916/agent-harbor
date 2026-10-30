@@ -21,20 +21,62 @@ import (
 const SupportedVersion = "0.2.1-rc.2"
 const SupportedNodeVersion = "v26.12.1"
 
+// installProbe 默认同 runtime.ProbeInstallation；单测可注入避免依赖 Seatbelt。
+type installProbe func(ctx context.Context, command string, args, readOnly []string) (string, error)
+
 type Kit struct {
 	node, installation, model string
 	conversation              bool
+	probe                     installProbe
 }
 
 var _ kits.Kit = (*Kit)(nil)
+
+// DefaultInstallation is the path written by scripts/install-dsh.sh with no custom target.
+// Empty when $HOME cannot be resolved.
+func DefaultInstallation() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	return filepath.Join(home, ".local", "share", "agent-harbor", "dsh-"+SupportedVersion)
+}
+
+// DefaultNode is the bundled Node binary under an install root (Darwin arm64 layout).
+func DefaultNode(installation string) string {
+	if installation == "" {
+		return ""
+	}
+	return filepath.Join(installation, "node-"+SupportedNodeVersion+"-darwin-arm64", "bin", "node")
+}
+
+// ResolvePaths fills empty node/installation from the default install layout so a
+// packaged desktop app can Detect without HARBOR_DSH_* in the process environment.
+// Explicit non-empty values are kept (custom installs still use env/CLI).
+func ResolvePaths(node, installation string) (string, string) {
+	installation = strings.TrimSpace(installation)
+	node = strings.TrimSpace(node)
+	if installation == "" {
+		installation = DefaultInstallation()
+	}
+	if node == "" || node == "node" {
+		if bundled := DefaultNode(installation); bundled != "" {
+			if _, err := os.Stat(bundled); err == nil {
+				return bundled, installation
+			}
+		}
+		if node == "" {
+			node = "node"
+		}
+	}
+	return node, installation
+}
 
 func New(node, installation, model string) (*Kit, error) {
 	if strings.TrimSpace(model) == "" || len(model) > 256 || strings.ContainsAny(model, "\x00\r\n") {
 		return nil, kitError("INVALID_ARGUMENT")
 	}
-	if node == "" {
-		node = "node"
-	}
+	node, installation = ResolvePaths(node, installation)
 	return &Kit{node: node, installation: installation, model: model}, nil
 }
 
@@ -85,6 +127,13 @@ func (k *Kit) paths() (string, string, string, error) {
 	return node, root, script, nil
 }
 
+func (k *Kit) probeInstall(ctx context.Context, command string, args, readOnly []string) (string, error) {
+	if k != nil && k.probe != nil {
+		return k.probe(ctx, command, args, readOnly)
+	}
+	return runtime.ProbeInstallation(ctx, command, args, readOnly)
+}
+
 func (k *Kit) Detect(ctx context.Context) (kits.KitInfo, error) {
 	info := kits.KitInfo{Agent: contracts.AgentInfo{ID: "dsh", Name: "DeepSeek dsh", ModelProfileID: "dsh-model", Reason: "未安装固定版本或受限检测未通过。"}}
 	if ctx.Err() != nil {
@@ -94,15 +143,15 @@ func (k *Kit) Detect(ctx context.Context) (kits.KitInfo, error) {
 	if err != nil {
 		return info, nil
 	}
-	version, err := runtime.ProbeInstallation(ctx, node, []string{"--version"}, nil)
+	version, err := k.probeInstall(ctx, node, []string{"--version"}, nil)
 	if err != nil || strings.TrimSpace(version) != SupportedNodeVersion {
 		return info, nil
 	}
-	text, err := runtime.ProbeInstallation(ctx, node, []string{script, "--version"}, []string{root})
+	text, err := k.probeInstall(ctx, node, []string{script, "--version"}, []string{root})
 	if err != nil || strings.TrimSpace(text) != SupportedVersion {
 		return info, nil
 	}
-	text, err = runtime.ProbeInstallation(ctx, node, []string{script, "--help"}, []string{root})
+	text, err = k.probeInstall(ctx, node, []string{script, "--help"}, []string{root})
 	if err != nil || !strings.Contains(text, "--profile") || !strings.Contains(text, "headless") {
 		return info, nil
 	}

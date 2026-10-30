@@ -118,16 +118,16 @@ $ grep -n harbor-live-i2 demos/workspace/summary.txt
 1:harbor-live-i2: …
 ```
 
-仍开放：Apple 公证；扩权 GUI 点选补镜（API 已过）；302 异常项按需。导回口播见 [B6-SUCCESS-DEMO](../demos/B6-SUCCESS-DEMO.md)。
+仍开放：Apple 公证；扩权 GUI **人工补镜**（toast 已带主机结果文案；须 live 录屏）；302 异常项按需。导回成功后桌面自动访达显示源目录。口播见 [B6-SUCCESS-DEMO](../demos/B6-SUCCESS-DEMO.md)。亮点 mock 截图：[screenshots](../demos/screenshots/)。
 
-## Codex / dsh 真实短任务（待填 · 固定提交）
+## Codex / dsh 真实短任务（固定提交 · 本机 harness）
 
 命令：`go run ./scripts/cmd/agent-task-evidence -agents=codex,dsh`  
 填空与陌生用户路径：[stranger-first-run-record.md](../demos/stranger-first-run-record.md)。**通过项须含本机跑出的报告行**（勿用 Claude 项顶替）。
 
 | Agent | 状态 | 证据（脱敏） |
 |---|---|---|
-| codex | **待执行** | |
-| dsh | **待执行** | |
+| codex | **通过（2026-10-30）** | `go run ./scripts/cmd/agent-task-evidence -agents=codex -timeout=120s` → `session=9921bdbe… model=model_67… marker=harbor-agent-codex-42901 srcSummary=true SyncBack=ok`（HEAD 当时工作树；合入后以含本段的提交为准） |
+| dsh | **Detect 绿；任务待模型** | 2026-10-30 已 `bash scripts/install-dsh.sh`；默认路径下桌面可无 env 自动 Detect（`ResolvePaths`）。evidence 仍须 Keychain 中 **勾选 dsh** 的模型（或 `dsh-model` profile）；仅 `custom`+空 Agents 默认只绑 Claude → 会 `INVALID_ARGUMENT`。桌面「模型」勾 dsh 保存后重跑 `-agents=dsh` |
 
-陌生用户获取→首配→首任务：Release [v0.0.0-ci.8efc0d9](https://github.com/liyufei916/agent-harbor/releases/tag/v0.0.0-ci.8efc0d9) + SHA256 见 `demos/evidence/AgentHarbor-macos-8efc0d9.sha256`；人工勾选表同上。
+陌生用户获取→首配→首任务：预发布 [v0.0.0-ci.8efc0d9](https://github.com/liyufei916/agent-harbor/releases/tag/v0.0.0-ci.8efc0d9)；正式 [v0.1.0](https://github.com/liyufei916/agent-harbor/releases/tag/v0.1.0)（打标后）。人工勾选表：[stranger-first-run-record.md](../demos/stranger-first-run-record.md)。

@@ -160,3 +160,40 @@ test("stream-display 流式输出 Codex agent_message.delta", () => {
   // 流式后不应再整段重复打印
   assert.equal((out.match(/你好/g) || []).length, 1);
 });
+
+test("stream-display 展示 dsh conversation JSONL", () => {
+  const d = createStreamDisplay();
+  const out = d.push(
+    [
+      { type: "ready", sessionId: "harbor-1" },
+      { type: "text-delta", text: "深" },
+      { type: "text-delta", text: "度" },
+      { type: "reasoning-delta", text: "hidden" },
+      { type: "final", sessionId: "harbor-1", round: 1, text: "深度" },
+    ]
+      .map((o) => JSON.stringify(o))
+      .join("\n") + "\n",
+  );
+  assert.match(out, /DeepSeek dsh 会话就绪/);
+  assert.match(out, /深度/);
+  assert.match(out, /本轮结束/);
+  assert.doesNotMatch(out, /hidden/);
+  assert.equal((out.match(/深度/g) || []).length, 1);
+});
+
+test("stream-display dsh 无流式时展示 final 全文", () => {
+  const d = createStreamDisplay();
+  const out = d.push(
+    JSON.stringify({ type: "final", round: 1, text: "仅终稿" }) + "\n",
+  );
+  assert.match(out, /仅终稿/);
+  assert.match(out, /本轮结束/);
+});
+
+test("stream-display dsh error 行", () => {
+  const d = createStreamDisplay();
+  const out = d.push(
+    JSON.stringify({ type: "error", message: "dsh 会话执行失败。" }) + "\n",
+  );
+  assert.match(out, /dsh 会话执行失败/);
+});

@@ -2,6 +2,8 @@ package desktop
 
 import (
 	"context"
+	"errors"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -30,6 +32,28 @@ func TestSaveTextFileRejectsBadInputAndMissingApp(t *testing.T) {
 	noApp := api.SaveTextFile(contracts.SaveTextFileInput{SuggestedName: "ok.json", Content: "{}"})
 	if noApp.Error == nil || noApp.Error.Code != contracts.ErrInternal {
 		t.Fatalf("无 Wails 应用时应 INTERNAL：%+v", noApp)
+	}
+}
+
+func TestFinishSaveTextFileWriteCancelReveal(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/export.json"
+	revealed := ""
+	ok := finishSaveTextFile(path, nil, `{"ok":true}`, true, func(p string) { revealed = p })
+	if ok.Error != nil || ok.Cancelled || ok.Path != path || revealed != path {
+		t.Fatalf("write+reveal: %+v reveal=%q", ok, revealed)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil || string(raw) != `{"ok":true}` {
+		t.Fatalf("disk: %v %s", err, raw)
+	}
+	cancel := finishSaveTextFile("", nil, "x", false, nil)
+	if !cancel.Cancelled || cancel.Path != "" || cancel.Error != nil {
+		t.Fatalf("cancel: %+v", cancel)
+	}
+	fail := finishSaveTextFile(path, errors.New("dialog boom"), "x", false, nil)
+	if fail.Error == nil || fail.Error.Code != contracts.ErrInternal {
+		t.Fatalf("dialog err: %+v", fail)
 	}
 }
 

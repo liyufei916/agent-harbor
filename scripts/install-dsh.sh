@@ -34,6 +34,7 @@ curl --fail --location --retry 2 --max-time 30 \
 )
 "$DSH_TARGET/node-v${NODE_VERSION}-darwin-arm64/bin/node" \
   "$DSH_TARGET/node_modules/@deepseek-ai/dsh/lib/bin.js" --version
-printf '\n安装完成。设置以下非敏感配置（路径含空格时请加引号）：\n'
+printf '\n安装完成。默认路径下桌面应用会自动检测，无需再 export 路径。\n'
+printf '自定义安装目录、或从终端强制指定路径时设置（路径含空格时请加引号）：\n'
 printf 'HARBOR_DSH_INSTALLATION=%s\nHARBOR_DSH_NODE=%s\n' \
   "$DSH_TARGET" "$DSH_TARGET/node-v${NODE_VERSION}-darwin-arm64/bin/node"

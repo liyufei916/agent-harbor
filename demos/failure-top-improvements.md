@@ -9,5 +9,10 @@
 | 2026-10-30 | 固定提交拿不到包（CI format / release YAML） | Releases 空、workflow 非法 | 修 gofmt + release.yml；预发布 zip+SHA256 | `d42909c`/`8efc0d9`；`demos/evidence/delivery-8efc0d9.md` |
 | 2026-10-30 | 新会话中途才发现无 Agent CLI | 工作区步不提示 CLI | 向导第 1 步展示 Detect；**无可用 Agent 不可下一步** | 见向导 `wizard.js` |
 | 2026-10-30 | 用量「未计价（缺 token）」 | 审计无 token 字段 | Gate `relayResponse` 旁路扫描 usage，审计可选 input/outputTokens；记录页可粗算 | 本轮 gate/usage_scan + usage-analytics |
+| 2026-10-30 | 扩权点选后「像没结果」 | toast 仅「仅本次允许」、无主机 | toast 带主机：`已允许 host · 仅本次` / 拒绝 / 本项目记住 | permission-modal |
+| 2026-10-30 | 导回后不知源目录在哪 | 仅文案「请到源目录确认」 | SyncBack 成功后 `open -R` 源目录；toast 写明已在访达显示 | desktop SyncBackWorkspace |
+| 2026-10-30 | 用量空态吓人 | 「未配置单价」「未计价」 | 改为「先填单价」「有单价 · 先跑一轮」 | usage-analytics |
+| 2026-10-30 | 装了 dsh 桌面仍 Detect 红 | Finder 启动无 `HARBOR_DSH_*` | 空路径时 `ResolvePaths` → 默认安装根 + 捆绑 Node | `internal/kits/dsh` |
+| 2026-10-30 | dsh 选 DeepSeek：审计有计数、对话区空白 | `stream-display` 只认 Claude/Codex，吞掉 dsh JSONL | 解析 `ready` / `text-delta` / `final` / `error` | `frontend/src/stream-display.js` |
 
 填新行时：勿贴 Key；可引用脱敏错误码与记录页截图路径。

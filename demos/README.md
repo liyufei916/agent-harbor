@@ -7,6 +7,8 @@
 | mock / D4 | **模拟模式** | `frontend` 下 `npm run dev` → http://127.0.0.1:5173/ | **否** |
 | 桌面 live | **真实绑定** | 仓库根 `./scripts/dev-desktop.sh` 或 `wails3 dev` | 可以记，须有脱敏证据 |
 
+**亮点截图（mock）**：[screenshots/](screenshots/)（HOME → 模型/工具/记录/设置 → 隔离阻断 → 向导 → 扩权 Modal → 工作台）。
+
 eng 已 **code-complete**；I1–I11 live 见 [ACCEPTANCE](../docs/ACCEPTANCE.md)。陌生用户：[FIRST-RUN.md](FIRST-RUN.md) · 填空记录 [stranger-first-run-record.md](stranger-first-run-record.md)。
 
 Codex / dsh 真实短任务（命令级，脱敏报告行）：

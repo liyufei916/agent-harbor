@@ -12,17 +12,18 @@ go run ./scripts/cmd/agent-task-evidence -agents=codex,dsh
 ## 元数据
 
 ```text
-日期：
+日期：2026-10-30（元数据预填；步骤勾选仍须人工）
 操作人：（建议非作者本人或至少新机用户视角）
-固定提交 SHA：
-Release tag / CI run URL：
+固定提交 SHA：803f4a45a7dfee2e3d7b10e485bff050f1acc5a3（打 v0.1.0 时 HEAD；以 Release 页为准）
+Release tag / CI run URL：https://github.com/liyufei916/agent-harbor/releases/tag/v0.1.0
 产物：AgentHarbor-macos.zip
-SHA256（期望）：
-SHA256（本机 shasum -a 256）：
+SHA256（期望）：bd008fb709a5606bcc356b04eeae70334dd5bc4d3cdd82da21484bf55c96d754
+SHA256（本机 shasum -a 256）：（下载后填写）
 校验：□ 匹配  □ 不匹配
-OS / CPU：
+OS / CPU：（填写，如 Darwin 25 · arm64）
 Gatekeeper：□ 直接打开  □ 「仍要打开」  □ 其它：
-公证：□ 未公证（预期）  □ 已公证
+公证：☑ 未公证（预期）  □ 已公证
+亮点截图（mock，不计 I）：demos/screenshots/
 ```
 
 ## 步骤勾选
@@ -50,8 +51,17 @@ Gatekeeper：□ 直接打开  □ 「仍要打开」  □ 其它：
 命令级（API）跑通时，粘贴 `agent-task-evidence` 报告行（可截断 sessionId）：
 
 ```text
-codex: …
-dsh: …
+codex: 通过: session=9921bdbe… marker=harbor-agent-codex-42901 …（见 ACCEPTANCE）
+dsh: Detect 已绿（install-dsh 完成）；任务须模型账号 Agents 含 dsh 或 profile=dsh-model 后再跑
+```
+
+dsh：`bash scripts/install-dsh.sh` 默认路径下桌面可自动 Detect，**不必** export 路径。自定义目录时才设（勿提交 Key）：
+
+```text
+# 可选（仅自定义安装根）
+# HARBOR_DSH_INSTALLATION=…
+# HARBOR_DSH_NODE=…
+# 默认布局：$HOME/.local/share/agent-harbor/dsh-0.2.1-rc.2
 ```
 
 ## 失败时

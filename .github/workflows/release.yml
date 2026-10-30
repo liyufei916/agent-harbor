@@ -68,17 +68,20 @@ jobs:
           set -euo pipefail
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             TAG="${GITHUB_REF_NAME}"
-            EXTRA_FLAGS=()
           else
             TAG="v0.0.0-ci.${GITHUB_SHA:0:7}"
-            EXTRA_FLAGS=(--prerelease --target "$GITHUB_SHA")
           fi
           NOTES="$(printf '## Agent Harbor %s\n\n%s' "$TAG" "$RELEASE_BODY")"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" AgentHarbor-macos.zip AgentHarbor-macos.zip.sha256 --clobber
+          elif [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            # 正式 tag：勿传空数组（bash set -u 下 EXTRA_FLAGS[@] 会 unbound）
+            gh release create "$TAG" AgentHarbor-macos.zip AgentHarbor-macos.zip.sha256 \
+              --title "Agent Harbor ${TAG}" \
+              --notes "$NOTES"
           else
             gh release create "$TAG" AgentHarbor-macos.zip AgentHarbor-macos.zip.sha256 \
               --title "Agent Harbor ${TAG}" \
               --notes "$NOTES" \
-              "${EXTRA_FLAGS[@]}"
+              --prerelease --target "$GITHUB_SHA"
           fi

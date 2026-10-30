@@ -66,10 +66,14 @@ export function mountPermissionModal(root, opts) {
       </div>
     </div>`;
 
-  const labels = {
-    deny: "已拒绝",
-    once: "仅本次允许",
-    project: "已为本项目记住允许",
+  const resultToast = (decision, fromTimeout) => {
+    if (fromTimeout) return { msg: `超时未选择，已自动拒绝 ${host}`, kind: "bad" };
+    if (decision === "deny") return { msg: `已拒绝 ${host}`, kind: "ok" };
+    if (decision === "once") return { msg: `已允许 ${host} · 仅本次`, kind: "ok" };
+    if (decision === "project") {
+      return { msg: `已允许 ${host} · 本项目记住（可在权限一览撤销）`, kind: "ok" };
+    }
+    return { msg: `已处理 ${host}`, kind: "ok" };
   };
 
   let finished = false;
@@ -82,10 +86,8 @@ export function mountPermissionModal(root, opts) {
     });
     try {
       await onDecide(decision);
-      showToast(
-        fromTimeout ? "超时未选择，已自动拒绝" : labels[decision] || "已处理",
-        fromTimeout ? "bad" : "ok",
-      );
+      const t = resultToast(decision, fromTimeout);
+      showToast(t.msg, t.kind, { durationMs: fromTimeout ? 5200 : 4500 });
       onPendingChange?.(false);
     } catch (e) {
       finished = false;

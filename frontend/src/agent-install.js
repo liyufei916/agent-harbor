@@ -20,11 +20,10 @@ node --version`,
   },
   dsh: {
     label: "DeepSeek dsh",
-    hint: "使用仓库安装脚本（固定 Node + 预览版）；完成后按打印的环境变量启动应用",
+    hint: "仓库安装脚本（固定 Node + 预览版）；默认路径安装后可直接重新检测",
     cmd: `bash scripts/install-dsh.sh
-# 安装结束后按脚本输出设置：
-# HARBOR_DSH_INSTALLATION=…
-# HARBOR_DSH_NODE=…`,
+# 默认安装到 ~/.local/share/agent-harbor/dsh-0.2.1-rc.2
+# 桌面应用会自动识别；自定义目录才需设置 HARBOR_DSH_*`,
   },
 };
 

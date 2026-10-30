@@ -208,13 +208,16 @@ func (d *DesktopAPI) DestroySession(sessionID string) contracts.SessionResponse 
 	return contracts.SessionResponse{Session: &snap}
 }
 
-// SyncBackWorkspace 将 clone 副本合并写回原工作区。
+// SyncBackWorkspace 将 clone 副本合并写回原工作区；成功后在访达中显示源目录。
 func (d *DesktopAPI) SyncBackWorkspace(sessionID string) contracts.SessionResponse {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	snap, err := d.app.sessionRef().SyncBack(ctx, sessionID)
 	if err != nil {
 		return contracts.SessionResponse{Error: mapError(err)}
+	}
+	if src := strings.TrimSpace(snap.SourceWorkspace); src != "" {
+		revealInFileManager(src)
 	}
 	return contracts.SessionResponse{Session: &snap}
 }
@@ -486,17 +489,22 @@ func (d *DesktopAPI) SaveTextFile(in contracts.SaveTextFileInput) contracts.Save
 		dlg = dlg.SetDirectory(downloads)
 	}
 	path, err := dlg.PromptForSingleSelection()
+	return finishSaveTextFile(path, err, in.Content, in.Reveal, revealInFileManager)
+}
+
+// finishSaveTextFile 对话框选定后的写盘/取消/reveal（单测可注入路径）。
+func finishSaveTextFile(path string, err error, content string, reveal bool, revealFn func(string)) contracts.SaveFileResponse {
 	if err != nil {
 		return contracts.SaveFileResponse{Error: mapError(err)}
 	}
 	if path == "" {
 		return contracts.SaveFileResponse{Cancelled: true}
 	}
-	if err := os.WriteFile(path, []byte(in.Content), 0600); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
 		return contracts.SaveFileResponse{Error: contracts.NewAppError(contracts.ErrInternal, "写入失败", true)}
 	}
-	if in.Reveal {
-		revealInFileManager(path)
+	if reveal && revealFn != nil {
+		revealFn(path)
 	}
 	return contracts.SaveFileResponse{Path: path}
 }
