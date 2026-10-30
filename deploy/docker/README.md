@@ -19,6 +19,7 @@ export HARBOR_DOCKER_IMAGE=agent-harbor/runtime:dev
 - `--user 65534`、无 `docker.sock`
 - Kit 在 `HARBOR_RUNTIME=docker` 时 Detect/Build 使用上述**镜像内路径**，经 `docker run --rm` 探测
 - Gate：`127.0.0.1:<port>` → 本机代理 → `harbor.gate:<proxyPort>`（`host.docker.internal` 拉黑到 127.0.0.1）
+- Terminal：宿主 PTY + `docker exec -it`（与 Interactive JSONL 互斥）
 
 构建需联网拉取 npm 包，体积较大；首次失败时检查 npm registry 与 Node 小版本 tag `26.12.1`。
 

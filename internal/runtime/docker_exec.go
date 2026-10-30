@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/creack/pty"
 	"github.com/liyufei916/agent-harbor/internal/contracts"
 )
 
@@ -24,9 +25,8 @@ func (r *Docker) Exec(ctx context.Context, handle Handle, launch LaunchSpec, out
 	if e.destroyed || e.attempted {
 		return nil, runtimeError("INVALID_ARGUMENT")
 	}
-	if launch.Terminal {
-		// PTY-in-docker is a later slice; structured Interactive JSONL is supported.
-		return nil, runtimeError("UNIMPLEMENTED")
+	if launch.Terminal && (launch.Interactive || launch.EncodeInput != nil) {
+		return nil, runtimeError("INVALID_ARGUMENT")
 	}
 	guestCmd, err := e.guestCommand(launch.Command)
 	if err != nil {
@@ -70,6 +70,9 @@ func (r *Docker) Exec(ctx context.Context, handle Handle, launch LaunchSpec, out
 	dockerBin, err := r.runner.LookPath()
 	if err != nil {
 		return nil, runtimeError("ISOLATION_UNAVAILABLE")
+	}
+	if launch.Terminal {
+		return r.execDockerTerminal(ctx, e, dockerBin, guestCmd, guestArgs, env, launch, output)
 	}
 	execArgs := []string{"exec", "-i", "-w", dockerGuestWorkspace}
 	for _, item := range env {
@@ -184,6 +187,7 @@ type dockerProcess struct {
 	cancelled      bool
 	confirmed      bool
 	input          *processInput
+	terminal       *os.File
 }
 
 var _ InteractiveProcess = (*dockerProcess)(nil)
@@ -204,7 +208,20 @@ func (p *dockerProcess) Resize(cols, rows int) error {
 	if cols < 1 || rows < 1 || cols > 1000 || rows > 1000 {
 		return runtimeError("INVALID_ARGUMENT")
 	}
-	return runtimeError("UNIMPLEMENTED")
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	select {
+	case <-p.rootDone:
+		return runtimeError("INVALID_ARGUMENT")
+	default:
+	}
+	if p.terminal == nil {
+		return runtimeError("UNIMPLEMENTED")
+	}
+	if err := pty.Setsize(p.terminal, &pty.Winsize{Cols: uint16(cols), Rows: uint16(rows)}); err != nil {
+		return runtimeError("AGENT_EXIT_FAILED")
+	}
+	return nil
 }
 
 func (p *dockerProcess) kill(cancelled bool) {
@@ -224,6 +241,8 @@ func (p *dockerProcess) kill(cancelled bool) {
 	}
 	if p.input != nil {
 		_ = p.input.pipe.Close()
+	} else if p.terminal != nil {
+		_ = p.terminal.Close()
 	}
 }
 
