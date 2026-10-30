@@ -96,7 +96,7 @@ go test -tags production,harbor_desktop -run TestNativeDesktopBindingsAndShutdow
 
 ## Claude Code
 
-已接入 Claude Code Kit，使用受控的 `claude` CLI 在 macOS Seatbelt 隔离环境中运行。支持版本检测、专用 HOME、文件 Read/Write/Edit、Harbor Gate 模型与认证 MCP、流式输出、多轮任务、停止清理和 clone 安全副本。Claude 默认不开放 Bash、sudo、插件安装或未授权子进程；模型凭据只由宿主机 Gate 持有，沙箱内只注入本会话 Sentinel。
+已接入 Claude Code Kit，使用受控的 `claude` CLI 在 macOS Seatbelt 隔离环境中运行。支持版本检测、专用 HOME、文件 Read/Write/Edit、Harbor Gate 模型与认证 MCP、流式输出、多轮任务、停止清理和 clone 安全副本。Claude **工具面**默认仅 Read/Write/Edit（不开 Bash/sudo/插件）；**执行面**会话可在白名单内允许后代进程（PTY 多轮与 Stop 杀树），Health 探测仍 deny fork。模型凭据只由宿主机 Gate 持有，沙箱内只注入本会话 Sentinel。
 
 本机安装 Claude Code 并确保 `claude` 在应用的 PATH 中后，在桌面「模型」页填写名称、Anthropic 兼容 API 地址、模型名和 API Key；新会话选择 `Claude Code` 和该模型账号，再选择工作区和 MCP 启动。此方式无需配置 Claude 模型环境变量。
 

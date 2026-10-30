@@ -61,8 +61,8 @@ func TestFollowRedirectAfterPermissionWithoutCredentials(t *testing.T) {
 	})
 	h := New(store, pol)
 	// Dial cdn.example.test → 第二台 httptest；并允许 http 跟随（仅测）。
-	egressAllowLoopback = true
-	defer func() { egressAllowLoopback = false }()
+	insecureRedirectOK = func() bool { return true }
+	defer func() { insecureRedirectOK = func() bool { return false } }()
 	base := h.client.Transport.(*http.Transport).Clone()
 	base.Proxy = nil
 	base.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -180,8 +180,8 @@ func TestRedirectDeniedWhenDNSIsPrivate(t *testing.T) {
 		policy.ProfileDemoMCP:   {ID: policy.ProfileDemoMCP, Kind: "mcp", Origin: first.URL, Paths: []string{"/mcp"}, Host: "127.0.0.1"},
 	})
 	h := New(store, pol)
-	egressAllowLoopback = true
-	defer func() { egressAllowLoopback = false }()
+	insecureRedirectOK = func() bool { return true }
+	defer func() { insecureRedirectOK = func() bool { return false } }()
 	bind, err := h.Start(ctx, GateSpec{
 		SessionID: "redir3",
 		Policy: policy.PolicySnapshot{

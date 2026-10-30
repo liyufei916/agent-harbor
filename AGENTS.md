@@ -34,7 +34,7 @@
 
 ### 当前范围增量（2026-10-25）
 
-用户已授权实现 DeepSeek 官方 dsh 适配及 OpenAI Codex CLI 适配，覆盖下文历史两天范围中的 Agent 排除项。当前注册 Claude/Codex/dsh Kit；dsh 固定 npm `0.2.1-rc.2` 与 Node `v26.12.1`，Codex 使用 OpenAI Responses provider、私有 `CODEX_HOME` 与受控子进程 Runtime；受限文件工具、模型、认证 MCP、桌面选择和清理实现见 [dsh 适配](docs/DSH-INTEGRATION.md) 与 [Codex 适配](docs/CODEX-INTEGRATION.md)。默认禁止 fork/子进程，只有 Codex 显式声明后使用固定工具路径白名单；仍禁止提权、动态插件和未授权 Bash。真实 CLI 加受控服务通过不等于真实远程验收。
+用户已授权实现 DeepSeek 官方 dsh 适配及 OpenAI Codex CLI 适配，覆盖下文历史两天范围中的 Agent 排除项。当前注册 Claude/Codex/dsh Kit；dsh 固定 npm `0.2.1-rc.2` 与 Node `v26.12.1`，Codex 使用 OpenAI Responses provider、私有 `CODEX_HOME` 与受控子进程 Runtime；受限文件工具、模型、认证 MCP、桌面选择和清理实现见 [dsh 适配](docs/DSH-INTEGRATION.md) 与 [Codex 适配](docs/CODEX-INTEGRATION.md)。Kit 经 `NeedsDescendants` / `NeedsChildProcesses` 显式声明执行面能力：Agent 会话可白名单内 fork（PTY/杀树），Codex 另开受控子进程路径；Health 仍 deny fork。工具面仍禁未授权 Bash/提权/动态插件（Claude `--tools Read,Write,Edit`）。真实 CLI 加受控服务通过不等于真实远程验收。
 
 ### 两天交付范围与检查点
 

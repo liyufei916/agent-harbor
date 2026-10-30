@@ -212,6 +212,7 @@ export function mountModels(root, ctx, opts = {}) {
           <label class="field">API 地址<input id="m-origin" value="${originValue}" placeholder="https://api.deepseek.com/anthropic"/></label>
           <p class="meta">须 Anthropic 兼容 Messages API（探测 <code>POST …/v1/messages</code>）。七牛两套 Key 不能混用。若同时勾选 Codex，地址须为<strong>同时提供 Messages + Responses</strong> 的网关。</p>
           <label class="field">模型名（可选）<input id="m-model" value="${acc.model || ""}" placeholder="空则按主机推断，如 deepseek-chat"/></label>
+          <p class="meta">此处模型名会经 Gate 改写出站请求，可覆盖 Agent CLI 默认名；因此非 Anthropic 原生上游（如 DeepSeek 兼容 Messages）也能用。</p>
         </div>
         <div id="m-fixed-fields" class="${isFixed ? "" : "hidden"}">
           <p class="meta ok">固定 profile：<code>${fixedProfileId || ""}</code>。${fixedMeta?.hint || "上游由启动环境变量登记，页面不填 Origin。"}</p>

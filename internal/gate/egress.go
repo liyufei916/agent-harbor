@@ -6,26 +6,27 @@ import (
 	"strings"
 )
 
-// egressAllowLoopback 仅测试打开；生产默认拒绝回环/私网出站。
-var egressAllowLoopback bool
-
 // lookupIP 可在单测中替换。
 var lookupIP = net.LookupIP
 
+// insecureRedirectOK 仅单测注入（允许 http 跟随）；生产闭包恒 false。
+var insecureRedirectOK = func() bool { return false }
+
 // ValidatePublicHostname 要求主机名可解析且全部地址为公网全局单播。
 // 拒绝字面量/解析结果中的回环、私网、链路本地、组播、未指定与 CGNAT。
+// 生产路径恒不允许回环；测试见 validatePublicHostname。
 func ValidatePublicHostname(host string) error {
-	_, err := resolvePublicHostname(host)
+	_, err := resolvePublicHostname(host, false)
 	return err
 }
 
-func resolvePublicHostname(host string) ([]net.IP, error) {
+func resolvePublicHostname(host string, allowLoopback bool) ([]net.IP, error) {
 	host = strings.ToLower(strings.TrimSpace(host))
 	if host == "" || strings.ContainsAny(host, "/:#?@") {
 		return nil, fmt.Errorf("gate: invalid egress host")
 	}
 	if ip := net.ParseIP(host); ip != nil {
-		if isBlockedEgressIP(ip) {
+		if isBlockedEgressIP(ip, allowLoopback) {
 			return nil, fmt.Errorf("gate: blocked egress address")
 		}
 		return []net.IP{append(net.IP{}, ip...)}, nil
@@ -35,7 +36,7 @@ func resolvePublicHostname(host string) ([]net.IP, error) {
 		return nil, fmt.Errorf("gate: dns lookup failed")
 	}
 	for _, ip := range ips {
-		if isBlockedEgressIP(ip) {
+		if isBlockedEgressIP(ip, allowLoopback) {
 			return nil, fmt.Errorf("gate: host resolves to blocked address")
 		}
 	}
@@ -46,11 +47,11 @@ func resolvePublicHostname(host string) ([]net.IP, error) {
 	return result, nil
 }
 
-func isBlockedEgressIP(ip net.IP) bool {
+func isBlockedEgressIP(ip net.IP, allowLoopback bool) bool {
 	if ip == nil {
 		return true
 	}
-	if egressAllowLoopback && ip.IsLoopback() {
+	if allowLoopback && ip.IsLoopback() {
 		return false
 	}
 	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||

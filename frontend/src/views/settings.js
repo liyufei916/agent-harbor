@@ -21,7 +21,7 @@ export function mountSettings(root, ctx) {
 
     <section class="card">
       <h3>Agent 检测</h3>
-      <p class="meta">须本机预装 CLI；隔离仅 <strong>macOS Darwin 25 · arm64 · 非 root</strong>。MCP 仅远程 HTTP（无本地 stdio）。</p>
+      <p class="meta">须本机预装 CLI；隔离仅 <strong>macOS Darwin 25 · arm64 · 非 root</strong>。MCP：远程 HTTP（Token/OAuth）或宿主 stdio（进程在宿主机）。</p>
       <div class="meta" id="settings-agent">—</div>
       <button type="button" class="btn" id="btn-refresh-agents">重新检测</button>
     </section>

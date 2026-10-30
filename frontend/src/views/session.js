@@ -659,7 +659,8 @@ export function mountSession(root, ctx) {
               .join("")}
           </ul>
           <h4>工具</h4>
-          <ul class="audit-list">${(o?.mcpSummary || []).map((m) => `<li>${m}</li>`).join("") || "<li class='meta'>无</li>"}</ul>
+          <ul class="audit-list">${(o?.mcpSummary || []).map((m) => `<li>${m}</li>`).join("") || "<li class='meta'>无挂载 MCP</li>"}</ul>
+          <p class="meta">密钥与 Token 留在宿主机 Gate；沙箱仅见 Sentinel / Gateway。</p>
         `
         }
       </div>`;

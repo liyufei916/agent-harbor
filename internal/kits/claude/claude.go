@@ -329,6 +329,7 @@ func (k *Kit) Detect(ctx context.Context) (kits.KitInfo, error) {
 		return info, nil
 	}
 	info.Agent.Available, info.Agent.Reason = true, ""
+	info.NeedsDescendants = true // PTY 多轮 + Stop 杀树；工具面仍限 --tools Read,Write,Edit
 	info.ReadOnlyPaths = append([]string{}, launch.ReadOnly...)
 	return info, nil
 }

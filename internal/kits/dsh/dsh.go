@@ -109,6 +109,7 @@ func (k *Kit) Detect(ctx context.Context) (kits.KitInfo, error) {
 	info.Agent.Available = true
 	info.Agent.Version = SupportedVersion
 	info.Agent.Reason = ""
+	info.NeedsDescendants = true // 会话生命周期与杀树；非开放沙箱 Bash
 	info.ReadOnlyPaths = []string{node, root}
 	return info, nil
 }

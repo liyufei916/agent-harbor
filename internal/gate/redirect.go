@@ -53,15 +53,18 @@ func (h *Harbor) followCrossHostRedirect(ctx context.Context, sid string, rt *se
 	if !h.authorizeOutboundHost(ctx, sid, rt, locHost) {
 		return nil, locHost, fmt.Errorf("gate: redirect not permitted")
 	}
-	ips, err := resolvePublicHostname(locHost)
+	ips, err := resolvePublicHostname(locHost, false)
 	if err != nil {
 		return nil, locHost, err
 	}
-	if locURL.Scheme != "https" && !(locURL.Scheme == "http" && egressAllowLoopback) {
+	// 生产仅 https（默认/443）；单测注入 insecureRedirectOK 可放宽到 http（httptest）。
+	if locURL.Scheme != "https" && !(locURL.Scheme == "http" && insecureRedirectOK()) {
 		return nil, locHost, fmt.Errorf("gate: redirect scheme denied")
 	}
-	if port := locURL.Port(); port != "" && port != "443" && !(egressAllowLoopback && locURL.Scheme == "http" && port == "80") {
-		return nil, locHost, fmt.Errorf("gate: redirect port denied")
+	if port := locURL.Port(); port != "" && port != "443" {
+		if !(insecureRedirectOK() && locURL.Scheme == "http") {
+			return nil, locHost, fmt.Errorf("gate: redirect port denied")
+		}
 	}
 
 	method := http.MethodGet

@@ -10,6 +10,34 @@ permissions:
   contents: read
 
 jobs:
+  # 格式独立：失败不跳过 race/覆盖率/打包（E1）。仍须合入前修绿。
+  format:
+    name: Go format
+    runs-on: macos-14
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Check formatting
+        shell: bash
+        run: |
+          bad="$(gofmt -l .)"
+          if [ -n "$bad" ]; then
+            echo "gofmt needed:"
+            echo "$bad"
+            exit 1
+          fi
+
+      - name: Check repository diff
+        run: git diff --check
+
   go:
     name: Go checks (macOS)
     runs-on: macos-14
@@ -30,13 +58,6 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-
-      - name: Check formatting
-        shell: bash
-        run: test -z "$(gofmt -l .)"
-
-      - name: Check repository diff
-        run: git diff --check
 
       - name: Run tests with race detector
         run: go test -race ./...

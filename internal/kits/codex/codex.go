@@ -211,7 +211,7 @@ func (k *Kit) resolveLaunch() (launchSpec, error) {
 }
 
 func (k *Kit) Detect(ctx context.Context) (kits.KitInfo, error) {
-	info := kits.KitInfo{Agent: contracts.AgentInfo{ID: "codex", Name: "OpenAI Codex", ModelProfileID: "codex-model", Reason: "未安装或受限检测未通过。"}, ReadOnlyPaths: []string{}, NeedsChildProcesses: true}
+	info := kits.KitInfo{Agent: contracts.AgentInfo{ID: "codex", Name: "OpenAI Codex", ModelProfileID: "codex-model", Reason: "未安装或受限检测未通过。"}, ReadOnlyPaths: []string{}, NeedsChildProcesses: true, NeedsDescendants: true}
 	if ctx.Err() != nil {
 		return info, kitError("CANCELLED")
 	}

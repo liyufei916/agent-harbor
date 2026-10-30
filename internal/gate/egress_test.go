@@ -14,10 +14,11 @@ func TestValidatePublicHostnameLiteral(t *testing.T) {
 			t.Fatalf("expected block for %q", bad)
 		}
 	}
-	egressAllowLoopback = true
-	defer func() { egressAllowLoopback = false }()
-	if err := ValidatePublicHostname("127.0.0.1"); err != nil {
+	if _, err := resolvePublicHostname("127.0.0.1", true); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := resolvePublicHostname("127.0.0.1", false); err == nil {
+		t.Fatal("production path must still block loopback")
 	}
 }
 

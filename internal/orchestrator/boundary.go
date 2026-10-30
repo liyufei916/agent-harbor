@@ -23,11 +23,7 @@ func sessionBoundary(p policy.PolicySnapshot, accounts []contracts.AccountInfo) 
 		add(mount.Endpoint.Origin)
 	}
 	for _, account := range accounts {
-		name := account.Name
-		if name == "" {
-			name = account.ID
-		}
-		result.MCPSummary = append(result.MCPSummary, name)
+		result.MCPSummary = append(result.MCPSummary, contracts.FormatMCPSummary(account))
 	}
 	return result
 }

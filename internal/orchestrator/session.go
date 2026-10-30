@@ -663,7 +663,7 @@ func (o *Service) provision(s *session) error {
 	o.mu.Lock()
 	s.filters = map[string]*streamFilter{"stdout": {token: binding.Sentinel}, "stderr": {token: binding.Sentinel}}
 	o.mu.Unlock()
-	handle, err := o.deps.Runtime.Create(ctx, runtime.RuntimeSpec{SessionID: s.snapshot.SessionID, Workspace: p.Workspace, MountMode: p.MountMode, AllowedTCP: append([]string(nil), binding.AllowedTCP...), ReadOnlyPaths: append([]string(nil), info.ReadOnlyPaths...), AllowChildProcesses: info.NeedsChildProcesses, AllowDescendants: true})
+	handle, err := o.deps.Runtime.Create(ctx, runtime.RuntimeSpec{SessionID: s.snapshot.SessionID, Workspace: p.Workspace, MountMode: p.MountMode, AllowedTCP: append([]string(nil), binding.AllowedTCP...), ReadOnlyPaths: append([]string(nil), info.ReadOnlyPaths...), AllowChildProcesses: info.NeedsChildProcesses, AllowDescendants: info.NeedsDescendants})
 	// 接管成功返回的句柄，即使 Stop 已经取消，仍由统一清理器销毁。
 	if handle.ID != "" {
 		s.handle = handle

@@ -225,6 +225,16 @@ go test ./internal/desktop ./internal/secrets
 
 `App.RestoreStdioBridges` 在 `NewAppWithDataDir` 末尾执行；`secrets.UpdateEndpoint` 刷新 Host/Tools；`Shutdown` 关闭全部桥。单测：`TestRestoreStdioBridgesReloadsHostPort`。
 
+### 2026-10-30 架构闭合（对照评审 A3/A5/E1）
+
+| 项 | 落地 |
+|---|---|
+| A3 egress | 生产 `resolvePublicHostname(host, false)`；测试显式 `allowLoopback` / `insecureRedirectOK` 注入，无包级可变布尔参与生产判定 |
+| A5 后代 | `KitInfo.NeedsDescendants` → `AllowDescendants`；README「不开 Bash」改为工具面口径 |
+| E1 CI | `format` job 独立；`go` job 不再因 gofmt 跳过 race/覆盖率/打包 |
+| B4/B5 | `FormatMCPSummary`；模型页说明 Gate 改写模型名 |
+| A6 | `mock-live-surface.test.js` 对齐 live transport 方法面 |
+
 ```sh
 go test ./internal/desktop ./internal/gate ./internal/policy ./internal/orchestrator ./internal/secrets
 ```

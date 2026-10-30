@@ -84,7 +84,7 @@ Seatbelt 诊断使用临时非敏感目录与两个本机受控监听器：工�
 - 子进程环境从零构造，禁止覆盖 HOME、PATH、TMPDIR、CLAUDE_CODE_TMPDIR 和注入 DYLD/NODE 等变量；两个临时目录变量都指向私有 HOME。Kit 只可增加受限模型/运行开关。
 - Runtime 流式读 stdout/stderr，跨 Read 保留不完整 UTF-8，每块最多 16 KiB。取消杀死受限进程，Wait 可重复读取，返回前排空输出回调；Destroy 确认结束及删除私有目录后才成功。输出未排空导致清理超时会保留目录，并允许重试。
 
-**2026-10-25 起 Agent 会话可 `AllowDescendants`。** Health 探测仍强制 `deny process-fork`。会话 profile 在只读白名单 `process-exec` 内允许 fork；Stop/Destroy 对 PPID 闭包反复 SIGKILL。极端 `SETPGROUP` 脱离仍可能漏杀，超时则 `cleanupComplete=false`。非白名单 Bash/外部 git 默认仍不可用。
+**AllowDescendants 按 Kit 声明**：`KitInfo.NeedsDescendants`（Claude/dsh/Codex Detect 成功时置 true）→ `RuntimeSpec.AllowDescendants`；不再编排层写死 `true`。Health 探测仍强制 `deny process-fork`。会话 profile 在只读白名单 `process-exec` 内允许 fork；Stop/Destroy 对 PPID 闭包反复 SIGKILL。极端 `SETPGROUP` 脱离仍可能漏杀，超时则 `cleanupComplete=false`。「不开 Bash」指 **工具面**（Claude `--tools`），不是执行面 deny-all fork。
 
 ### Claude Code
 

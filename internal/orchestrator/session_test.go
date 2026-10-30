@@ -137,7 +137,7 @@ func (f *fixture) Detect(context.Context) (kits.KitInfo, error) {
 	if err := f.step("detect"); err != nil {
 		return kits.KitInfo{}, err
 	}
-	return kits.KitInfo{Agent: contracts.AgentInfo{ID: "claude", Available: true}, ReadOnlyPaths: []string{"/test/claude"}}, nil
+	return kits.KitInfo{Agent: contracts.AgentInfo{ID: "claude", Available: true}, ReadOnlyPaths: []string{"/test/claude"}, NeedsDescendants: true}, nil
 }
 func (f *fixture) Build(context.Context, kits.KitInput) (runtime.LaunchSpec, error) {
 	return runtime.LaunchSpec{Command: "/test/claude", Interactive: f.interactive}, f.step("build")

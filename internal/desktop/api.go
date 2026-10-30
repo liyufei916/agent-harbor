@@ -263,7 +263,7 @@ func (d *DesktopAPI) GetPermissionOverview(sessionID string) contracts.Permissio
 	}
 	mcpNames := []string{}
 	for _, acc := range d.app.secrets.List(context.Background(), "mcp") {
-		mcpNames = append(mcpNames, acc.Name)
+		mcpNames = append(mcpNames, contracts.FormatMCPSummary(acc))
 	}
 	overview := &contracts.PermissionOverview{
 		SessionID:            sessionID,

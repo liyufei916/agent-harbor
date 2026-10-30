@@ -36,7 +36,7 @@ func TestMain(m *testing.M) {
 type realKit struct{ executable, mode string }
 
 func (k realKit) Detect(context.Context) (kits.KitInfo, error) {
-	return kits.KitInfo{Agent: contracts.AgentInfo{ID: "claude", Available: true}, ReadOnlyPaths: []string{k.executable}}, nil
+	return kits.KitInfo{Agent: contracts.AgentInfo{ID: "claude", Available: true}, ReadOnlyPaths: []string{k.executable}, NeedsDescendants: true}, nil
 }
 func (k realKit) Build(context.Context, kits.KitInput) (runtime.LaunchSpec, error) {
 	return runtime.LaunchSpec{Command: k.executable, Args: []string{"--harbor-orchestrator-helper", k.mode}}, nil

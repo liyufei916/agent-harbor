@@ -14,7 +14,8 @@ import (
 type KitInfo struct {
 	Agent               contracts.AgentInfo
 	ReadOnlyPaths       []string // 固定 CLI 与必要运行文件的真实路径
-	NeedsChildProcesses bool     // 需要受控子进程时由 Runtime 选择更严格的子进程策略
+	NeedsChildProcesses bool     // 需要受控子进程时由 Runtime 选择更严格的子进程策略（如 Codex）
+	NeedsDescendants    bool     // Agent 会话需白名单内 fork + PTY ioctl，便于多轮与 Stop 杀树；Health 仍 deny
 }
 
 type KitInput struct {
