@@ -204,6 +204,8 @@ type UIPrefs struct {
 	ClearOnStopDefault    string `json:"clearOnStopDefault,omitempty"` // keep | clear；空=keep
 	// SecurityTier：strict | standard | relaxed；空=standard。创建会话时种子 ExtraHosts。
 	SecurityTier string `json:"securityTier,omitempty"`
+	// IsolationBackend：seatbelt | docker；空=seatbelt（P1）。需重启应用后生效；HARBOR_RUNTIME 环境变量优先。
+	IsolationBackend string `json:"isolationBackend,omitempty"`
 }
 
 // UIPrefsResponse 包装偏好。

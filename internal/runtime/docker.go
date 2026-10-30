@@ -82,6 +82,8 @@ type dockerEntry struct {
 	mounts               map[string]string // host abs → guest abs
 	readOnly             map[string]bool
 	allowedTCP           []string
+	gateToProxy          map[string]string // Gate port → host proxy listen port
+	proxies              []*tcpProxy
 	process              *dockerProcess
 	attempted, destroyed bool
 	started              bool
@@ -195,6 +197,16 @@ func (r *Docker) Create(ctx context.Context, spec RuntimeSpec) (Handle, error) {
 	for g, dst := range guestOnly {
 		mounts[g] = dst
 	}
+	gateToProxy, proxies, err := startAllowedProxies(spec.AllowedTCP)
+	if err != nil {
+		return Handle{}, err
+	}
+	proxyOK := false
+	defer func() {
+		if !proxyOK {
+			closeProxies(proxies)
+		}
+	}()
 	args := r.createArgs(home, workspace, hostMounts, mounts)
 	createCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
@@ -216,10 +228,13 @@ func (r *Docker) Create(ctx context.Context, spec RuntimeSpec) (Handle, error) {
 		mounts:      mounts,
 		readOnly:    make(map[string]bool),
 		allowedTCP:  append([]string(nil), spec.AllowedTCP...),
+		gateToProxy: gateToProxy,
+		proxies:     proxies,
 	}
 	for _, path := range readOnly {
 		e.readOnly[path] = true
 	}
+	proxyOK = true
 	r.mu.Lock()
 	r.entries[handle.ID] = e
 	r.mu.Unlock()
@@ -291,6 +306,9 @@ func (r *Docker) Destroy(ctx context.Context, handle Handle) error {
 		}
 		e.containerID = ""
 	}
+	closeProxies(e.proxies)
+	e.proxies = nil
+	e.gateToProxy = nil
 	if e.root != "" {
 		if err := os.RemoveAll(e.root); err != nil {
 			return runtimeError("CLEANUP_FAILED")

@@ -76,6 +76,14 @@ func normalizeUIPrefs(p contracts.UIPrefs) contracts.UIPrefs {
 	default:
 		p.SecurityTier = "standard"
 	}
+	switch strings.ToLower(strings.TrimSpace(p.IsolationBackend)) {
+	case "docker", "p2", "container":
+		p.IsolationBackend = "docker"
+	case "seatbelt", "p1", "":
+		p.IsolationBackend = "seatbelt"
+	default:
+		p.IsolationBackend = "seatbelt"
+	}
 	return p
 }
 

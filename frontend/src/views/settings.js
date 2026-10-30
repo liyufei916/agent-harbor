@@ -80,6 +80,17 @@ export function mountSettings(root, ctx) {
     </section>
 
     <section class="card" style="margin-top:12px">
+      <h3>隔离后端（P2）</h3>
+      <p class="meta">默认 Seatbelt（一期）。Docker 需本机 daemon 与 <code>agent-harbor/runtime:dev</code> 镜像。<strong>更改后需重启应用</strong>；环境变量 <code>HARBOR_RUNTIME</code> 优先于本选项。</p>
+      <label class="field">后端
+        <select id="set-isolation-backend">
+          <option value="seatbelt">Seatbelt（P1 · 默认）</option>
+          <option value="docker">Docker 容器（P2）</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="card" style="margin-top:12px">
       <h3>网络安全 · 已记住的网站</h3>
       <div id="set-hosts" class="meta">加载中…</div>
       <button type="button" class="btn" id="btn-reload-hosts">刷新</button>
@@ -252,6 +263,11 @@ export function mountSettings(root, ctx) {
     return "standard";
   }
 
+  function normalizeIsolationBackend(v) {
+    if (v === "docker" || v === "p2" || v === "container") return "docker";
+    return "seatbelt";
+  }
+
   async function loadPrefs() {
     const res = await api.getUIPrefs();
     const prefs = res.prefs || ctx.state.uiPrefs || {};
@@ -266,6 +282,8 @@ export function mountSettings(root, ctx) {
     });
     const tierEl = root.querySelector("#set-security-tier");
     if (tierEl) tierEl.value = normalizeTierPref(prefs.securityTier);
+    const isoEl = root.querySelector("#set-isolation-backend");
+    if (isoEl) isoEl.value = normalizeIsolationBackend(prefs.isolationBackend);
     syncClearDefaultEnabled();
   }
 
@@ -279,6 +297,9 @@ export function mountSettings(root, ctx) {
       clearOnStopDefault: clearRadio?.value === "clear" ? "clear" : "keep",
       securityTier: normalizeTierPref(
         root.querySelector("#set-security-tier")?.value,
+      ),
+      isolationBackend: normalizeIsolationBackend(
+        root.querySelector("#set-isolation-backend")?.value,
       ),
     };
     const res = await api.setUIPrefs(prefs);
@@ -298,6 +319,7 @@ export function mountSettings(root, ctx) {
   root.querySelector("#set-auto-collapse").onchange = savePrefs;
   root.querySelector("#set-ask-clear").onchange = savePrefs;
   root.querySelector("#set-security-tier")?.addEventListener("change", savePrefs);
+  root.querySelector("#set-isolation-backend")?.addEventListener("change", savePrefs);
   root.querySelectorAll('input[name="clear-default"]').forEach((el) => {
     el.onchange = savePrefs;
   });

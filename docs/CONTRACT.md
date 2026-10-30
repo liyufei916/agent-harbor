@@ -208,6 +208,8 @@ type UIPrefs struct {
     Theme string `json:"theme,omitempty"` // system | light | dark；空=system
     AskClearOnStop bool `json:"askClearOnStop"`
     ClearOnStopDefault string `json:"clearOnStopDefault,omitempty"` // keep | clear；空=keep
+    SecurityTier string `json:"securityTier,omitempty"` // strict | standard | relaxed
+    IsolationBackend string `json:"isolationBackend,omitempty"` // seatbelt | docker；改后需重启；HARBOR_RUNTIME 优先
 }
 type UIPrefsResponse struct {
     Prefs *UIPrefs `json:"prefs"`

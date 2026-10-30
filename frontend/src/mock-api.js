@@ -42,6 +42,7 @@ let uiPrefs = {
   clearOnStopDefault: "keep",
   theme: "system",
   securityTier: "standard",
+  isolationBackend: "seatbelt",
 };
 
 function hostKey(host, workspace) {
@@ -452,6 +453,16 @@ export async function setUIPrefs(prefs) {
     const t = prefs.theme;
     next.theme =
       t === "light" || t === "dark" || t === "system" ? t : "system";
+  }
+  if (prefs?.isolationBackend !== undefined) {
+    const b = prefs.isolationBackend;
+    next.isolationBackend =
+      b === "docker" || b === "p2" || b === "container" ? "docker" : "seatbelt";
+  }
+  if (prefs?.securityTier !== undefined) {
+    const t = prefs.securityTier;
+    next.securityTier =
+      t === "strict" || t === "relaxed" || t === "standard" ? t : "standard";
   }
   uiPrefs = next;
   try {

@@ -3,15 +3,22 @@ package runtime
 import (
 	"os"
 	"strings"
+	"sync/atomic"
 )
 
+// selectedDocker is set by NewSelectedWithBackend when prefs/env choose Docker.
+var selectedDocker atomic.Bool
+
 // DockerEnabled reports whether the process selected the P2 Docker Runtime.
+// HARBOR_RUNTIME env wins; otherwise the backend chosen at AttachOrchestrator.
 func DockerEnabled() bool {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("HARBOR_RUNTIME"))) {
 	case "docker", "p2", "container":
 		return true
-	default:
+	case "seatbelt", "p1":
 		return false
+	default:
+		return selectedDocker.Load()
 	}
 }
 

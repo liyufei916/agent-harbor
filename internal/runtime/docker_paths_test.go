@@ -28,6 +28,7 @@ func TestDockerGuestPathAndGateRewrite(t *testing.T) {
 	if err != nil || guest != "/bin/echo" {
 		t.Fatalf("image bin: %q %v", guest, err)
 	}
+	e.gateToProxy = map[string]string{"18080": "49152"}
 	env, err := rewriteDockerEnv(e, []string{
 		"HOME=" + home,
 		"ANTHROPIC_BASE_URL=http://127.0.0.1:18080",
@@ -40,11 +41,11 @@ func TestDockerGuestPathAndGateRewrite(t *testing.T) {
 	if !strings.Contains(joined, "HOME=/home/harbor") {
 		t.Fatalf("HOME: %s", joined)
 	}
-	if !strings.Contains(joined, "host.docker.internal:18080") {
-		t.Fatalf("gate rewrite: %s", joined)
+	if !strings.Contains(joined, "host.docker.internal:49152") {
+		t.Fatalf("proxy rewrite: %s", joined)
 	}
 	if !strings.Contains(joined, "http://127.0.0.1:9") {
-		t.Fatalf("non-allowed port must stay: %s", joined)
+		t.Fatalf("non-mapped port must stay: %s", joined)
 	}
 }
 

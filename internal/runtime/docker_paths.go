@@ -96,21 +96,25 @@ func rewriteDockerArgs(e *dockerEntry, args []string) ([]string, error) {
 }
 
 func rewriteDockerEnv(e *dockerEntry, env []string) ([]string, error) {
-	allowedPorts := map[string]bool{}
-	for _, addr := range e.allowedTCP {
-		_, port, err := net.SplitHostPort(addr)
-		if err != nil {
-			return nil, runtimeError("INVALID_ARGUMENT")
-		}
-		allowedPorts[port] = true
-	}
 	out := make([]string, 0, len(env))
 	for _, entry := range env {
 		key, value, ok := strings.Cut(entry, "=")
 		if !ok {
 			return nil, runtimeError("INVALID_ARGUMENT")
 		}
-		value = rewriteGateHost(value, allowedPorts)
+		if len(e.gateToProxy) > 0 {
+			value = rewriteGateHostMapped(value, e.gateToProxy)
+		} else {
+			allowedPorts := map[string]bool{}
+			for _, addr := range e.allowedTCP {
+				_, port, err := net.SplitHostPort(addr)
+				if err != nil {
+					return nil, runtimeError("INVALID_ARGUMENT")
+				}
+				allowedPorts[port] = true
+			}
+			value = rewriteGateHost(value, allowedPorts)
+		}
 		if filepath.IsAbs(value) {
 			if guest, ok := e.guestPath(filepath.Clean(value)); ok {
 				value = guest

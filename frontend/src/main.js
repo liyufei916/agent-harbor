@@ -78,6 +78,7 @@ const ctx = {
       clearOnStopDefault: "keep",
       theme: "system",
       securityTier: "standard",
+      isolationBackend: "seatbelt",
     },
     permissionPending: false,
   },
