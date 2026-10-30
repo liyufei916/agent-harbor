@@ -22,18 +22,21 @@
 | **macOS Seatbelt 隔离** | 工作区授权 + 进程降权；引导/设置/阻断页**逐条**展示隔离检测；不可用时阻断开跑（无「仍要继续」） |
 | **安全副本 / 一键导回** | 默认 `clone` 在副本改文件；工作台 **导回原文件夹** 合并写回；也可选直接编辑 |
 | **Harbor Gate 出站** | 模型 / MCP 只走白名单主机；扩权三选一（拒绝 / 仅本次 / 本项目），**无全网放行** |
+| **主动扩权 ask** | 工作台「请求扩权」走 `PromptPermission`（不依赖上游 302）；点选后可记本项目主机并撤销 |
 | **多会话 ≤2** | HOME 会话中心；同工作区禁双开；停止后可 **再次开始**（沿用配置直进工作台） |
-| **工作台对话** | 边界条 + 过滤协议 JSON 的可读输出 + 下方输入发下一轮；Claude/Codex 均支持同会话多轮 |
-| **多 Agent** | Claude Code / DeepSeek dsh / OpenAI Codex；同一模型账号可勾选多 Agent（须上游协议匹配） |
-| **MCP** | 远程 HTTP（Token / OAuth）或**宿主 stdio**（本机进程经回环桥，密钥不进沙箱）；记住主机可撤销 |
+| **工作台对话** | 边界条 + 过滤协议 JSON 的可读输出 + 下方输入发下一轮；Claude / Codex / dsh 同会话多轮 |
+| **多 Agent** | Claude Code / DeepSeek dsh / OpenAI Codex；向导**第一步即检 CLI**；同一模型可勾选多 Agent（须上游协议匹配） |
+| **MCP 双轨 + 边界表** | 远程 HTTP（Token / OAuth）或宿主 stdio；会话内 `tools/call` 白名单动态校验；协议接受邻近修订版；矩阵见 [mcp-compat-matrix](demos/mcp-compat-matrix.md) |
+| **本机「记录」** | 用量 / 阻拦 / 扩权 / 诊断；Gate 可采 input/output token 粗算费用；参考单价可改可删（CNY/USD 勿混）；导出脱敏 JSON（另存为 + 访达显示） |
+| **可校验分发** | Releases / CI 提供 `AgentHarbor-macos.zip` + **SHA256**；MIT 许可；首次打开需 Gatekeeper 放行（未公证时常见） |
 
-叙事用语：「隔离运行」「密钥留在本机」「经安全闸口」。交付形态是 **桌面 App**；浏览器 mock 只看 UI，**不计** I1–I11。
+叙事用语：「隔离运行」「密钥留在本机」「经安全闸口」。交付形态是 **桌面 App**；浏览器 mock 只看 UI，**不计** I1–I11。陌生用户路径见 [FIRST-RUN](demos/FIRST-RUN.md)。
 
 ---
 
 ## 获取（最终用户）
 
-优先从 [GitHub Releases](https://github.com/liyufei916/agent-harbor/releases) 下载 `AgentHarbor-macos.zip`（打 `v*` 标签或手动跑 Release workflow 会发布）。日常 CI 也会上传同名 Artifacts（保留 14 天）。
+优先从 [GitHub Releases](https://github.com/liyufei916/agent-harbor/releases) 下载 `AgentHarbor-macos.zip`（打 `v*` 标签或手动跑 Release workflow 会发布；亦有 `v0.0.0-ci.*` 预发布）。日常 CI 也会上传同名 Artifacts + `.sha256`（保留 14 天）。
 
 **校验下载（推荐）**：若 Release / Artifact 附带 `AgentHarbor-macos.zip.sha256`（或同目录 checksum 文件），在本机比对：
 
@@ -45,7 +48,7 @@ shasum -a 256 AgentHarbor-macos.zip   # 与公布的哈希逐字对比
 
 不一致时不要打开应用。应用未公证时，首次打开可能需在「隐私与安全性」允许。
 
-**使用前提**：macOS Darwin 25 · arm64 · 非 root；本机预装要用的 Agent CLI；MCP 支持远程 HTTP 或宿主 stdio。
+**使用前提**：macOS Darwin 25 · arm64 · 非 root；本机预装要用的 Agent CLI（向导开局会检测）；MCP 支持远程 HTTP 或宿主 stdio。
 
 ---
 
@@ -158,7 +161,7 @@ agent-harbor/
 
 产品范围以 [PAGE-DESIGN](docs/PAGE-DESIGN.md) 为准（历史上在 `feat/page-design-full` 落地，**已合入 `main`**）。与 [MVP-2D3P](docs/archive/MVP-2D3P.md)「两天裁剪」冲突时以 PAGE-DESIGN 为准。
 
-当前基线：macOS Darwin 25 · arm64；Claude / Codex / dsh（须本机 CLI）；Gate 反代、远程 HTTP MCP 与宿主 stdio 桥；工作台多轮对话、clone 导回、扩权与双会话；侧栏「记录」含用量/阻拦/扩权。产品内「使用说明」与工具/向导页标明能力边界。可安装包见 Releases / CI Artifacts。
+当前基线：macOS Darwin 25 · arm64；Claude / Codex / dsh（须本机 CLI，向导第一步检测）；Gate 反代与 usage 旁路；远程 HTTP MCP（协议可接受邻近版本）与宿主 stdio 桥；工作台多轮、clone 导回、主动扩权 ask 与双会话；侧栏「记录」含用量（token 粗算）/阻拦/扩权/诊断与另存为导出。产品内「使用说明」与 [MCP 矩阵](demos/mcp-compat-matrix.md) 标明能力边界。可安装包见 Releases（含 SHA256）/ CI Artifacts。
 
 ## GitHub 推送 / 拉取
 
@@ -201,11 +204,11 @@ HARBOR_NO_COMMIT=1 ./scripts/github-push.sh
 | 入口 | 作用 |
 |---|---|
 | HOME | 会话中心；运行中 x/2；新会话 / 打开工作台 / 停止 / 销毁 |
-| 新会话 Wizard | 四步：工作区 → Agent → 模型 → 工具（可跳过）；挂载默认安全副本（clone） |
-| 工作台 | 边界条 + 当前模型切换 + 对话区（过滤协议 JSON）+ 摘要；顶栏切换焦点会话 |
+| 新会话 Wizard | 四步：工作区（含 **CLI 先检**）→ Agent → 模型 → 工具（可跳过）；挂载默认安全副本（clone） |
+| 工作台 | 边界条 + 「请求扩权」ask + 当前模型切换 + 对话区（过滤协议 JSON）+ 摘要；顶栏切换焦点会话 |
 | 模型 | 自定义 Origin+Key（可多选 Agent），或预置 profile（`demo-model` / `dsh-model` / `codex-model`）；Key 提交后清空 |
-| 工具 | MCP **双轨**：浏览器 OAuth/SSO **或** Token；编辑 / 删除 |
-| 记录 | 用量 / 阻拦 / 扩权三 Tab（本机 localStorage，不外传） |
+| 工具 | MCP **双轨**：浏览器 OAuth/SSO **或** Token；编辑 / 删除；stdio 标更高信任 |
+| 记录 | 用量（token/单价粗算）/ 阻拦 / 扩权 / 诊断；脱敏 JSON **另存为**并访达显示（本机不外传） |
 | 设置 | Agent 检测、默认挂载、结束与清理、侧栏偏好、记住的网站、关于（重检时展开逐条，完成后收起） |
 | 顶栏 | 模式徽章；会话切换；**使用说明**弹窗（应用内操作文档） |
 | Onboarding | 一屏三句 + **逐条隔离检测**（可「下次启动重新显示引导」再跑） |
@@ -219,9 +222,9 @@ HARBOR_NO_COMMIT=1 ./scripts/github-push.sh
 
 **工作台与权限**
 
-- 边界条常驻；扩权一句话「谁访什么」；三选一：拒绝 / 仅本次 / 本项目始终允许；**无「全网」**。
+- 边界条常驻；扩权一句话「谁访什么」；三选一：拒绝 / 仅本次 / 本项目始终允许；**无「全网」**；亦可工作台主动 ask（主路径不依赖 302）。
 - 权限一览可撤销「本项目始终允许」；与设置「已记住的网站」同一数据。
-- 对话区过滤协议 JSON 后展示可读行（Claude stream-json / Codex app-server delta）；下方输入发下一轮；停止可询问是否清除隔离数据。
+- 对话区过滤协议 JSON 后展示可读行（Claude stream-json / Codex app-server delta / dsh）；下方输入发下一轮；停止可询问是否清除隔离数据。
 
 **隔离与状态灯**
 
