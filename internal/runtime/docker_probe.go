@@ -24,10 +24,15 @@ func ProbeDockerGuest(ctx context.Context, command string, args []string) (strin
 	}
 	bin, err := exec.LookPath("docker")
 	if err != nil {
-		return "", runtimeError("ISOLATION_UNAVAILABLE")
+		return "", isolationUnavailable("未找到 docker CLI，已拒绝启动。")
 	}
 	probeCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
+	image := DockerImage()
+	inspect := exec.CommandContext(probeCtx, bin, "image", "inspect", "--format", "{{.Id}}", image)
+	if err := inspect.Run(); err != nil {
+		return "", isolationUnavailable("Harbor 运行时镜像不存在，已拒绝启动。请先构建 agent-harbor/runtime:dev。")
+	}
 	runArgs := []string{
 		"run", "--rm",
 		"--network", "none",
@@ -37,13 +42,17 @@ func ProbeDockerGuest(ctx context.Context, command string, args []string) (strin
 		"--security-opt", "no-new-privileges",
 		"--tmpfs", "/tmp:rw,noexec,nosuid,size=32m",
 		"--entrypoint", command,
-		DockerImage(),
+		image,
 	}
 	runArgs = append(runArgs, args...)
 	cmd := exec.CommandContext(probeCtx, bin, runArgs...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {
+		detail := strings.ToLower(stderr.String() + stdout.String())
+		if strings.Contains(detail, "cannot connect") || strings.Contains(detail, "is the docker daemon running") {
+			return "", isolationUnavailable("Docker daemon 不可用，已拒绝启动。")
+		}
 		return "", runtimeError("AGENT_UNSUPPORTED")
 	}
 	return stdout.String(), nil

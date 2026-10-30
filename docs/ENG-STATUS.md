@@ -18,6 +18,7 @@
 | 2026-10-30n | **P2 切片 10**：Docker Terminal（宿主 PTY + `docker exec -it`）与 Resize；Agent 仍走 Interactive JSONL。 |
 | 2026-10-30o | **P2 切片 11**：冒烟脚本在 TTY 环境下校验 `docker exec -t`。 |
 | 2026-10-30p | **P2 切片 12**：浏览器 mock Health 随 `isolationBackend=docker`；CONTRACT 注记 Docker Terminal。 |
+| 2026-10-30q | **P2 切片 13**：`ProbeDockerGuest` 先 `image inspect`；镜像/daemon 失败文案可辨。 |
 
 ## eng-complete（代码已接线）
 
@@ -45,7 +46,7 @@
 | I1–I11 / B6 live | **通过（2026-10-30 全量重跑）** | harness + 平台探针 + `bin/AgentHarbor.app` 启停；见 ACCEPTANCE |
 | 扩权 302 异常项（可选） | **backlog** | 主路径改为 `PromptPermission` ask + 白名单；302 不挡验收 |
 | Apple 公证 / 分发签名 | **blocked（账号）** | 需 Apple Developer；清单见 [`scripts/notarize-prep.md`](../scripts/notarize-prep.md) |
-| Docker Runtime（P2） | **进行中（分支可用）** | `feat/p2-docker-runtime` 切片 0–12；Desktop 残留：其它路径仍可能触及宿主机 loopback；真机 daemon 冒烟待本机 Docker |
+| Docker Runtime（P2） | **进行中（分支可用）** | `feat/p2-docker-runtime` 切片 0–13；Desktop 残留：其它路径仍可能触及宿主机 loopback；真机 daemon 冒烟待本机 Docker |
 | microVM | **backlog（后于 Docker）** | 不挡 P2 容器；预研另立 |
 | 官方 MCP SDK | **backlog** | 现用 `net/http` 转发；待真实上游后再换 SDK |
 | Linux Seatbelt | **N/A** | Runtime 非 Darwin → `ISOLATION_UNAVAILABLE`；无 Linux Seatbelt 目标 |
