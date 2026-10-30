@@ -7,6 +7,8 @@
 | mock / D4 | **模拟模式** | `frontend` 下 `npm run dev` → http://127.0.0.1:5173/ | **否** |
 | 桌面 live | **真实绑定** | 仓库根 `./scripts/dev-desktop.sh` 或 `wails3 dev` | 可以记，须有脱敏证据 |
 
+eng 已 **code-complete**，关 I1–I11 仍差 live 证据 → [ENG-STATUS](../docs/ENG-STATUS.md)。
+
 ### 桌面一打开就「无法安全启动」？
 
 2026-10-25 起 `GetRuntimeHealth` **已接线** Runtime 探测（不再固定「尚未接线」）。

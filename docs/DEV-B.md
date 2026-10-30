@@ -104,7 +104,7 @@ wails3 task package # macOS 上得到 bin/AgentHarbor.app，可双击打开
 
 ### 明确未做（历史两天记录 · 已过时）
 
-> **现行状态**：OAuth / Keychain / 多会话 / SwitchModel / clone·导回 / PTY / 宿主 stdio 均已接线；仍缺 **I1–I11 live 证据** 与公证签名、官方 MCP SDK、CSP、配额等。勿再按「方法占位」开工。
+> **现行状态**：OAuth / Keychain / 多会话 / SwitchModel / clone·导回 / PTY / 宿主 stdio / 前端保守 CSP 均已接线；仍缺 **I1–I11 live 证据**；公证需 Apple 账号（[`notarize-prep.md`](../scripts/notarize-prep.md)）；官方 MCP SDK / 配额等为 backlog。总表见 [ENG-STATUS](ENG-STATUS.md)。勿再按「方法占位」开工。
 
 连接探测当时把 HTTP 404 和其他小于 400 的状态当成成功后再写入 Secrets。这在后续审查里被标为缺陷，并已由后续提交改掉，不属于本节的完成项。
 

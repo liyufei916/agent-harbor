@@ -191,8 +191,11 @@ type ResolvePermissionInput struct {
 
 // UIPrefs 是本机 UI 偏好；不得含密钥。
 type UIPrefs struct {
-	SidebarCollapsed      bool `json:"sidebarCollapsed"`
-	AutoCollapseWorkbench bool `json:"autoCollapseWorkbench"`
+	SidebarCollapsed      bool   `json:"sidebarCollapsed"`
+	AutoCollapseWorkbench bool   `json:"autoCollapseWorkbench"`
+	Theme                 string `json:"theme,omitempty"` // system | light | dark；空=system
+	AskClearOnStop        bool   `json:"askClearOnStop"`
+	ClearOnStopDefault    string `json:"clearOnStopDefault,omitempty"` // keep | clear；空=keep
 }
 
 // UIPrefsResponse 包装偏好。

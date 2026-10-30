@@ -67,6 +67,7 @@ const ctx = {
       autoCollapseWorkbench: true,
       askClearOnStop: true,
       clearOnStopDefault: "keep",
+      theme: "system",
     },
   },
   navigate(name, opts) {
@@ -297,6 +298,55 @@ function setSidebarCollapsed(collapsed, { persist = true } = {}) {
   }
 }
 
+/** @type {MediaQueryList | null} */
+let systemThemeMql = null;
+
+function normalizeThemePref(theme) {
+  if (theme === "light" || theme === "dark" || theme === "system") return theme;
+  return "system";
+}
+
+function resolveTheme(themePref) {
+  const pref = normalizeThemePref(themePref);
+  if (pref === "light" || pref === "dark") return pref;
+  try {
+    if (typeof matchMedia === "function") {
+      return matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    }
+  } catch (_) {
+    /* ignore */
+  }
+  return "dark";
+}
+
+function applyDocumentTheme(themePref) {
+  const pref = normalizeThemePref(themePref);
+  const resolved = resolveTheme(pref);
+  const root = document.documentElement;
+  root.dataset.theme = resolved;
+  root.classList.toggle("theme-light", resolved === "light");
+  root.classList.toggle("theme-dark", resolved === "dark");
+  if (systemThemeMql) {
+    systemThemeMql.removeEventListener?.("change", onSystemThemeChange);
+    systemThemeMql.removeListener?.(onSystemThemeChange);
+    systemThemeMql = null;
+  }
+  if (pref === "system" && typeof matchMedia === "function") {
+    systemThemeMql = matchMedia("(prefers-color-scheme: light)");
+    if (systemThemeMql.addEventListener) {
+      systemThemeMql.addEventListener("change", onSystemThemeChange);
+    } else if (systemThemeMql.addListener) {
+      systemThemeMql.addListener(onSystemThemeChange);
+    }
+  }
+}
+
+function onSystemThemeChange() {
+  if (normalizeThemePref(ctx.state.uiPrefs?.theme) === "system") {
+    applyDocumentTheme("system");
+  }
+}
+
 function applyUIPrefs(prefs) {
   if (!prefs) return;
   ctx.state.uiPrefs = {
@@ -306,7 +356,9 @@ function applyUIPrefs(prefs) {
     askClearOnStop: prefs.askClearOnStop !== false,
     clearOnStopDefault:
       prefs.clearOnStopDefault === "clear" ? "clear" : "keep",
+    theme: normalizeThemePref(prefs.theme),
   };
+  applyDocumentTheme(ctx.state.uiPrefs.theme);
   // 工作台内若开了自动收缩且用户未手动展开，保持收窄，不把「默认展开」盖掉临时态
   if (
     currentRoute === "session" &&
@@ -443,6 +495,7 @@ async function boot() {
     search: location.search,
   });
   syncBadge();
+  applyDocumentTheme(ctx.state.uiPrefs?.theme || "system");
 
   try {
     const prefsRes = await api.getUIPrefs();

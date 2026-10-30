@@ -84,7 +84,12 @@ func NewAppWithDataDir(dataDir string) *App {
 		policy:   pol,
 		dataDir:  dataDir,
 		sessions: unavailableSession{},
-		prefs:    contracts.UIPrefs{SidebarCollapsed: false, AutoCollapseWorkbench: true},
+		prefs: contracts.UIPrefs{
+			SidebarCollapsed:      false,
+			AutoCollapseWorkbench: true,
+			AskClearOnStop:        true,
+			ClearOnStopDefault:    "keep",
+		},
 		hosts:    make(map[string]contracts.RememberedHost),
 	}
 	app.loadPersistedState()
@@ -332,7 +337,7 @@ func (a *App) getPrefs() contracts.UIPrefs {
 
 func (a *App) setPrefs(p contracts.UIPrefs) contracts.UIPrefs {
 	a.mu.Lock()
-	a.prefs = p
+	a.prefs = normalizeUIPrefs(p)
 	out := a.prefs
 	a.mu.Unlock()
 	a.savePersistedState()

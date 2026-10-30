@@ -11,8 +11,14 @@ import {
 } from "./permission-modal.js";
 import { showToast } from "../toast.js";
 import { askConfirm } from "../confirm-dialog.js";
-import { filterModelsForAgent } from "../agent-compat.js";
+import {
+  filterModelsForAgent,
+  filterModelsForSwitch,
+} from "../agent-compat.js";
 import { recordAudit } from "../usage-analytics.js";
+
+const SWITCH_MODEL_META =
+  "仅可切换同 profile / 同主机账号；跨协议或改固定模型名不支持。";
 
 export function mountSession(root, ctx) {
   const healthOk = ctx.state.health?.available !== false;
@@ -35,6 +41,7 @@ export function mountSession(root, ctx) {
           <div class="row">
             <label class="field inline">当前模型
               <select id="sess-model"></select>
+              <span class="meta" id="sess-model-meta" style="display:block;max-width:22rem"></span>
             </label>
             <button type="button" class="btn" id="btn-perm">权限一览</button>
             <button type="button" class="btn hidden" id="btn-syncback" disabled>导回原文件夹</button>
@@ -82,6 +89,7 @@ export function mountSession(root, ctx) {
     meta: root.querySelector("#sess-meta"),
     hintLine: root.querySelector("#sess-hint-line"),
     model: root.querySelector("#sess-model"),
+    modelMeta: root.querySelector("#sess-model-meta"),
     syncBack: root.querySelector("#btn-syncback"),
     stop: root.querySelector("#btn-stop"),
     pty: root.querySelector("#sess-pty"),
@@ -278,14 +286,39 @@ export function mountSession(root, ctx) {
     if (!els.model) return;
     if (typeof document === "undefined" || !document.createElement) return;
     const res = await api.listAccounts("model");
+    const all = res.accounts || [];
     const agentId = ctx.state.lastSnapshot?.agentId || ctx.state.agentId || "";
     const agents = ctx.state.agents || [];
-    const accounts = filterModelsForAgent(res.accounts || [], agentId, agents);
     const want =
       selectedId ||
       ctx.state.lastSnapshot?.modelAccountId ||
       ctx.state.modelAccount?.id ||
       "";
+    const current =
+      all.find((a) => a.id === want) ||
+      (ctx.state.modelAccount?.id === want ? ctx.state.modelAccount : null);
+    const running = ctx.state.lastSnapshot?.state === "running";
+    // 运行中：CONTRACT / Gate 同 profileId + host；否则向导期按 Agent 兼容过滤。
+    let accounts = running
+      ? filterModelsForSwitch(all, current)
+      : filterModelsForAgent(all, agentId, agents);
+    if (running && current && !accounts.some((a) => a.id === current.id)) {
+      accounts = [current, ...accounts];
+    }
+    const alternates = accounts.filter((a) => a.id !== want);
+    const canSwitch = running && alternates.length > 0;
+    if (els.modelMeta) {
+      els.modelMeta.textContent = running
+        ? canSwitch
+          ? SWITCH_MODEL_META
+          : `${SWITCH_MODEL_META} 当前无其他同 profile / 同主机账号可切换。`
+        : "";
+    }
+    els.model.disabled = running && !canSwitch;
+    if (running && !canSwitch) {
+      // 无备选：只保留当前项，避免误选不可切换账号
+      accounts = current ? [current] : accounts.filter((a) => a.id === want);
+    }
     const options = accounts.map((a) => {
       const o = document.createElement("option");
       o.value = a.id;

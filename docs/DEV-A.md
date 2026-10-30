@@ -124,15 +124,17 @@ B 可将 `runtime.NewDefault()` 和 `claude.New(固定CLI路径, 固定模型名
 
 Runtime 新增 `InteractiveProcess` 和 `LaunchSpec.Interactive`。交互 Kit 启动时保持受控 stdin，不再在首轮任务后关闭；Orchestrator 暴露 `WritePty`/`ResizePty`，校验会话仍处于 running 且确实由交互 Kit 启动，再把后续轮次写入同一进程。交互输出通过既有 `harbor:event` 以 `pty` 载荷回传，停止/销毁时由 Runtime 关闭 stdin 并清理进程。
 
-此批曾将 Claude 与 dsh 都声明交互模式，但仅保持 stdin 打开不足以支持多轮；下节协议修复替代该声明。Codex 仍需按其 app-server 协议单独接入。当前 macOS `Resize` 只校验尺寸并返回 `UNIMPLEMENTED`，尚未接入真实 PTY/窗口大小控制。
+此批曾将 Claude 与 dsh 都声明交互模式，但仅保持 stdin 打开不足以支持多轮；下节协议修复替代该声明。Codex 已按 app-server 协议接入（见后文与 [CODEX-INTEGRATION](CODEX-INTEGRATION.md)）。
 
-### 多轮协议及输入取消修复
+### 多轮协议及输入取消修复（现行）
 
-Claude 改为 `--input-format stream-json`，由 Kit 的 EncodeInput 将首轮和后续轮次编码为独立 user JSONL 消息，正文换行不会成为额外协议记录。同一进程保留对话上下文，但真实模型上下文连续性仍须联调验收。dsh headless `-` 是 EOF 单任务输入，已恢复关闭 stdin 并拒绝多轮，防止首轮等待输入而卡住；dsh 多轮仍待实现。
+Claude 使用 `--input-format stream-json`，由 Kit 的 EncodeInput 将首轮和后续轮次编码为独立 user JSONL 消息，正文换行不会成为额外协议记录。同一进程保留对话上下文，但真实模型上下文连续性仍须 **live 验收**（I1–I11 仍开放）。
 
-Runtime 输入串行化，阻塞写入响应 context 取消/超时；写入中断可能产生半条消息，编排会取消并清理会话。进程能力发布改为在编排锁内完成，避免输出/输入回调与初始化竞争。真实终端 resize 仍为 UNIMPLEMENTED，JSONL 通道不冒充真实 PTY。
+- **dsh**：官方 headless `-` 仍为 EOF 单任务（`dsh.New` 回归路径）。**桌面装配**使用 `dsh.NewConversation` 固定受信 `conversation.mjs` 驱动，经官方 Agent API 保留同一实例/Session，支持同会话多轮；不装载任务指定代码、不开动态插件。
+- **Codex**：`turn_bridge` + `codex app-server` 同 thread 多轮并流式 delta。
+- **Resize**：非 Terminal 模式（JSONL 管道）`terminal==nil` 时仍返回 `UNIMPLEMENTED`。macOS **Terminal 模式**（`LaunchSpec.Terminal`）在 `terminal!=nil` 时经 `pty.Setsize` 改窗口尺寸；JSONL 通道不冒充真实 PTY。
 
-验证：先用失败测试重现旧 text/headless 配置，再验证消息转义、并发写入不交错、阻塞写入取消；真实 macOS 受限进程两轮输入和停止后拒绝输入通过，本机 Claude 固定版本离线检测及无上游初始化通过。这些均不等于远程模型多轮验收。
+Runtime 输入串行化，阻塞写入响应 context 取消/超时；写入中断可能产生半条消息，编排会取消并清理会话。进程能力发布在编排锁内完成。验证：消息转义、并发写入、阻塞取消、真实受限 helper 两轮/resize 等单测通过；**不等于**远程模型多轮或 Agent TUI live 关单。
 
 ## 2026-10-24：Runtime 资源墓碑
 
@@ -188,7 +190,9 @@ Policy 将挂载模式传给 Runtime；macOS Runtime 在应用数据目录 `Agen
 - `dsh.NewConversation` 使用本仓库固定的 `conversation.mjs` 驱动，通过固定版本官方 Agent API 保留同一实例和 Session。驱动随启动配置写入私有 HOME，只导入受信安装目录的官方模块，不装载任务指定代码、不启用动态插件或 shell。桌面装配采用此模式；`dsh.New` 仍保留官方 headless 单任务路径用于回归。输入采用有界 JSONL，正文不进入参数或插件源代码，执行失败退出并由编排清理。
 - 新增真实 dsh + Seatbelt + Gate + 受控 HTTP 上游的两轮验证：第二轮上游请求包含第一轮用户消息及 assistant 回复，且没有新建 Agent 进程；无 MCP 可正常运行。此测试证明受控协议和上下文传递，不代表远程模型回答质量或真实认证 MCP 已验收。
 
-当前未关闭项：Codex Kit 在全量分支的安全移植及受控子进程方案、真实 Agent TUI 与 C 工作台联调、真实远程模型/认证 MCP、扩权 Gate/Policy 与页面完整联调、对外安全证据索引。microVM 仍为 backlog。上述缺口未完成前，不将 A 总体标为完成。
+**eng 接线**：Claude stream-json、dsh `NewConversation`、Codex 注册 + app-server 多轮、clone/导回、PTY/Resize（Terminal）、扩权编排生命周期均已落地，见 [ENG-STATUS](ENG-STATUS.md)。
+
+**仍开放（live / backlog）**：I1–I11 真实远程证据、真实 Agent TUI 联调、扩权 Gate→页面完整 live、对外安全证据索引。microVM 为 P2 backlog（非 eng-open）。未拿到 live 证据前，不将 A 总体标为验收完成。
 
 同步 B 最新提交后，删除了另一份未经 Gate 原子校验的 SwitchModel 实现，旧 `SetModelAccount` 入口也统一转交受校验方法。Gate 重定向触发的 `Action` 已改为 `connect`，真实 HTTP→Gate→Orchestrator 测试确认挂起、决策及拒绝恢复；重定向仍不可因批准而自动携带凭据。会话权限一览由编排中的实际 Policy 构建，clone 项目规则标识仍为原工作区。证据索引见 [研发 A 交付状态](DEV-A.md)。
 

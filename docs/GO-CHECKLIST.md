@@ -52,18 +52,22 @@
 
 ## 4. 仍开放但不挡并行编码
 
-| 项 | 谁 | 挡什么 | 不挡什么 |
+工程接线状态见 [ENG-STATUS](ENG-STATUS.md)。下表区分 **eng 已关闭** 与 **仍待 live/产品**。
+
+| 项 | 谁 | 状态 | 说明 |
 |---|---|---|---|
-| 真实模型 origin / Key | B → DECISIONS | I1+ | mock、DTO、绑定占位 |
-| 真实只读 MCP + 工具名 | B/C → DECISIONS | I1/I2 | Token/OAuth UI 与 Gate 骨架 |
-| 本机 Claude/dsh Detect 冻结 | A → DECISIONS | I2 真 Agent | Kit 接口与 UI |
-| OAuth 选哪家真实 IdP 做第一条通 | B | OAuth **live** 证据 | mock 双轨、方法接线 |
-| Keychain 持久化（P1-B-01） | B | 重启保账号 | 内存凭据联调 |
-| Codex Kit（P1-A-03） | A | 第二 Agent 真机 | Claude/dsh 路径 |
-| 子进程/Bash（P1-A-04） | A 门禁 | 开 fork | 严格单进程现状 |
-| 安装签名/更新（P1-B-06） | B | 分发 | `wails3 dev` |
-| 外观浅色主题 | C | 无 | 深色/跟随即可 |
-| DESIGN 对外口号 | 产品 | 无 | 开发文案 |
+| 真实模型 origin / Key | B → DECISIONS | **仍开放（live）** | 挡 I1+；不挡 mock/DTO |
+| 真实只读 MCP + 工具名 | B/C → DECISIONS | **仍开放（live）** | 挡 I1/I2 |
+| 本机 Claude/dsh Detect 冻结 | A → DECISIONS | **仍开放（live）** | 挡 I2 真 Agent |
+| OAuth 选哪家真实 IdP 做第一条通 | B | **仍开放（live）** | mock 双轨与方法接线已齐 |
+| Keychain 持久化（P1-B-01） | B | **eng 已关闭** | Darwin Keychain（`-i`/`-X`，fail-closed）；非 Darwin 文件库占位 |
+| Codex Kit（P1-A-03） | A | **eng 已关闭（已注册）** | app-server 多轮已接线；真机工具链仍待 live |
+| 子进程/Bash（P1-A-04） | A 门禁 | 门禁保留 | Codex 显式声明后受控白名单；Claude/dsh 严格单进程 |
+| 安装签名/更新（P1-B-06） | B | **backlog（非 eng-open）** | 公证需 Apple 账号，见 `scripts/notarize-prep.md` |
+| 外观浅色主题 | C | **eng 已关闭** | `UIPrefs.theme` system/light/dark 已接线落盘 |
+| microVM（P1-A-07） | A | **backlog（非 eng-open）** | P2 预研；本分支 Seatbelt 主路径 |
+| 官方 MCP SDK | B | **backlog（非 eng-open）** | 现用标准 `net/http` 转发 |
+| DESIGN 对外口号 | 产品 | 产品项 | 不挡开发文案 |
 
 ---
 

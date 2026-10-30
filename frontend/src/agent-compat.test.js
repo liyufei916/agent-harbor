@@ -4,6 +4,7 @@ import {
   expectedModelProfile,
   modelFitsAgent,
   filterModelsForAgent,
+  filterModelsForSwitch,
   modelCompatLabel,
 } from "./agent-compat.js";
 
@@ -61,6 +62,47 @@ test("filterModelsForAgent 只保留兼容项", () => {
   assert.deepEqual(
     filterModelsForAgent(list, "codex").map((a) => a.id),
     ["2", "3"],
+  );
+});
+
+test("filterModelsForSwitch 仅同 profileId + host", () => {
+  const current = {
+    id: "cur",
+    kind: "model",
+    profileId: "demo-model",
+    host: "api.anthropic.com",
+  };
+  const list = [
+    current,
+    {
+      id: "same",
+      kind: "model",
+      profileId: "demo-model",
+      host: "api.anthropic.com",
+      name: "alt",
+    },
+    {
+      id: "other-host",
+      kind: "model",
+      profileId: "demo-model",
+      host: "api.example.com",
+    },
+    {
+      id: "other-profile",
+      kind: "model",
+      profileId: "custom",
+      host: "api.anthropic.com",
+    },
+    { id: "mcp", kind: "mcp", profileId: "demo-mcp", host: "mcp.example.com" },
+  ];
+  assert.deepEqual(
+    filterModelsForSwitch(list, current).map((a) => a.id),
+    ["cur", "same"],
+  );
+  assert.deepEqual(filterModelsForSwitch(list, null), []);
+  assert.deepEqual(
+    filterModelsForSwitch(list, { kind: "model", profileId: "demo-model" }),
+    [],
   );
 });
 

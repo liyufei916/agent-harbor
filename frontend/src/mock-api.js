@@ -40,6 +40,7 @@ let uiPrefs = {
   autoCollapseWorkbench: true,
   askClearOnStop: true,
   clearOnStopDefault: "keep",
+  theme: "system",
 };
 
 function hostKey(host, workspace) {
@@ -399,6 +400,11 @@ export async function setUIPrefs(prefs) {
   if (prefs?.clearOnStopDefault !== undefined) {
     next.clearOnStopDefault =
       prefs.clearOnStopDefault === "clear" ? "clear" : "keep";
+  }
+  if (prefs?.theme !== undefined) {
+    const t = prefs.theme;
+    next.theme =
+      t === "light" || t === "dark" || t === "system" ? t : "system";
   }
   uiPrefs = next;
   try {
@@ -946,6 +952,7 @@ export function resetMock() {
     autoCollapseWorkbench: true,
     askClearOnStop: true,
     clearOnStopDefault: "keep",
+    theme: "system",
   };
 }
 

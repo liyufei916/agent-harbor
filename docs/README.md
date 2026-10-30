@@ -15,6 +15,7 @@
 | [DECISIONS.md](DECISIONS.md) | 已定技术选择 |
 | [ACCEPTANCE.md](ACCEPTANCE.md) | I1–I11 与证据格式 |
 | [GO-CHECKLIST.md](GO-CHECKLIST.md) | 开工检查 + 文档同步纪律 |
+| [ENG-STATUS.md](ENG-STATUS.md) | eng 已齐 vs live/公证/P2 backlog |
 
 ## 角色日志
 

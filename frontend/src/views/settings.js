@@ -53,6 +53,13 @@ export function mountSettings(root, ctx) {
 
     <section class="card" style="margin-top:12px">
       <h3>外观与侧栏</h3>
+      <label class="field">外观
+        <select id="set-theme">
+          <option value="system">跟随系统</option>
+          <option value="light">浅色</option>
+          <option value="dark">深色</option>
+        </select>
+      </label>
       <label class="check-row">
         <input type="checkbox" id="set-sidebar-collapsed" />
         默认收缩侧栏
@@ -238,9 +245,15 @@ export function mountSettings(root, ctx) {
     wrap?.classList.toggle("disabled", ask);
   }
 
+  function normalizeTheme(theme) {
+    if (theme === "light" || theme === "dark" || theme === "system") return theme;
+    return "system";
+  }
+
   async function loadPrefs() {
     const res = await api.getUIPrefs();
     const prefs = res.prefs || ctx.state.uiPrefs || {};
+    root.querySelector("#set-theme").value = normalizeTheme(prefs.theme);
     root.querySelector("#set-sidebar-collapsed").checked = !!prefs.sidebarCollapsed;
     root.querySelector("#set-auto-collapse").checked =
       prefs.autoCollapseWorkbench !== false;
@@ -255,6 +268,7 @@ export function mountSettings(root, ctx) {
   async function savePrefs() {
     const clearRadio = root.querySelector('input[name="clear-default"]:checked');
     const prefs = {
+      theme: normalizeTheme(root.querySelector("#set-theme").value),
       sidebarCollapsed: root.querySelector("#set-sidebar-collapsed").checked,
       autoCollapseWorkbench: root.querySelector("#set-auto-collapse").checked,
       askClearOnStop: root.querySelector("#set-ask-clear").checked,
@@ -272,6 +286,7 @@ export function mountSettings(root, ctx) {
     st.innerHTML = `<span class="ok">已保存</span>`;
   }
 
+  root.querySelector("#set-theme").onchange = savePrefs;
   root.querySelector("#set-sidebar-collapsed").onchange = savePrefs;
   root.querySelector("#set-auto-collapse").onchange = savePrefs;
   root.querySelector("#set-ask-clear").onchange = savePrefs;

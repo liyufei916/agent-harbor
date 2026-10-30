@@ -62,6 +62,22 @@ export function filterModelsForAgent(accounts, agentId, agents = []) {
   return (accounts || []).filter((a) => modelFitsAgent(a, agentId, agents));
 }
 
+/**
+ * 运行中 SwitchModel：与 CONTRACT / Gate 一致，仅同 profileId + 同 host。
+ * current 缺 host/profile 时返回空（不可静默放宽）。
+ */
+export function filterModelsForSwitch(accounts, current) {
+  if (!current || current.kind !== "model") return [];
+  const profileId = current.profileId || "";
+  const host = (current.host || "").toLowerCase();
+  if (!profileId || !host) return [];
+  return (accounts || []).filter((a) => {
+    if (!a || a.kind !== "model") return false;
+    if ((a.profileId || "") !== profileId) return false;
+    return (a.host || "").toLowerCase() === host;
+  });
+}
+
 export function agentsForModelProfile(profileId) {
   return defaultAgentsForProfile(profileId);
 }

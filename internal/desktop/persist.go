@@ -33,9 +33,20 @@ func (a *App) loadPersistedState() {
 	if json.Unmarshal(raw, &st) != nil {
 		return
 	}
+	// 旧落盘无 askClearOnStop 时保持默认 true（bool 零值 false 会误关）。
+	var probe struct {
+		Prefs map[string]json.RawMessage `json:"prefs"`
+	}
+	askClear := true
+	if json.Unmarshal(raw, &probe) == nil {
+		if v, ok := probe.Prefs["askClearOnStop"]; ok {
+			_ = json.Unmarshal(v, &askClear)
+		}
+	}
+	st.Prefs.AskClearOnStop = askClear
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.prefs = st.Prefs
+	a.prefs = normalizeUIPrefs(st.Prefs)
 	if a.hosts == nil {
 		a.hosts = make(map[string]contracts.RememberedHost)
 	}
@@ -45,6 +56,20 @@ func (a *App) loadPersistedState() {
 		}
 		a.hosts[hostMapKey(h.Workspace, h.Host)] = h
 	}
+}
+
+// normalizeUIPrefs 规范化 Theme / ClearOnStopDefault。
+func normalizeUIPrefs(p contracts.UIPrefs) contracts.UIPrefs {
+	switch p.Theme {
+	case "light", "dark", "system":
+		// ok
+	default:
+		p.Theme = ""
+	}
+	if p.ClearOnStopDefault != "clear" {
+		p.ClearOnStopDefault = "keep"
+	}
+	return p
 }
 
 func (a *App) savePersistedState() {

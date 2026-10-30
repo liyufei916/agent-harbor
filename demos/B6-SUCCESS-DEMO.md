@@ -1,7 +1,8 @@
 # B6 — 60 秒成功态演示（任务 + 导回）
 
 目标：录一段**干净成功态**，含助手完成任务与「导回原文件夹」后源目录出现新文件。  
-正式关单写入 [ACCEPTANCE.md](../docs/ACCEPTANCE.md)；填空可并用 [syncback-evidence.md](syncback-evidence.md)。**勿贴 Key。**
+正式关单写入 [ACCEPTANCE.md](../docs/ACCEPTANCE.md)；填空可并用 [syncback-evidence.md](syncback-evidence.md)。**勿贴 Key。**  
+工程侧已 **code-complete**（见 [ENG-STATUS](../docs/ENG-STATUS.md)）；本演示仍须 live 画面/证据才能关 I 单。
 
 ## 前置（≤10s）
 
