@@ -149,6 +149,23 @@ type AccountResponse struct {
     Account *AccountInfo `json:"account"`
     Error *AppError `json:"error"`
 }
+type McpPresetInfo struct {
+    ID string `json:"id"`
+    Name string `json:"name"`
+    Description string `json:"description"`
+    Kind string `json:"kind"` // stdio | http
+    NeedsAPIKey bool `json:"needsApiKey"`
+    Origin string `json:"origin,omitempty"`
+}
+type McpPresetsResponse struct {
+    Presets []McpPresetInfo `json:"presets"`
+    Error *AppError `json:"error"`
+}
+type AddMcpPresetInput struct {
+    PresetID string `json:"presetId"`
+    Name string `json:"name,omitempty"`
+    APIKey string `json:"apiKey,omitempty"`
+}
 type AccountsResponse struct {
     Accounts []AccountInfo `json:"accounts"`
     Error *AppError `json:"error"`
@@ -240,6 +257,8 @@ type DesktopAPI interface {
     SelectWorkspace() WorkspaceResponse
     ConnectModel(ConnectInput) AccountResponse
     ConnectMcp(ConnectInput) AccountResponse
+    ListMcpPresets() McpPresetsResponse           // 工具页一键预置目录（无密钥）
+    AddMcpPreset(AddMcpPresetInput) AccountResponse // stdio 立即连；Context7 须 Token
     ListAccounts(kind string) AccountsResponse // kind: model | mcp | ""=全部
     RemoveAccount(accountID string) EmptyResponse
     CreateSession(SessionSpec) SessionResponse
@@ -441,6 +460,8 @@ type Runtime interface {
 | SelectWorkspace | 系统目录面板，绝对路径 | 取消：cancelled=true、path=""、error=null |
 | ConnectModel | 10s 内测上游，成功才存账号 | **固定 profile**：Origin 空，ProfileID∈已登记；**自定义**：Origin 必填 HTTPS（可带 BasePath），ProfileID 空或 `custom`；禁止 query/fragment；失败清候选，account=null |
 | ConnectMcp | Token / **stdio** 探测并保存；自定义 Origin 见下 | **HTTP**：Origin HTTPS…；**stdio**：`transport=stdio` + 绝对路径 command（宿主桥）；成功宜写入 `AccountInfo.tools`；**工具发现失败/空列表仍可保存**（`OfflineHint` 提示「可继续但工具受限」）；OAuth 轨走 StartMcpOAuth |
+| ListMcpPresets | 返回首批预置目录（无密钥） | 固定：`harbor-time` / `harbor-filesystem` / `context7` |
+| AddMcpPreset | 一键添加预置并 Connect | stdio：物化脚本+python3；filesystem 锁 demos/workspace 或样例目录；`context7` 须 `apiKey`，Origin=`https://mcp.context7.com` |
 | ListAccounts | 返回已保存账号元信息（无 Key） | kind 过滤；空列表 `[]` |
 | RemoveAccount | 删除账号与密钥 | 会话仍引用该账号 → `SESSION_BUSY`；未知 → `ACCOUNT_NOT_FOUND` |
 | CreateSession | 占会话槽，返回 provisioning | running+preparing 总数 **≤2**，否则 `SESSION_LIMIT`；同规范化工作区已有非终态 → `WORKSPACE_BUSY`；mountMode∈direct\|clone；mcpIds 0..8 |

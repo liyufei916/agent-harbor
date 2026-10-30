@@ -11,6 +11,8 @@ const LIVE_SURFACE = [
   "selectWorkspace",
   "connectModel",
   "connectMcp",
+  "listMcpPresets",
+  "addMcpPreset",
   "createSession",
   "getSession",
   "stopSession",

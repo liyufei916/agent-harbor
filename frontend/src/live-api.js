@@ -30,6 +30,8 @@ export function createLiveTransport() {
     selectWorkspace: () => api.SelectWorkspace(),
     connectModel: (input) => api.ConnectModel(input),
     connectMcp: (input) => api.ConnectMcp(input),
+    listMcpPresets: bind("ListMcpPresets"),
+    addMcpPreset: bind("AddMcpPreset"),
     createSession: (spec) => api.CreateSession(spec),
     getSession: (id) => api.GetSession(id),
     stopSession: (id) => api.StopSession(id),

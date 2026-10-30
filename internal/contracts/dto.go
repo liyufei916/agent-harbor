@@ -120,6 +120,29 @@ type AccountResponse struct {
 	Error   *AppError    `json:"error"`
 }
 
+// McpPresetInfo 是工具页可一键添加的预置 MCP（无密钥）。
+type McpPresetInfo struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Kind        string `json:"kind"` // stdio | http
+	NeedsAPIKey bool   `json:"needsApiKey"`
+	Origin      string `json:"origin,omitempty"`
+}
+
+// McpPresetsResponse 是 ListMcpPresets 的统一返回。
+type McpPresetsResponse struct {
+	Presets []McpPresetInfo `json:"presets"`
+	Error   *AppError       `json:"error"`
+}
+
+// AddMcpPresetInput 一键添加预置 MCP；NeedsAPIKey 的预置须带 APIKey。
+type AddMcpPresetInput struct {
+	PresetID string `json:"presetId"`
+	Name     string `json:"name,omitempty"`
+	APIKey   string `json:"apiKey,omitempty"`
+}
+
 // AccountsResponse 是 ListAccounts 的统一返回。
 type AccountsResponse struct {
 	Accounts []AccountInfo `json:"accounts"`
@@ -269,6 +292,8 @@ type DesktopAPI interface {
 	SelectWorkspace() WorkspaceResponse
 	ConnectModel(ConnectInput) AccountResponse
 	ConnectMcp(ConnectInput) AccountResponse
+	ListMcpPresets() McpPresetsResponse
+	AddMcpPreset(AddMcpPresetInput) AccountResponse
 	ListAccounts(kind string) AccountsResponse
 	RemoveAccount(accountID string) EmptyResponse
 	CreateSession(SessionSpec) SessionResponse

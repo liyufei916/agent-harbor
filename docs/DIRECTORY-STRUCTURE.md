@@ -38,6 +38,7 @@ agent-harbor/
 │   │   ├── sandbox.sb           # 随应用嵌入的 Seatbelt 模板
 │   │   └── *_test.go
 │   ├── mcpstdio/                # B：宿主 stdio MCP → 回环 HTTP 桥
+│   ├── mcppresets/              # B：首批预置 MCP（time/filesystem/context7）+ embed 脚本
 │   │   ├── bridge.go
 │   │   └── testdata/fake_mcp.py
 │   ├── kits/                    # A：无真实凭据的 Agent 启动适配

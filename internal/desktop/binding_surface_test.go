@@ -9,6 +9,7 @@ func TestDesktopExposesOnlyContractMethods(t *testing.T) {
 	typ := reflect.TypeOf((*DesktopAPI)(nil))
 	want := map[string]bool{
 		"ListAgents": true, "SelectWorkspace": true, "ConnectModel": true, "ConnectMcp": true,
+		"ListMcpPresets": true, "AddMcpPreset": true,
 		"ListAccounts": true, "RemoveAccount": true,
 		"CreateSession": true, "GetSession": true, "StopSession": true, "StartSession": true,
 		"ListSessions": true, "DestroySession": true, "SyncBackWorkspace": true,

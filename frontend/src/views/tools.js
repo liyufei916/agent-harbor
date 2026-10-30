@@ -16,6 +16,11 @@ export function mountTools(root, ctx, opts = {}) {
   /** @type {Set<string>} */
   let oauthSeenIds = new Set();
   let oauthHint = "";
+  /** @type {Array<{id:string,name:string,description:string,kind:string,needsApiKey:boolean,origin?:string}>} */
+  let presets = [];
+  let presetStatus = "";
+  let context7Open = false;
+  let addingPreset = "";
 
   function clearReturn() {
     if (ctx.state.returnAfterAccount?.kind === "mcp") {
@@ -41,10 +46,46 @@ export function mountTools(root, ctx, opts = {}) {
   }
 
   async function load() {
-    const res = await api.listAccounts("mcp");
+    const [res, presetRes] = await Promise.all([
+      api.listAccounts("mcp"),
+      api.listMcpPresets().catch(() => ({ presets: [] })),
+    ]);
     ctx.state.mcpAccounts = res.accounts || [];
     if (ctx.state.mcpAccounts[0]) ctx.state.mcpAccount = ctx.state.mcpAccounts[0];
+    presets = presetRes?.presets || [];
     paint();
+  }
+
+  function paintPresets() {
+    if (!presets.length) return "";
+    return `
+      <section class="card" id="mcp-presets" style="margin-bottom:16px">
+        <h3>预置 MCP（一键添加）</h3>
+        <p class="meta">首批：本机时间、演示工作区文件（stdio，无密钥）、Context7 文档（须 Token）。添加后可在「新会话」勾选。</p>
+        <div class="session-list">
+          ${presets
+            .map((p) => {
+              const busy = addingPreset === p.id;
+              return `
+            <article class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;padding:8px 0;border-bottom:1px solid var(--border, #333)">
+              <div>
+                <strong>${p.name}</strong>
+                <p class="meta">${p.description}</p>
+                ${
+                  p.needsApiKey && context7Open
+                    ? `<label class="field">Token<input id="preset-ctx7-key" type="password" autocomplete="off" placeholder="Context7 Token"/></label>`
+                    : ""
+                }
+              </div>
+              <button type="button" class="btn primary" data-preset="${p.id}" ${busy ? "disabled" : ""}>
+                ${busy ? "添加中…" : p.needsApiKey && !context7Open ? "填写 Token" : "添加"}
+              </button>
+            </article>`;
+            })
+            .join("")}
+        </div>
+        ${presetStatus ? `<p class="meta" id="preset-status">${presetStatus}</p>` : ""}
+      </section>`;
   }
 
   function paint() {
@@ -56,7 +97,7 @@ export function mountTools(root, ctx, opts = {}) {
           <p class="sub">给 Agent 一双手（MCP）。可跨 Claude/Codex/dsh 挂载。模型可在「模型」页勾选多 Agent 共用。</p>
           <p class="meta warn">MCP：<strong>远程 HTTP</strong>（Token / OAuth）或<strong>宿主 stdio</strong>（本机进程，经回环桥；密钥不进沙箱）。须预装 Agent CLI；隔离仅 <strong>macOS Darwin 25 · arm64 · 非 root</strong>。</p>
         </div>
-        <button type="button" class="btn primary" id="btn-add-mcp">+ 添加</button>
+        <button type="button" class="btn primary" id="btn-add-mcp">+ 自定义添加</button>
       </div>
       ${
         returning
@@ -64,12 +105,13 @@ export function mountTools(root, ctx, opts = {}) {
              <button type="button" class="btn" id="t-back-wizard">直接返回</button></p>`
           : ""
       }
+      ${paintPresets()}
       <div id="mcp-list" class="session-list"></div>
       ${listStatus ? `<p class="meta" id="mcp-list-status">${listStatus}</p>` : ""}
       ${
         list.length === 0 && editing !== "new"
-          ? `<div class="empty-state"><p>还没有工具。可添加远程 HTTP MCP（Token/OAuth），或宿主 stdio（本机命令，Harbor 在宿主机拉起）。</p>
-             <div class="actions"><button type="button" class="btn primary" id="empty-add-mcp">+ 添加第一个</button></div></div>`
+          ? `<div class="empty-state"><p>还没有工具。可用上方预置一键添加，或自定义远程 HTTP / 宿主 stdio。</p>
+             <div class="actions"><button type="button" class="btn primary" id="empty-add-mcp">+ 自定义添加</button></div></div>`
           : ""
       }
       <div id="mcp-form" class="${editing ? "" : "hidden"}"></div>
@@ -123,6 +165,43 @@ export function mountTools(root, ctx, opts = {}) {
     root.querySelector("#t-back-wizard")?.addEventListener("click", () => {
       clearReturn();
       ctx.navigate("wizard");
+    });
+    root.querySelectorAll("[data-preset]").forEach((btn) => {
+      btn.onclick = async () => {
+        const id = btn.getAttribute("data-preset") || "";
+        const preset = presets.find((p) => p.id === id);
+        if (!preset) return;
+        if (preset.needsApiKey && !context7Open) {
+          context7Open = true;
+          presetStatus = "";
+          paint();
+          return;
+        }
+        let apiKey = "";
+        if (preset.needsApiKey) {
+          apiKey = root.querySelector("#preset-ctx7-key")?.value?.trim() || "";
+          if (!apiKey) {
+            presetStatus = `<span class="bad">请填写 Context7 Token</span>`;
+            paint();
+            return;
+          }
+        }
+        addingPreset = id;
+        presetStatus = `<span class="meta">正在添加「${preset.name}」…</span>`;
+        paint();
+        const res = await api.addMcpPreset({ presetId: id, apiKey });
+        addingPreset = "";
+        if (res?.error) {
+          presetStatus = `<span class="bad">${res.error.code}: ${res.error.message}</span>`;
+          paint();
+          return;
+        }
+        context7Open = false;
+        presetStatus = `<span class="ok">已添加「${preset.name}」</span>`;
+        ctx.onAccountsChanged?.();
+        if (resumeWizard()) return;
+        await load();
+      };
     });
     listEl.querySelectorAll("[data-edit]").forEach((btn) => {
       btn.onclick = () => {

@@ -64,6 +64,20 @@ async function call(method, ...args) {
       if (method === "listAccounts") {
         return { accounts: [], provisional: true, error: null };
       }
+      if (method === "listMcpPresets") {
+        return { presets: [], provisional: true, error: null };
+      }
+      if (method === "addMcpPreset") {
+        return {
+          account: null,
+          error: {
+            code: "UNIMPLEMENTED",
+            message: "当前桌面未绑定预置 MCP，请重新生成 Wails 绑定后重启。",
+            retryable: false,
+          },
+          provisional: true,
+        };
+      }
       if (
         method === "getUIPrefs" ||
         method === "setUIPrefs" ||
@@ -289,6 +303,12 @@ export function connectModel(input) {
 }
 export function connectMcp(input) {
   return call("connectMcp", input);
+}
+export function listMcpPresets() {
+  return call("listMcpPresets");
+}
+export function addMcpPreset(input) {
+  return call("addMcpPreset", input);
 }
 export async function createSession(spec) {
   if (!events.beginCreate())

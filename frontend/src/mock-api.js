@@ -786,6 +786,61 @@ export async function resizePty(input) {
   return { error: null };
 }
 
+const MCP_PRESETS = [
+  {
+    id: "harbor-time",
+    name: "本机时间",
+    description: "只读：返回当前本地时间（宿主 stdio，无密钥）。",
+    kind: "stdio",
+    needsApiKey: false,
+  },
+  {
+    id: "harbor-filesystem",
+    name: "演示工作区文件（只读）",
+    description: "只读列举/读取 demos/workspace（路径锁死，宿主 stdio）。",
+    kind: "stdio",
+    needsApiKey: false,
+  },
+  {
+    id: "context7",
+    name: "Context7 文档",
+    description: "远程只读文档检索；须自备 Token（HTTPS）。",
+    kind: "http",
+    needsApiKey: true,
+    origin: "https://mcp.context7.com",
+  },
+];
+
+export async function listMcpPresets() {
+  return { presets: MCP_PRESETS.map((p) => ({ ...p })), error: null };
+}
+
+export async function addMcpPreset(input) {
+  const preset = MCP_PRESETS.find((p) => p.id === input?.presetId);
+  if (!preset) {
+    return { account: null, error: err("INVALID_ARGUMENT", "请指定预置 MCP。") };
+  }
+  if (preset.needsApiKey && !input?.apiKey) {
+    return { account: null, error: err("INVALID_ARGUMENT", "Context7 须填写 Token。") };
+  }
+  if (preset.kind === "stdio") {
+    return connectMcp({
+      name: input?.name || preset.name,
+      profileId: "custom",
+      transport: "stdio",
+      command: "/usr/bin/true",
+      args: [],
+      apiKey: "stdio",
+    });
+  }
+  return connectMcp({
+    name: input?.name || preset.name,
+    profileId: "custom",
+    apiKey: input.apiKey,
+    origin: preset.origin,
+  });
+}
+
 export async function connectMcp(input) {
   if (scenario === "auth") {
     return {

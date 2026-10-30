@@ -196,8 +196,8 @@ export function mountWizard(root, ctx, opts = {}) {
     } else {
       body = `
         <h2>需要哪些工具？（可跳过）</h2>
-        <p class="sub">MCP 可跨 Agent 挂载（与模型不同）。未添加的请先去「工具」页。</p>
-        <p class="meta">可挂远程 HTTP MCP，或工具页添加的宿主 stdio（本机进程经回环桥）。</p>
+        <p class="sub">MCP 可跨 Agent 挂载（与模型不同）。未添加的请先去「工具」页一键预置或自定义。</p>
+        <p class="meta">勾选已连接账号；预置含本机时间 / 演示文件 / Context7。</p>
         <div id="wz-mcps">
           ${
             mcps.length
@@ -209,8 +209,9 @@ export function mountWizard(root, ctx, opts = {}) {
               ${m.name} · ● 已连接
             </label>`,
                   )
-                  .join("")
-              : `<p class="meta">尚未添加 MCP。<button type="button" class="btn" id="wz-go-tools">去添加</button> 或直接跳过。</p>`
+                  .join("") +
+                `<p class="meta"><button type="button" class="btn" id="wz-go-tools">再添加预置 / 自定义</button></p>`
+              : `<p class="meta">尚未添加 MCP。<button type="button" class="btn" id="wz-go-tools">去工具页一键预置</button> 或直接跳过。</p>`
           }
         </div>
         <label class="field">任务

@@ -816,7 +816,7 @@ V1 禁止：自定义 binary 路径、Base URL + API Key 当作「添加 Agent�
 | 新会话 | `ListAgents` `SelectWorkspace` `ListAccounts` `Connect*` `CreateSession`（`mountMode`=direct\|clone；mcpIds 0..8） | — |
 | 工作台 | `GetSession` `StopSession` `SyncBackWorkspace` `SwitchModel` `GetPermissionOverview` `WritePty`/`ResizePty` `ResolvePermission` | `state` `output` `pty` `audit` `error` `permission_needed` |
 | 模型 | `ConnectModel`（可带 origin）`ListAccounts` `RemoveAccount` | — |
-| 工具 | `ConnectMcp`（HTTP Token **或** `transport=stdio`）**或** `StartMcpOAuth`/`CancelMcpOAuth`；`ListAccounts` `RemoveAccount` | — |
+| 工具 | `ListMcpPresets`/`AddMcpPreset`（一键预置）+ `ConnectMcp`（HTTP Token **或** `transport=stdio`）**或** `StartMcpOAuth`/`CancelMcpOAuth`；`ListAccounts` `RemoveAccount` | — |
 | 记录 | 无新 API；前端 `usage-analytics`（audit / permission / session_outcome） | 订阅工作台同源事件写入 |
 | 设置 | `ListAgents` `GetRuntimeHealth` 记住主机与 Overview 同源 API；Prefs | — |
 | 扩权 | `ResolvePermission` + 事件 `permission_needed` | `permission_needed` |
