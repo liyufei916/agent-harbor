@@ -279,4 +279,4 @@ diff -rq 摘要（脱敏，勿含密钥路径外的隐私）：
 | 本文 §7.9 | clone 与原目录文件对比、导回合并验证 |
 | [evidence-template.md](evidence-template.md) | I 项证据草稿 |
 | [ACCEPTANCE.md](../docs/ACCEPTANCE.md) | 正式 D/I 验收表 |
-| [MANUAL-INTEGRATION-TEST.md](../docs/MANUAL-INTEGRATION-TEST.md) | 历史详尽联调手册（部分边界可能落后于全量 PAGE，冲突时以 PAGE-DESIGN / 本清单为准） |
+| [MANUAL-INTEGRATION-TEST.md](../docs/archive/MANUAL-INTEGRATION-TEST.md) | 历史详尽联调手册（部分边界可能落后于全量 PAGE，冲突时以 PAGE-DESIGN / 本清单为准） |

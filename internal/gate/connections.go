@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/liyufei916/agent-harbor/internal/contracts"
+	"github.com/liyufei916/agent-harbor/internal/mcpstdio"
 	"github.com/liyufei916/agent-harbor/internal/policy"
 	"github.com/liyufei916/agent-harbor/internal/secrets"
 )
@@ -30,9 +31,10 @@ var (
 
 // Connections 实现模型/MCP 连接测试：成功后才写入 Secrets。
 type Connections struct {
-	secrets *secrets.Store
-	policy  *policy.Builder
-	client  *http.Client
+	secrets     *secrets.Store
+	policy      *policy.Builder
+	client      *http.Client
+	stdioKeeper StdioBridgeKeeper
 }
 
 // NewConnections 创建连接服务。
@@ -41,9 +43,9 @@ func NewConnections(store *secrets.Store, pol *policy.Builder) *Connections {
 		secrets: store,
 		policy:  pol,
 		// 单次请求上限略高于 Connect 的 Codex 探测预算，避免 Client.Timeout 先于 ctx 掐断。
-	client: &http.Client{Transport: http.DefaultTransport.(*http.Transport).Clone(), Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error {
-		return http.ErrUseLastResponse
-	}},
+		client: &http.Client{Transport: http.DefaultTransport.(*http.Transport).Clone(), Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		}},
 	}
 }
 
@@ -54,7 +56,67 @@ func (c *Connections) ConnectModel(ctx context.Context, in contracts.ConnectInpu
 
 // ConnectMcp 在 10 秒内测试固定 MCP 上游，成功才保存账号。
 func (c *Connections) ConnectMcp(ctx context.Context, in contracts.ConnectInput) (contracts.AccountInfo, error) {
+	if strings.EqualFold(strings.TrimSpace(in.Transport), "stdio") {
+		return c.connectStdioMCP(ctx, in)
+	}
 	return c.connect(ctx, in, "mcp")
+}
+
+// StdioBridgeKeeper 由桌面层实现：探测成功后接管回环桥生命周期。
+type StdioBridgeKeeper interface {
+	AdoptStdioBridge(accountID string, bridge *mcpstdio.Bridge)
+}
+
+// WithStdioKeeper 可选注入；未注入时 Connect stdio 仍探测但立即关闭桥（仅测连通）。
+func (c *Connections) WithStdioKeeper(k StdioBridgeKeeper) *Connections {
+	c.stdioKeeper = k
+	return c
+}
+
+// connectStdioMCP：宿主拉起本地 MCP 进程 → 回环 HTTP → 落盘账号（Host=127.0.0.1:port）。
+func (c *Connections) connectStdioMCP(ctx context.Context, in contracts.ConnectInput) (contracts.AccountInfo, error) {
+	name := strings.TrimSpace(in.Name)
+	command := strings.TrimSpace(in.Command)
+	if name == "" || command == "" {
+		return contracts.AccountInfo{}, ErrInvalidConnectInput
+	}
+	if utf8.RuneCountInString(name) > 100 {
+		return contracts.AccountInfo{}, ErrInvalidConnectInput
+	}
+	spec := mcpstdio.Spec{Command: command, Args: append([]string(nil), in.Args...), Env: in.Env}
+	bridge, err := mcpstdio.Start(ctx, spec)
+	if err != nil {
+		return contracts.AccountInfo{}, fmt.Errorf("%w: %v", ErrUpstreamDown, err)
+	}
+	secret, err := mcpstdio.EncodeSecret(spec)
+	if err != nil || len(secret) == 0 || len(secret) > 16384 {
+		_ = bridge.Close()
+		return contracts.AccountInfo{}, ErrInvalidConnectInput
+	}
+	hostPort := strings.TrimPrefix(bridge.Origin, "http://")
+	meta := contracts.AccountInfo{
+		Kind:      "mcp",
+		Name:      name,
+		ProfileID: policy.ProfileCustom,
+		Host:      hostPort,
+		Tools:     append([]string(nil), bridge.Tools...),
+		Transport: "stdio",
+		Command:   command,
+		AuthMode:  "stdio",
+	}
+	id, err := c.secrets.Put(ctx, meta, secret)
+	if err != nil {
+		_ = bridge.Close()
+		return contracts.AccountInfo{}, err
+	}
+	meta.ID = id
+	meta.KeyHint = "stdio"
+	if c.stdioKeeper != nil {
+		c.stdioKeeper.AdoptStdioBridge(id, bridge)
+	} else {
+		_ = bridge.Close()
+	}
+	return meta, nil
 }
 
 func (c *Connections) connect(ctx context.Context, in contracts.ConnectInput, kind string) (contracts.AccountInfo, error) {

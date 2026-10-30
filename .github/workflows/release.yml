@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    name: Package and publish macOS app
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build and package
+        shell: bash
+        run: |
+          export GOBIN="$RUNNER_TEMP/harbor-bin"
+          mkdir -p "$GOBIN"
+          export PATH="$GOBIN:$PATH"
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.34
+          npm ci --prefix frontend
+          npm run build --prefix frontend
+          wails3 generate bindings ./...
+          wails3 build
+          wails3 task darwin:package
+          plutil -lint bin/AgentHarbor.app/Contents/Info.plist
+          test "$(plutil -extract CFBundleExecutable raw -o - bin/AgentHarbor.app/Contents/Info.plist)" = AgentHarbor
+          test -x bin/AgentHarbor.app/Contents/MacOS/AgentHarbor
+          codesign --verify --deep --strict bin/AgentHarbor.app
+          ditto -c -k --keepParent bin/AgentHarbor.app AgentHarbor-macos.zip
+          shasum -a 256 AgentHarbor-macos.zip | tee AgentHarbor-macos.zip.sha256
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+            EXTRA_FLAGS=()
+          else
+            TAG="v0.0.0-ci.${GITHUB_SHA:0:7}"
+            EXTRA_FLAGS=(--prerelease --target "$GITHUB_SHA")
+          fi
+          NOTES=$(cat <<EOF
+## Agent Harbor ${TAG}
+
+可下载的 macOS 应用包（未公证；首次打开可能需在「隐私与安全性」中允许）。
+
+### 使用前提
+- macOS **Darwin 25 · arm64 · 非 root**（隔离基线）
+- 本机预装要用的 Agent CLI（claude / codex+node / dsh 预览版）
+- MCP：远程 HTTP（Token / OAuth）或宿主 stdio（本机信任命令）
+
+源码与开发构建见 README。日常 CI 也可在 workflow Artifacts 下载同名 zip。
+EOF
+)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" AgentHarbor-macos.zip AgentHarbor-macos.zip.sha256 --clobber
+          else
+            gh release create "$TAG" AgentHarbor-macos.zip AgentHarbor-macos.zip.sha256 \
+              --title "Agent Harbor ${TAG}" \
+              --notes "$NOTES" \
+              "${EXTRA_FLAGS[@]}"
+          fi

@@ -537,6 +537,9 @@ export async function startMcpOAuth(input) {
   return {
     authUrl: "https://example.com/oauth/mock",
     pendingId,
+    redirectUri: "http://127.0.0.1:9/callback",
+    clientId: "agent-harbor",
+    clientSource: "default",
     error: null,
   };
 }
@@ -603,16 +606,46 @@ export async function connectMcp(input) {
       error: err("UPSTREAM_AUTH_FAILED", "MCP 认证失败（模拟）", false),
     };
   }
-  if (!input?.profileId || !input?.name || !input?.apiKey) {
+  if (!input?.name) {
+    return {
+      account: null,
+      error: err("INVALID_ARGUMENT", "name 必填"),
+    };
+  }
+  if (input.transport === "stdio") {
+    if (!input.command || !String(input.command).startsWith("/")) {
+      return {
+        account: null,
+        error: err("INVALID_ARGUMENT", "stdio 须绝对路径 command"),
+      };
+    }
+    const id =
+      mcpAccounts.size === 0 ? "mock-mcp" : `mock-mcp-${++accountNumber}`;
+    const account = {
+      id,
+      kind: "mcp",
+      name: input.name,
+      profileId: "custom",
+      host: "127.0.0.1:9",
+      transport: "stdio",
+      command: input.command,
+      authMode: "stdio",
+      keyHint: "stdio",
+      tools: ["echo"],
+    };
+    mcpAccounts.set(id, account);
+    return { account: { ...account }, error: null };
+  }
+  if (!input?.profileId || !input?.apiKey) {
     return {
       account: null,
       error: err("INVALID_ARGUMENT", "profileId、name、apiKey 均必填"),
     };
   }
-  if (input.profileId !== FIXED.mcpProfileId) {
+  if (input.profileId !== FIXED.mcpProfileId && input.profileId !== "custom") {
     return {
       account: null,
-      error: err("INVALID_ARGUMENT", "仅支持固定 profileId=demo-mcp"),
+      error: err("INVALID_ARGUMENT", "仅支持 demo-mcp 或 custom"),
     };
   }
   const id =
@@ -622,9 +655,10 @@ export async function connectMcp(input) {
     kind: "mcp",
     name: input.name,
     profileId: input.profileId,
-    host: "demo-mcp.local",
+    host: input.origin ? "custom.mcp.local" : "demo-mcp.local",
     authMode: "token",
     keyHint: keyHint(input.apiKey),
+    tools: input.profileId === "custom" ? ["list_resources"] : undefined,
   };
   mcpAccounts.set(id, account);
   return { account: { ...account }, error: null };

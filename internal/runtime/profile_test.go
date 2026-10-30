@@ -82,6 +82,54 @@ func TestCodexProfileAllowsOnlyManagedRequirementFiles(t *testing.T) {
 	}
 }
 
+func TestSeatbeltProfileFailClosedShape(t *testing.T) {
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	ws := filepath.Join(root, "ws")
+	for _, p := range []string{home, ws} {
+		if err := os.Mkdir(p, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	profile, err := makeProfile(ws, home, []string{"/usr/bin/true"}, []string{"127.0.0.1:41001"}, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(profile, "(deny default)") {
+		t.Fatal("缺少 deny default")
+	}
+	if strings.Contains(profile, "(allow default)") {
+		t.Fatal("禁止 allow default（fail-open）")
+	}
+	if strings.Contains(profile, `import "system.sb"`) {
+		t.Fatal("生产 profile 不得导入 system.sb")
+	}
+	if !strings.Contains(profile, "(deny process-fork)") {
+		t.Fatal("严格模式应 deny process-fork")
+	}
+	if !strings.Contains(profile, `(allow network-outbound (remote tcp4 "localhost:41001"))`) {
+		t.Fatal("出站须限定 loopback 端口")
+	}
+	for _, bad := range []string{
+		`(allow network-outbound)`,
+		`(allow file-read* (subpath "/Users"))`,
+		`(allow file-read* (subpath "/etc"))`,
+		`(allow file-read* (subpath "/private"))`,
+	} {
+		if strings.Contains(profile, bad) {
+			t.Fatalf("越权规则出现在 profile: %s", bad)
+		}
+	}
+	quotedWS, _ := sbQuote(ws)
+	quotedHome, _ := sbQuote(home)
+	if !strings.Contains(profile, "(allow file-read* file-write* (subpath "+quotedWS+"))") {
+		t.Fatal("工作区读写缺失")
+	}
+	if !strings.Contains(profile, "(allow file-read* file-write* (subpath "+quotedHome+"))") {
+		t.Fatal("私有 HOME 读写缺失")
+	}
+}
+
 func TestDSHEnvironmentCannotEscapePrivateHome(t *testing.T) {
 	if _, err := launchEnvironment("/private/home", "", map[string]string{"DSH_HOME": "/Users/host/.dsh"}); err == nil {
 		t.Fatal("允许借用宿主 HOME")

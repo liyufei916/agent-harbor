@@ -224,6 +224,12 @@ body { padding: 0; }
   gap: 10px;
   margin: 12px 0;
 }
+.agent-card-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.agent-card-wrap .agent-card { width: 100%; }
 .agent-card {
   appearance: none;
   text-align: left;

@@ -1,8 +1,8 @@
 # Agent Harbor 完整人工联调测试手册
 
-适用代码：2026-10-25 main `eddf01b` 及包含相同实现的分支。页面和限制已对照 `frontend/src/views/`、Claude Kit、Policy、桌面绑定与编排实现核对。2026-10-25 dsh 增量已同步 Agent 选择说明；本手册其余任务以 Claude 为基线，dsh 安装、配置和完整差异步骤见 [dsh 人工验收](DSH-INTEGRATION.md#桌面人工验收)，真实上游结果须另行记录。
+适用代码：2026-10-25 main `eddf01b` 及包含相同实现的分支。页面和限制已对照 `frontend/src/views/`、Claude Kit、Policy、桌面绑定与编排实现核对。2026-10-25 dsh 增量已同步 Agent 选择说明；本手册其余任务以 Claude 为基线，dsh 安装、配置和完整差异步骤见 [dsh 人工验收](../DSH-INTEGRATION.md#桌面人工验收)，真实上游结果须另行记录。
 
-本手册提供操作方法，不表示下面的用例已经执行。上一轮实际结果见 [联调记录](INTEGRATION-TEST-RESULTS.md)，最终验收标准见 [ACCEPTANCE.md](ACCEPTANCE.md)。
+本手册提供操作方法，不表示下面的用例已经执行。上一轮实际结果见 [联调记录](INTEGRATION-TEST-RESULTS.md)，最终验收标准见 [ACCEPTANCE.md](../ACCEPTANCE.md)。
 
 ## 1. 测试范围、人员与顺序
 
@@ -32,7 +32,7 @@
 - 当前页面必须连接模型和 MCP 才能“开始运行”，即使这一轮任务只测试模型或文件。
 - 工作台是文本输出区，**不是可输入命令的 PTY**。不能在工作台输入 curl、ps 或 shell 命令。
 - Claude 仅启用 Read、Write、Edit 和 Gate 暴露的 MCP；不支持 Bash/git/子进程任务，不应要求 Agent 启动 Python、curl 或浏览器。
-- 没有 OAuth、stdio MCP、模型热切换、clone/导回、多会话或生产故障注入按钮。缺少这些入口不属于本轮必交功能失败。
+- （历史两天裁剪口径）当时可无 OAuth/stdio/clone 等入口；**当前 main 已具备** OAuth、宿主 stdio、clone/导回、多会话等，验收以 ACCEPTANCE / PAGE-DESIGN 为准。
 - 普通浏览器顶栏显示“模拟模式”；真实桌面显示“真实绑定”。模拟场景下拉框即使在桌面可见，也不能用来注入真实后端故障。
 - 默认任务包含 `mock` 和 `search`，**所有真实任务都应先替换默认内容**；实际 MCP 工具未必叫 search。
 

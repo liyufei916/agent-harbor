@@ -9,14 +9,14 @@ import (
 
 func TestLaunchEnvironmentAndConfigValidation(t *testing.T) {
 	home := t.TempDir()
-	if env, err := launchEnvironment(home, map[string]string{"ANTHROPIC_API_KEY": "key"}); err != nil || len(env) == 0 {
+	if env, err := launchEnvironment(home, "", map[string]string{"ANTHROPIC_API_KEY": "key"}); err != nil || len(env) == 0 {
 		t.Fatalf("environment: %v", err)
 	}
-	if env, err := launchEnvironment(home, map[string]string{"CODEX_HOME": filepath.Join(home, "codex")}); err != nil || len(env) == 0 {
+	if env, err := launchEnvironment(home, "", map[string]string{"CODEX_HOME": filepath.Join(home, "codex")}); err != nil || len(env) == 0 {
 		t.Fatalf("Codex environment: %v", err)
 	}
 	for _, extra := range []map[string]string{{"PATH": "/tmp"}, {"DSH_HOME": "/tmp"}, {"ANTHROPIC_API_KEY": "bad\x00value"}} {
-		if _, err := launchEnvironment(home, extra); err == nil {
+		if _, err := launchEnvironment(home, "", extra); err == nil {
 			t.Fatalf("invalid environment accepted: %#v", extra)
 		}
 	}

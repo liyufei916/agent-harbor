@@ -4,7 +4,7 @@
 |---|---|
 | 状态 | **v1.2 全量 PAGE**（历史上 `feat/page-design-full`，**已合入 `main`**）；实现以本文 + `internal/contracts` 为准 |
 | 架构总纲 | [SYSTEM-DESIGN.md](SYSTEM-DESIGN.md) v2 |
-| 屏级映射 | [PAGE-API-MAP.md](PAGE-API-MAP.md) |
+| 屏级映射 | [PAGE-DESIGN §9](PAGE-DESIGN.md#9-与架构-api-的绑定) |
 | 进度 | 共享类型与编排已落地；真实隔离/上游兼容性仍见 [DEV-A](DEV-A.md) |
 
 A/B 将声明落成 Go 类型与绑定，C 按本文 + [PAGE-DESIGN](PAGE-DESIGN.md) 开发页面与 mock。与旧「裁剪版」冲突时：**以 PAGE-DESIGN 全量为准**。
@@ -22,7 +22,7 @@ A/B 将声明落成 Go 类型与绑定，C 按本文 + [PAGE-DESIGN](PAGE-DESIGN
 | PTY | `WritePty`/`ResizePty` + 事件 `pty`；不支持时 `UNIMPLEMENTED` 或 `INVALID_ARGUMENT`，**不得缺方法名** |
 | 默认挂载 | 向导默认推荐 **clone**；用户可选 direct（须强警告） |
 | 扩权 | 快照 state **不**增加 `awaiting_permission`；仅 `permission_needed` + `ResolvePermission` |
-| stdio MCP | **不在**本契约支持面；仅远程 HTTP MCP（Token 或 OAuth） |
+| stdio MCP | **宿主侧支持**：`ConnectInput.transport=stdio` + 绝对路径 `command`/`args`/`env`；桌面在宿主机拉起进程并暴露 `http://127.0.0.1:port/mcp` 回环桥，沙箱仍只连 Gateway。远程 HTTP（Token/OAuth）继续可用 |
 
 ## 1. 前端方法、返回与校验
 
@@ -57,17 +57,27 @@ type ConnectInput struct {
     Origin string `json:"origin,omitempty"`
     Model string `json:"model,omitempty"`
     SkipProbe bool `json:"skipProbe,omitempty"`
+    Agents []string `json:"agents,omitempty"`
+    Transport string `json:"transport,omitempty"` // 空/http | stdio
+    Command string `json:"command,omitempty"`     // stdio：绝对路径
+    Args []string `json:"args,omitempty"`
+    Env map[string]string `json:"env,omitempty"` // stdio：仅连接时提交，写入凭据库
 }
 type AccountInfo struct {
     ID string `json:"id"`
     Kind string `json:"kind"` // model 或 mcp
     Name string `json:"name"`
     ProfileID string `json:"profileId"`
-    Host string `json:"host"`
+    Host string `json:"host"` // stdio 时为 127.0.0.1:port
     BasePath string `json:"basePath,omitempty"`
     Model string `json:"model,omitempty"`
     KeyHint string `json:"keyHint,omitempty"`
-    Tools []string `json:"tools,omitempty"` // 自定义 MCP：Connect 时 tools/list 快照；开会话白名单
+    Tools []string `json:"tools,omitempty"`
+    Agents []string `json:"agents,omitempty"`
+    Protocols []string `json:"protocols,omitempty"`
+    Transport string `json:"transport,omitempty"` // stdio | 空
+    Command string `json:"command,omitempty"`
+    AuthMode string `json:"authMode,omitempty"` // token | oauth | stdio
 }
 // SessionSpec.MountMode："direct"（缺省）| "clone"。
 // MCPIDs 长度 0..8；0 表示本会话不挂 MCP。
@@ -91,6 +101,9 @@ type StartMcpOAuthInput struct {
 type McpOAuthResponse struct {
     AuthURL string `json:"authUrl"` // 打开系统浏览器
     PendingID string `json:"pendingId"`
+    RedirectURI string `json:"redirectUri,omitempty"`   // 须在 IdP 登记的回环回调
+    ClientID string `json:"clientId,omitempty"`         // 实际 client_id（非密钥）
+    ClientSource string `json:"clientSource,omitempty"` // env | dcr | default
     Error *AppError `json:"error"`
 }
 type PtyInput struct {
@@ -152,6 +165,7 @@ type RuntimeHealthResponse struct {
     Available bool `json:"available"`
     Reason string `json:"reason"`
     IsolationLevel string `json:"isolationLevel,omitempty"`
+    VaultNotice string `json:"vaultNotice,omitempty"` // Keychain 等介质告警；空=正常
     Error *AppError `json:"error"`
 }
 type PermissionOverview struct {
@@ -393,19 +407,19 @@ type Runtime interface {
 | ListAgents | 返回实际检测的列表；不依赖 Gate 可用 | CLI 未装属于 available=false；检测内部故障才返回 error |
 | SelectWorkspace | 系统目录面板，绝对路径 | 取消：cancelled=true、path=""、error=null |
 | ConnectModel | 10s 内测上游，成功才存账号 | **固定 profile**：Origin 空，ProfileID∈已登记；**自定义**：Origin 必填 HTTPS（可带 BasePath），ProfileID 空或 `custom`；禁止 query/fragment；失败清候选，account=null |
-| ConnectMcp | Token 轨探测并保存；自定义 Origin 见下 | **固定**：Origin 空，ProfileID∈已登记；**自定义**：填 Origin（HTTPS，可带 path），ProfileID 空/`custom`（`demo-mcp`+异主机亦升为 custom）；探测候选 path→path+/mcp→/mcp；成功须 `tools/list` 非空并写入 `AccountInfo.tools`；空工具 → `UPSTREAM_UNAVAILABLE`；OAuth 轨走 StartMcpOAuth |
+| ConnectMcp | Token / **stdio** 探测并保存；自定义 Origin 见下 | **HTTP**：Origin HTTPS…；**stdio**：`transport=stdio` + 绝对路径 command（宿主桥）；成功须 `tools/list` 非空写入 `AccountInfo.tools`；OAuth 轨走 StartMcpOAuth |
 | ListAccounts | 返回已保存账号元信息（无 Key） | kind 过滤；空列表 `[]` |
 | RemoveAccount | 删除账号与密钥 | 会话仍引用该账号 → `SESSION_BUSY`；未知 → `ACCOUNT_NOT_FOUND` |
 | CreateSession | 占会话槽，返回 provisioning | running+preparing 总数 **≤2**，否则 `SESSION_LIMIT`；同规范化工作区已有非终态 → `WORKSPACE_BUSY`；mountMode∈direct\|clone；mcpIds 0..8 |
 | SwitchModel | 仅影响之后模型出站 | 仅 running 可切换；未知会话/账号 → 对应错误；必须为相同 profile 与 Host 的模型账号，不兼容 → INVALID_ARGUMENT；不改工作区/Agent |
-| StartMcpOAuth / CancelMcpOAuth | 打开浏览器完成 MCP 登录 | 回调成功后出现在 ListAccounts；取消清 pending |
+| StartMcpOAuth / CancelMcpOAuth | 打开浏览器完成 MCP 登录 | 回调成功后出现在 ListAccounts；取消清 pending；优先 DCR，否则 env/`agent-harbor`；可设 `HARBOR_MCP_OAUTH_REDIRECT_PORT` 固定回调端口；响应带回 `redirectUri`/`clientId`/`clientSource` 供 UI 自助 |
 | WritePty / ResizePty | 向焦点会话 PTY 写输入/改尺寸 | 无 PTY 或未 running → `INVALID_ARGUMENT` |
 | GetSession | 最新快照与 seq | 未知 → `SESSION_NOT_FOUND`；无任务正文/凭据 |
 | StopSession | 返回 stopping，事件报清理 | 终态幂等；未知 → `SESSION_NOT_FOUND` |
 | ListSessions | 本应用生命周期内会话摘要 | 含终态直至 Destroy；空 `[]` |
 | DestroySession | 移除终态会话记录 | 非 stopped/failed 或 cleanupComplete=false → `INVALID_ARGUMENT`；未知 → `SESSION_NOT_FOUND`；并删除停止后保留的 clone 副本 |
 | SyncBackWorkspace | 将 clone 副本合并写回 `sourceWorkspace` | 仅 `mountMode=clone`；覆盖同名常规文件，不删原目录多余项；无副本/direct → `INVALID_ARGUMENT`；未知 → `SESSION_NOT_FOUND` |
-| GetRuntimeHealth | 隔离/Runtime 探测 | available=false 时 reason 必填；不因此自动放行无隔离启动 |
+| GetRuntimeHealth | 隔离/Runtime 探测 | available=false 时 reason 必填；可选 `vaultNotice` 提示凭据介质告警；不因此自动放行无隔离启动 |
 | GetPermissionOverview | 只读边界摘要 | 无 Key/Sentinel/完整 Gate URL；sessionId 空则返回「默认/全局」允许摘要（无工作区时 workspace=""） |
 | ListRememberedHosts | 已记住主机 | workspace 空=全部；与设置「管理网站」同源 |
 | RevokeRememberedHost | 撤销 project/session 记住项 | 未知 host 成功幂等（error=null） |

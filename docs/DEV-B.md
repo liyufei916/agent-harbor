@@ -38,7 +38,7 @@ Gate 只在会话准备时由编排调用 `Start`，停止或失败清理时 `Re
 | `1045084` | 提交 `frontend/dist/index.html` 占位，并在 `.gitignore` 保留该文件，供 `go:embed` 与 CI 编译 |
 | `76437a5` | `gofmt`，使 CI 的 `gofmt -l` 检查通过 |
 
-`AttachOrchestrator` 在桌面进程里装配 A 的 `runtime.NewMacOS()`、Claude Kit 和 `orchestrator.New`。sink 使用桌面事件转发，事件名是 `contracts.HarborEventName`（`harbor:event`）。Wails 只暴露 `DesktopAPI`，不把 Runtime、Gate 或 Secrets 直接绑给前端。
+`AttachOrchestrator` 在桌面进程里装配 A 的 `runtime.NewDefault()`（Darwin→Seatbelt，非 Darwin→不可用 stub）、Claude Kit 和 `orchestrator.New`。sink 使用桌面事件转发，事件名是 `contracts.HarborEventName`（`harbor:event`）。Wails 只暴露 `DesktopAPI`，不把 Runtime、Gate 或 Secrets 直接绑给前端。
 
 绑定生成目录是 `frontend/bindings/`，已忽略，不手改。裸 `go build` 嵌入的是占位页；要带上 C 的页面，需先构建前端，或走 `wails3 dev` / `wails3 build`。
 
@@ -113,7 +113,7 @@ wails3 task package # macOS 上得到 bin/AgentHarbor.app，可双击打开
 - 窗口导航锁定与 CSP
 - 真实上游协议组合的验收证据
 
-**分支 `feat/page-design-full`（2026-10-25）**：上列 OAuth / 多会话 / `switchModel` / clone / PTY **改回范围内**（见 [SYSTEM-DESIGN](SYSTEM-DESIGN.md) v2、[CONTRACT](CONTRACT.md) v1.2、[TASK-SPLIT-ABC](TASK-SPLIT-ABC.md) v2.0）。DesktopAPI 方法名已占位；真实现与证据仍待 B（Gate OAuth）与 A（PTY/clone 编排）接线。其余项（配额、官方 MCP SDK、CSP 等）仍不在本分支必做。
+**分支 `feat/page-design-full`（2026-10-25）**：上列 OAuth / 多会话 / `switchModel` / clone / PTY **改回范围内**（见 [SYSTEM-DESIGN](SYSTEM-DESIGN.md) v2、[CONTRACT](CONTRACT.md) v1.2、[TASK-SPLIT-ABC](archive/TASK-SPLIT-ABC.md) v2.0）。DesktopAPI 方法名已占位；真实现与证据仍待 B（Gate OAuth）与 A（PTY/clone 编排）接线。其余项（配额、官方 MCP SDK、CSP 等）仍不在本分支必做。
 
 连接探测当时把 HTTP 404 和其他小于 400 的状态当成成功后再写入 Secrets。这在后续审查里被标为缺陷，并已由后续提交改掉，不属于本节的完成项。
 
@@ -136,7 +136,7 @@ wails3 task package # macOS 上得到 bin/AgentHarbor.app，可双击打开
 | 日期 | 提交 | 和本记录的关系 |
 |---|---|---|
 | 2026-10-25 | `d175e9d` 及同日 Wails 检查 | 统一 Wails v3 基线，补生产构建、`.app` 与原生 WebView 冒烟 |
-| 2026-10-25 | `16347f7` | 连接探测禁止把凭据跟到其他 origin；模型/MCP 改为协议探测成功才保存；撤销等待在途请求结束；桌面层忙碌副本移除，改由编排原子准入。审查与修复见 [ABC-INTEGRATION-REVIEW.md](ABC-INTEGRATION-REVIEW.md) |
+| 2026-10-25 | `16347f7` | 连接探测禁止把凭据跟到其他 origin；模型/MCP 改为协议探测成功才保存；撤销等待在途请求结束；桌面层忙碌副本移除，改由编排原子准入。审查与修复见 [ABC-INTEGRATION-REVIEW.md](archive/ABC-INTEGRATION-REVIEW.md) |
 | 2026-10-25 | `5028331`、`19b428b`、`44b08e7` | dsh Kit 装配，以及 MCP `tools/list` 的 SSE 长连接与有限 JSON 响应 |
 
 当前启动命令、环境变量和「未登记则拒绝连接」以根 [README.md](../README.md) 为准。真实模型与认证 MCP 的端到端验收仍待执行。
@@ -185,7 +185,7 @@ go test ./internal/desktop ./internal/secrets
 | 项 | 状态 |
 |---|---|
 | UIPrefs / 记住主机 | `~/Library/Application Support/AgentHarbor/ui-state.json`（`NewDesktopApp`） |
-| 凭据持久 | Darwin：优先 Keychain `com.liyufei916.agent-harbor`（探测失败则回退文件）；非 Darwin / 回退：`accounts/keys/*.key`（0600）+ `accounts.json` 元信息 |
+| 凭据持久 | Darwin：Keychain `com.liyufei916.agent-harbor`（`-i`/`-X`；探测失败 **fail-closed**，`vaultNotice` 提示，不回退明文文件）；非 Darwin：文件库占位 |
 | 退出 | 持久化 Store **不清空**凭据（仅纯内存 `NewApp` 退出时 `Clear`） |
 | `once` 扩权 | `Harbor.HasExtraHost` 命中后删除；跨主机重定向本请求授权后立即消费 |
 
@@ -193,7 +193,7 @@ go test ./internal/desktop ./internal/secrets
 
 | 项 | 状态 |
 |---|---|
-| OAuth | 默认 `response_type=code`；回调用 `code` 向 `{origin}/oauth/token` 换票；`HARBOR_MCP_OAUTH_CLIENT_ID`（默认 `agent-harbor`）/`HARBOR_MCP_OAUTH_CLIENT_SECRET`/`HARBOR_MCP_OAUTH_TOKEN_PATH`；仍兼容 `access_token` 查询/fragment |
+| OAuth | 默认 `response_type=code`；回调用 `code` 向 `{origin}/oauth/token` 换票；显式 `HARBOR_MCP_OAUTH_CLIENT_ID`/`SECRET` 优先，否则尝试 RFC 7591 DCR，再回退 `agent-harbor`；`HARBOR_MCP_OAUTH_REDIRECT_PORT` 可固定回环端口；`HARBOR_MCP_OAUTH_TOKEN_PATH`；响应含 `redirectUri`/`clientId`/`clientSource`；仍兼容 `access_token` 查询/fragment |
 | 跨主机重定向 | 用户 `once`/`project` 后 **跟随一跳**；不携带 Authorization/API Key；多跳拒绝 |
 | DNS/IP | `ValidatePublicHostname`：拒绝回环/私网/链路本地/组播/CGNAT；解析结果任一违规即拒 |
 
@@ -209,7 +209,21 @@ go test ./internal/desktop ./internal/secrets
 
 本机常见：`claude --version` 为 `2.1.69` 而旧 Detect 硬钉 `2.1.292`，且帮助已无 `--permission-prompts`，导致「重新检测」一直不可用。现改为能力检测 + 明确 reason；`HARBOR_CLAUDE_BIN` / Homebrew 路径回退；可选 `HARBOR_CLAUDE_REQUIRE_VERSION` 钉版本。
 
-**仍未完**：真实 IdP / 模型 / MCP 的 I1 live 证据；PTY 真终端（A）。
+## 2026-10-30：Release / stdio 桥 / OAuth 自助
+
+| 项 | 状态 |
+|---|---|
+| CI 产物 | `ci.yml`：`darwin:package` → `AgentHarbor-macos.zip` artifact（14 天）；可移植 Seatbelt profile 断言 |
+| Release | `release.yml`：`v*` 或 workflow_dispatch → GitHub Releases |
+| 宿主 stdio | `internal/mcpstdio` + `ConnectMcp(transport=stdio)`；`App.AdoptStdioBridge`；Policy 仅 loopback |
+| OAuth | DCR 尝试 + 固定 `HARBOR_MCP_OAUTH_REDIRECT_PORT`；UI 自助登记与失败建议 |
+| 装配 | `runtime.NewDefault()`（build tag） |
+
+**仍未完**：真实 IdP / 模型 / MCP 的 I1 live 证据（操作清单见 [demos/I1-I2-LIVE.md](../demos/I1-I2-LIVE.md)）。
+
+### stdio 重启重拉（同日补）
+
+`App.RestoreStdioBridges` 在 `NewAppWithDataDir` 末尾执行；`secrets.UpdateEndpoint` 刷新 Host/Tools；`Shutdown` 关闭全部桥。单测：`TestRestoreStdioBridgesReloadsHostPort`。
 
 ```sh
 go test ./internal/desktop ./internal/gate ./internal/policy ./internal/orchestrator ./internal/secrets

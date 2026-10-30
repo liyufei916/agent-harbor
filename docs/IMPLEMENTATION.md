@@ -7,7 +7,7 @@
 | 文档版本 | v1.1 |
 | 更新日期 | 2026-10-23 |
 | 仓库 | https://github.com/liyufei916/agent-harbor.git |
-| 依据 | `DESIGN.md`（含 §7.4 / §7.6 分期隔离）· `ARCHITECTURE.md` · `PAGE-DESIGN.md` · `SPIKE-3D3P.md` |
+| 依据 | `DESIGN.md`（含 §7.4 / §7.6 分期隔离）· `ARCHITECTURE.md` · `PAGE-DESIGN.md` · `archive/SPIKE-3D3P.md`（历史） |
 
 按依赖排序。**落地主线：一期工作区+降权 → 二期容器；Gate/策略/UI 契约不变。**
 
@@ -42,7 +42,7 @@
 | 0.2c | P1 首发部署 | 仅桌面本机 / 本机+云主机 daemon | 桌面先；云主机用同一 Runtime 接口 |
 | 0.3 | 默认挂载 | clone / direct | clone |
 | 0.4 | 工作台终端 | 内嵌 PTY / 唤起外部 | 内嵌 |
-| 0.5 | 本地 stdio MCP | V1 允许标黄 / 禁止 | V1 仅远程 HTTP MCP |
+| 0.5 | 本地 stdio MCP | V1 允许标黄 / 禁止 | **宿主侧允许**（回环桥）；沙箱内仍禁止 |
 | 0.6 | CLI 命令名 | `harbor` | 已定 |
 | 0.7 | 三人角色 | Runtime / Proxy+Gate / App+Glue | 开场书面确认 |
 | 0.8 | P2 入口模型 | 一容器一会话 / 一容器一 index URL | 预研时定；不挡 P1 |
@@ -77,7 +77,7 @@ Runtime.Health() → ok | fail_closed
 
 ---
 
-## 2. 阶段 S — 三天竖切（可选，`SPIKE-3D3P.md`）
+## 2. 阶段 S — 三天竖切（可选，历史见 `archive/SPIKE-3D3P.md`）
 
 验证「密钥不进沙箱」+ **P1 降权最低线**（至少非 root + 挡 ssh；reboot 用例进 checks）。
 
@@ -215,5 +215,5 @@ Runtime.Health() → ok | fail_closed
 | `DESIGN.md` §7.4 / §7.6 | 一期/二期隔离与 reboot 约束 |
 | `ARCHITECTURE.md` | 状态机与 API；Runtime 可替换 |
 | `PAGE-DESIGN.md` | 页面验收 |
-| `SPIKE-3D3P.md` | 3 天竖切细则 |
+| `archive/SPIKE-3D3P.md` | 历史 3 天竖切细则 |
 | `../prototype/index.html` | UI 示意 |

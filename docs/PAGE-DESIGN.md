@@ -6,8 +6,8 @@
 | 更新日期 | 2026-10-25 |
 | 产品 | Agent Harbor |
 | 可浏览原型 | `../prototype/index.html` |
-| 关联 | [SYSTEM-DESIGN](SYSTEM-DESIGN.md) v2、[CONTRACT](CONTRACT.md) v1.2、[PAGE-API-MAP](PAGE-API-MAP.md)、`DESIGN.md` |
-| 范围 | **含** OAuth / clone / PTY / 双会话≤2；与 MVP-2D3P「两天裁剪」冲突时 **以本文为准** |
+| 关联 | [SYSTEM-DESIGN](SYSTEM-DESIGN.md) v2、[CONTRACT](CONTRACT.md) v1.2、`DESIGN.md` |
+| 范围 | **含** OAuth / clone / PTY / 双会话≤2；与历史两天裁剪冲突时 **以本文为准** |
 | 交付形态 | **桌面应用**（Wails）；浏览器仅 mock 预览同套页面，见 [frontend/README](../frontend/README.md) |
 
 ---
@@ -366,12 +366,12 @@ Agent Harbor
 
 ```
 │  工具                                      [ + 添加 ] │
-│  MCP 扩展。认证二选一：浏览器登录 / SSO，或 API Key。  │
+│  MCP：远程 HTTP（浏览器 / Token）或宿主 stdio。         │
 │  与「模型」不同：这里不负责 Claude/GPT。               │
 │                                                        │
 │  GitHub     浏览器登录 · ● 已连接      [ 编辑 ][ 删除 ]│
 │  Notion     API Key · ● 已连接         [ 编辑 ][ 删除 ]│
-│  公司 Wiki  API Key · ▲ 无效           [ 编辑 ][ 删除 ]│
+│  本地 fs    stdio · /opt/.../npx · ●   [ 编辑 ][ 删除 ]│
 ```
 
 | 操作 | 含义 |
@@ -381,28 +381,30 @@ Agent Harbor
 
 **不再单独放「重新登录」「轮换密钥」**：与模型页统一为编辑/删除，避免按认证方式分裂按钮。
 
-列表仍标明**认证方式**（浏览器 / API Key），便于理解编辑表单会露出哪条路径。
+列表仍标明**接入方式**（浏览器 / API Key / stdio），便于理解编辑表单会露出哪条路径。
 
 #### 添加 / 编辑工具弹层
 
 ```
 │  添加工具 / 编辑工具                                   │
 │  名称  [ Notion          ]                             │
-│  地址  [ https://mcp.notion.com/mcp ]                  │
 │                                                        │
-│  认证方式                                              │
-│  (•) 浏览器登录 / SSO     → [ 打开浏览器登录 ]         │
-│  ( ) API Key / Token      → Key [ •••••• ]（提交清空） │
+│  接入方式                                              │
+│  (•) 远程 · 浏览器登录 / SSO → [ 打开浏览器登录 ]      │
+│  ( ) 远程 · API Key / Token  → 地址 + Key（提交清空）  │
+│  ( ) 宿主 · 本地 stdio 进程  → 绝对路径命令 + 参数 + 环境变量 │
 │                                                        │
-│  说明：MCP 自己的凭证，不是模型 Key；本机保存，不进隔离。│
+│  说明：凭证/环境变量本机保存；沙箱只连 Gateway。        │
 │                           [ 取消 ]  [ 保存并连接 ]     │
 ```
 
-选「浏览器」时展示「打开浏览器登录」，隐藏 Key 框；选「API Key」时相反。公司 Wiki 等无 OAuth 时默认走 Token。编辑时预填名称/地址/当前认证方式。
+选「浏览器」时展示「打开浏览器登录」；选「API Key」时展示 HTTPS 地址 + Token；选「stdio」时展示绝对路径命令、参数与 `KEY=VALUE` 环境变量（进程在**宿主机**运行，经回环 HTTP 桥接）。公司 Wiki 等无 OAuth 时默认走 Token。编辑时预填名称与当前接入方式。
 
 **自定义地址（Token 轨）**：可填任意 HTTPS MCP 端点（常见以 `/mcp` 结尾，不是模型 `/v1`）。保存成功后账号带探测到的工具列表；开会话用该列表白名单。若旧账号无工具列表导致创建失败，删除后重新「保存并连接」。会话 running 时仍可添加新工具账号（不自动挂到当前会话）。
 
-**为何工具保留浏览器 + API Key：** MCP 生态里 Notion / GitHub / 公司 SSO 常只有 OAuth；很多内网 Wiki 又只有 Token。与模型页「统一 OpenAPI」不同，这里双轨更贴真实工具。V1 不做「读浏览器密码库」。
+**宿主 stdio**：只添加你信任的命令；应用重启后自动按已存命令重拉回环桥（端口可能变化）。若命令不可用则账号仍在列表，需在工具页重新探测。OAuth 轨提供 IdP 自助登记说明（DCR / 固定回调端口 / env client_id）。
+
+**为何保留多轨：** MCP 生态里 Notion / GitHub / 公司 SSO 常只有 OAuth；内网 Wiki 常只有 Token；大量开源 MCP 仍是 stdio。V1 不做「读浏览器密码库」，也不在沙箱内直接拉起 stdio。
 
 禁止：在工作台/向导里出现「在沙箱内填写 Key」的任何入口。
 
@@ -516,13 +518,13 @@ Agent Harbor
 ┌─ 设置 ─────────────────────────────────────────────┐
 │  默认偏向安全。改完即保存，无需点「应用」。              │
 │                                                      │
-│  ▸ Agent（检测与安装）                                 │
+│  ▸ Agent（检测与安装；未安装可「复制安装命令」）         │
 │  ▸ 会话默认                                          │
 │  ▸ 网络安全                                          │
 │  ▸ 结束与清理                                        │
-│  ▸ 外观与语言                                        │
-│  ▸ 高级（折叠，默认收起）                              │
-│  ▸ 关于                                              │
+│  ▸ 外观与侧栏                                        │
+│  ▸ 本机使用概况（审计/会话聚合，不外传）               │
+│  ▸ 关于（运行模式 mock/live；隔离逐条检测）            │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -549,10 +551,23 @@ Agent Harbor
 |---|---|
 | 进入设置本区 | 可显示上次检测结果；不强制每次重扫（避免卡顿） |
 | 重新检测 | 扫描预置列表；更新状态；toast「已更新检测结果」；新会话 Step 2 下次进入看到同一结果 |
-| 安装说明 | 打开该 Agent 官方安装文档（外链或内嵌简要步骤） |
-| 与 Step 2 | 同一数据源；预置项始终在列表中；仅「可用 / 未安装」变化 |
+| 安装说明 / 复制安装命令 | 未安装项旁提供可复制安装命令（Claude/Codex npm；dsh 用 `scripts/install-dsh.sh`） |
+| 与 Step 2 | 同一数据源；预置项始终在列表中；仅「可用 / 未安装」变化；向导未安装卡也可复制安装命令 |
 
 V1 禁止：自定义 binary 路径、Base URL + API Key 当作「添加 Agent」、从列表隐藏未安装项。
+
+#### 5.8.2b 本机使用概况
+
+复用工作台审计事件与会话终态，**仅存本机**（localStorage），不外传：
+
+| 指标 | 含义 |
+|---|---|
+| 首任务成功率 | 按 sessionId 首次终态 `stopped` 且无 error 的比例 |
+| 越权拒绝率 | audit `denied` / 全部 audit |
+| 工具调用失败率 | audit `failed` / 全部 audit |
+| 典型失败 Top-N | 错误码或 `denied|failed:tool` 计数 |
+
+设置页可刷新或清除本地统计。「关于」固定显示当前运行模式（模拟 / 真实绑定）。
 
 #### 5.8.3 会话默认
 
@@ -790,18 +805,18 @@ V1 禁止：自定义 binary 路径、Base URL + API Key 当作「添加 Agent�
 
 **架构总纲**：[SYSTEM-DESIGN.md](SYSTEM-DESIGN.md) v2。
 **接口唯一来源**：[CONTRACT.md](CONTRACT.md) v1.2（全量：含 OAuth/clone/PTY/SwitchModel）。
-**屏级绑定**：[PAGE-API-MAP.md](PAGE-API-MAP.md)（与下表一致；有出入以 CONTRACT + PAGE-API-MAP 为准）。
+**屏级绑定以下表为准**（有出入以 CONTRACT 签名 + 本表为准；原独立 PAGE-API-MAP 已并入本节）。
 
-| 页面 | DesktopAPI（本分支已定） |
-|---|---|
-| 壳 / Onboarding / 阻断 | `GetRuntimeHealth`；`GetUIPrefs` / `SetUIPrefs` |
-| HOME | `ListSessions` `StopSession` `DestroySession` |
-| 新会话 | `ListAgents` `SelectWorkspace` `ListAccounts` `Connect*` `CreateSession`（`mountMode`=direct\|clone；mcpIds 0..8） |
-| 工作台 | `GetSession` `StopSession` `SwitchModel` `GetPermissionOverview` `WritePty`/`ResizePty` + Event（`state`/`output`/`pty`/`audit`/`error`/`permission_needed`） |
-| 模型 | `ConnectModel`（可带 origin）`ListAccounts` `RemoveAccount` |
-| 工具 | `ConnectMcp`（Token）**或** `StartMcpOAuth`/`CancelMcpOAuth`；`ListAccounts` `RemoveAccount` |
-| 设置 | `ListAgents` `GetRuntimeHealth` 记住主机与 Overview 同源 API；Prefs |
-| 扩权 | `ResolvePermission` + 事件 `permission_needed` |
+| 页面 | DesktopAPI（本分支已定） | 事件 |
+|---|---|---|
+| 壳 / Onboarding / 阻断 | `GetRuntimeHealth`；`GetUIPrefs` / `SetUIPrefs` | — |
+| HOME | `ListSessions` `StopSession` `DestroySession` | `state_changed` |
+| 新会话 | `ListAgents` `SelectWorkspace` `ListAccounts` `Connect*` `CreateSession`（`mountMode`=direct\|clone；mcpIds 0..8） | — |
+| 工作台 | `GetSession` `StopSession` `SyncBackWorkspace` `SwitchModel` `GetPermissionOverview` `WritePty`/`ResizePty` `ResolvePermission` | `state` `output` `pty` `audit` `error` `permission_needed` |
+| 模型 | `ConnectModel`（可带 origin）`ListAccounts` `RemoveAccount` | — |
+| 工具 | `ConnectMcp`（HTTP Token **或** `transport=stdio`）**或** `StartMcpOAuth`/`CancelMcpOAuth`；`ListAccounts` `RemoveAccount` | — |
+| 设置 | `ListAgents` `GetRuntimeHealth` 记住主机与 Overview 同源 API；Prefs；本机使用概况为前端 localStorage（无新 API） | — |
+| 扩权 | `ResolvePermission` + 事件 `permission_needed` | `permission_needed` |
 
 状态展示必须以 Orchestrator 事件为准，页面不本地猜「是否已隔离」。UI 只经 `frontend/src/api.js`，不直连 Gate / Secrets / Runtime。
 

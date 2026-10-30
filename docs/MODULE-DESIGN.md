@@ -1,6 +1,6 @@
 # 两天版模块设计与并行开发
 
-本文件定义 Go/Wails 包边界、替身与文件归属。V1 **架构总纲与 ABC 分工**见 [SYSTEM-DESIGN.md](SYSTEM-DESIGN.md)；方法与数据以 [CONTRACT.md](CONTRACT.md) v1.2 为唯一来源；屏级绑定见 [PAGE-API-MAP.md](PAGE-API-MAP.md)。目录见 [DIRECTORY-STRUCTURE.md](DIRECTORY-STRUCTURE.md)。本分支（`feat/page-design-full`）以 PAGE-DESIGN 全量为准，含 OAuth/clone/PTY。
+本文件定义 Go/Wails 包边界、替身与文件归属。V1 **架构总纲与 ABC 分工**见 [SYSTEM-DESIGN.md](SYSTEM-DESIGN.md)；方法与数据以 [CONTRACT.md](CONTRACT.md) v1.2 为唯一来源；屏级绑定见 [PAGE-DESIGN §9](PAGE-DESIGN.md#9-与架构-api-的绑定)。目录见 [DIRECTORY-STRUCTURE.md](DIRECTORY-STRUCTURE.md)。本分支（`feat/page-design-full`）以 PAGE-DESIGN 全量为准，含 OAuth/clone/PTY。
 
 ## 1. 检查结论与补齐范围
 
@@ -127,7 +127,7 @@ Go 的 fake 同样覆盖成功、Start/Create/Exec 失败、Stop 与 provisionin
 
 当前状态：共享 Go 类型、编排及其测试 fake 已落地；严格单进程 Runtime/Kit 已实现，不代表子进程能力完成；**C 的浏览器 mock 两页与场景替身已落地**（见 [DEV-C.md](DEV-C.md)），Wails v3 绑定、构建和原生桌面冒烟已通过；真实上游任务仍待完成。A 证据见 [DEV-A.md](DEV-A.md)。能按契约并行开发，不代表已经完成可运行交付或消除外部集成风险。
 
-2026-10-25 修复：连接测试由 SessionService.WithConnection 与 Create 原子互斥，桌面不再维护 busy 副本。退出在 ShouldQuit/窗口关闭钩子中异步确认 Shutdown；失败保留窗口，成功后才清空凭据并退出。修复与证据见 [ABC 审查](ABC-INTEGRATION-REVIEW.md#修复进展)。
+2026-10-25 修复：连接测试由 SessionService.WithConnection 与 Create 原子互斥，桌面不再维护 busy 副本。退出在 ShouldQuit/窗口关闭钩子中异步确认 Shutdown；失败保留窗口，成功后才清空凭据并退出。修复与证据见 [ABC 审查](archive/ABC-INTEGRATION-REVIEW.md#修复进展)。
 
 2026-10-26：`WithConnection` 不再因已有 running 会话拒绝 Connect——新增模型/MCP 只写本机账号表；仅与并发 Connect、以及 provisioning 中的 Create 互斥。
 

@@ -198,12 +198,12 @@ Sentinel 约定（逻辑）：
        Authorization = Bearer harbor_sentinel_<session>
   → Agent 调工具
        → Gateway 鉴权 Sentinel → 查会话挂载列表
-       → 用 Secrets 调上游 MCP（远程 HTTP 或宿主机 stdio 进程）
+       → 用 Secrets 调上游 **远程 Streamable HTTP MCP**（Token 或 OAuth）
        → 把工具结果返回 Agent
   → 沙箱磁盘/配置始终无上游 API Key / Password
 ```
 
-本地 stdio MCP：进程在**宿主机**（或单独微沙箱）由 Gateway 拉起；执行面只看见 Gateway。UI 上标记为「本机扩展 · 更高信任」。
+**宿主侧 stdio MCP（已落地最短路径）**：用户在工具页登记绝对路径命令 + 参数 + 环境变量（密钥进本机凭据库）；`internal/mcpstdio` 在宿主机拉起进程，用 MCP stdio（Content-Length）完成 initialize/tools/list，并开 `127.0.0.1` 回环 HTTP。会话 Policy/Gateway 仍按远程 Streamable HTTP 转发——**沙箱执行面只见 Gateway**，stdio 进程与 env 密钥不进 Seatbelt。产品须标明「stdio 跑在宿主机，只添加你信任的命令」。
 
 ---
 

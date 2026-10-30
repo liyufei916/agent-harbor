@@ -41,6 +41,11 @@ jobs:
       - name: Run tests with race detector
         run: go test -race ./...
 
+      - name: Assert portable Seatbelt profile contracts
+        run: >
+          go test -race ./internal/runtime
+          -run 'TestReadOnly|TestCodexProfile|TestSeatbeltProfile|TestDSH|TestEndpoint|TestCanonical|TestWithin'
+
       - name: Generate unit coverage
         run: |
           go test -coverprofile=coverage.out ./...
@@ -82,6 +87,15 @@ jobs:
           test "$(plutil -extract CFBundleExecutable raw -o - bin/AgentHarbor.app/Contents/Info.plist)" = AgentHarbor
           test -x bin/AgentHarbor.app/Contents/MacOS/AgentHarbor
           codesign --verify --deep --strict bin/AgentHarbor.app
+          ditto -c -k --keepParent bin/AgentHarbor.app AgentHarbor-macos.zip
+
+      - name: Upload AgentHarbor.app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AgentHarbor-macos-${{ github.sha }}
+          path: AgentHarbor-macos.zip
+          retention-days: 14
+          if-no-files-found: error
 
       - name: Validate native WebView bindings and shutdown
         run: go test -tags production,harbor_desktop -run TestNativeDesktopBindingsAndShutdown -v .
@@ -100,7 +114,7 @@ jobs:
           python-version: "3.11"
 
       - name: Compile security helpers
-        run: python -m py_compile security/checks.py security/seatbelt_probe.py security/test_checks.py
+        run: python -m py_compile security/checks.py security/seatbelt_probe.py security/test_checks.py security/test_sandbox_profile.py
 
       - name: Test security helpers
         run: python -m unittest discover -s security -p 'test_*.py'

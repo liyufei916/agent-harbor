@@ -5,9 +5,9 @@
 | 文档版本 | v2.0（**分支 feat/page-design-full：全量 PAGE-DESIGN**） |
 | 日期 | 2026-10-25 |
 | 基线代码 | 分支 `feat/page-design-full`；拉取后以 `git rev-parse HEAD` 为准 |
-| 对照 | [SYSTEM-DESIGN](SYSTEM-DESIGN.md) v2、[CONTRACT](CONTRACT.md) **v1.2**、[PAGE-API-MAP](PAGE-API-MAP.md)、[PAGE-DESIGN](PAGE-DESIGN.md)、[MODULE-DESIGN](MODULE-DESIGN.md)、[MVP-2D3P](MVP-2D3P.md)、[ACCEPTANCE](ACCEPTANCE.md)、[DECISIONS](DECISIONS.md)、[ARCHITECTURE](ARCHITECTURE.md) |
+| 对照 | [SYSTEM-DESIGN](../SYSTEM-DESIGN.md) v2、[CONTRACT](../CONTRACT.md) **v1.2**、[PAGE-API-MAP](../PAGE-DESIGN.md#9-与架构-api-的绑定)、[PAGE-DESIGN](../PAGE-DESIGN.md)、[MODULE-DESIGN](../MODULE-DESIGN.md)、[MVP-2D3P](MVP-2D3P.md)、[ACCEPTANCE](../ACCEPTANCE.md)、[DECISIONS](../DECISIONS.md)、[ARCHITECTURE](../ARCHITECTURE.md) |
 
-**读法**：开工前先过 [GO-CHECKLIST](GO-CHECKLIST.md)（遗漏/未拍板收口）。产品真源是 **PAGE-DESIGN 全文**。再读 SYSTEM-DESIGN v2 + CONTRACT v1.2 → §3 全量并行实现 → §4 任务卡（**含** OAuth/clone/PTY）。P0 I 证据可并行，但**不得**再以排期裁掉首版能力。mock ≠ I 通过。
+**读法**：开工前先过 [GO-CHECKLIST](../GO-CHECKLIST.md)（遗漏/未拍板收口）。产品真源是 **PAGE-DESIGN 全文**。再读 SYSTEM-DESIGN v2 + CONTRACT v1.2 → §3 全量并行实现 → §4 任务卡（**含** OAuth/clone/PTY）。P0 I 证据可并行，但**不得**再以排期裁掉首版能力。mock ≠ I 通过。
 
 **文档分工**
 
@@ -49,9 +49,9 @@
 
 | 交付物 | 路径 | 状态 |
 |---|---|---|
-| 架构 + 模块拆分 + 分工 | [SYSTEM-DESIGN.md](SYSTEM-DESIGN.md) v2 | **全量已定** |
-| 接口全文 | [CONTRACT.md](CONTRACT.md) **v1.2** | **已定**（含 OAuth/PTY/SwitchModel/clone） |
-| 屏 ↔ API | [PAGE-API-MAP.md](PAGE-API-MAP.md) | **已定** |
+| 架构 + 模块拆分 + 分工 | [SYSTEM-DESIGN.md](../SYSTEM-DESIGN.md) v2 | **全量已定** |
+| 接口全文 | [CONTRACT.md](../CONTRACT.md) **v1.2** | **已定**（含 OAuth/PTY/SwitchModel/clone） |
+| 屏 ↔ API | [PAGE-API-MAP.md](../PAGE-DESIGN.md#9-与架构-api-的绑定) | **已定** |
 | 绑定占位 | `internal/desktop` 新方法可 `UNIMPLEMENTED` | **已落**（含 PTY/OAuth） |
 | C UI stub | `frontend/` 四步向导/双轨工具/工作台 PTY 区等 | **已落 mock** |
 
@@ -89,7 +89,7 @@
 | | |
 |---|---|
 | **目标** | 固定 Anthropic 兼容 `/v1/messages` 上游，无占位默认 |
-| **步骤** | 1）选定 HTTPS origin（仅 scheme+host[:port]） 2）设定 `HARBOR_CLAUDE_MODEL` 3）准备可轮换测试 Key（不入库） 4）写入 [DECISIONS](DECISIONS.md) 5）用受控探测或桌面「连接模型」验证 |
+| **步骤** | 1）选定 HTTPS origin（仅 scheme+host[:port]） 2）设定 `HARBOR_CLAUDE_MODEL` 3）准备可轮换测试 Key（不入库） 4）写入 [DECISIONS](../DECISIONS.md) 5）用受控探测或桌面「连接模型」验证 |
 | **DoD** | DECISIONS 有 origin+模型名；未设 env 时连接失败；设齐后 I1 可开始 |
 | **证据** | DECISIONS  diff；脱敏连接成功截图（仅账号 id/host） |
 | **关联** | 手册 P01–P04、M06；ACCEPTANCE I1 |
@@ -102,7 +102,7 @@
 | **步骤** | 1）C 协助选只读工具场景 2）登记 `HARBOR_DEMO_MCP_ORIGIN` 3）`HARBOR_DEMO_MCP_TOOLS` 逗号白名单（真实工具名，勿写死 search） 4）测试 Token 仅本机 5）更新 demos 任务文案中的工具名 |
 | **DoD** | tools 非空且 ValidConnection；`tools/list`+一次 `tools/call` 可在真连中出现 |
 | **证据** | DECISIONS；白名单列表；脱敏审计一行 |
-| **关联** | I1/I2；[DSH-INTEGRATION](DSH-INTEGRATION.md) 若走 dsh |
+| **关联** | I1/I2；[DSH-INTEGRATION](../DSH-INTEGRATION.md) 若走 dsh |
 
 #### P0-ENV-3 · Agent 本机 Detect 冻结 · A
 
@@ -297,7 +297,7 @@ A:    ENV-3 → I2 隔离确认 → I3/I4/I5 → I7/I9 → 支援 I8/I10
 
 ## 3. 全量契约落地与并行实现（CONTRACT v1.2）
 
-方案见 [SYSTEM-DESIGN v2](SYSTEM-DESIGN.md) + [CONTRACT v1.2](CONTRACT.md) + [PAGE-DESIGN](PAGE-DESIGN.md)。
+方案见 [SYSTEM-DESIGN v2](../SYSTEM-DESIGN.md) + [CONTRACT v1.2](../CONTRACT.md) + [PAGE-DESIGN](../PAGE-DESIGN.md)。
 
 ### 3.1 裁定摘要（本分支全部做）
 
@@ -566,7 +566,7 @@ CONTRACT v1.2（全量）
 
 | | |
 |---|---|
-| **目标** | dsh 按 [DSH-INTEGRATION](DSH-INTEGRATION.md) 全手册过；Codex Kit 新増 |
+| **目标** | dsh 按 [DSH-INTEGRATION](../DSH-INTEGRATION.md) 全手册过；Codex Kit 新増 |
 | **DoD** | DECISIONS 登记版本；至少一条真任务证据 |
 | **参考** | DESIGN Agent P0 |
 
@@ -641,7 +641,7 @@ P1-B-03 OAuth ──► P1-C-06
 **本分支不因时间删减**：clone / PTY / OAuth **均保留**。  
 **不可删**：真 Agent、真认证 MCP、隔离强制、凭据外置、停止清理、CONTRACT 形状一致。
 
-易混主责见 [SYSTEM-DESIGN §6.1](SYSTEM-DESIGN.md)。
+易混主责见 [SYSTEM-DESIGN §6.1](../SYSTEM-DESIGN.md)。
 
 ---
 
@@ -688,15 +688,15 @@ P1-B-03 OAuth ──► P1-C-06
 
 | 文档 | 用途 |
 |---|---|
-| [SYSTEM-DESIGN.md](SYSTEM-DESIGN.md) | **架构 + 模块拆分 + ABC（v2 全量）** |
-| [CONTRACT.md](CONTRACT.md) | **接口唯一来源（v1.2 全量）** |
-| [PAGE-API-MAP.md](PAGE-API-MAP.md) | 屏 ↔ API |
-| [PAGE-DESIGN.md](PAGE-DESIGN.md) | **本分支产品真源** |
-| [MODULE-DESIGN.md](MODULE-DESIGN.md) | 替身与文件归属 |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | 长期控制/执行面 |
-| [ACCEPTANCE.md](ACCEPTANCE.md) | 编号与证据格式 |
+| [SYSTEM-DESIGN.md](../SYSTEM-DESIGN.md) | **架构 + 模块拆分 + ABC（v2 全量）** |
+| [CONTRACT.md](../CONTRACT.md) | **接口唯一来源（v1.2 全量）** |
+| [PAGE-API-MAP.md](../PAGE-DESIGN.md#9-与架构-api-的绑定) | 屏 ↔ API |
+| [PAGE-DESIGN.md](../PAGE-DESIGN.md) | **本分支产品真源** |
+| [MODULE-DESIGN.md](../MODULE-DESIGN.md) | 替身与文件归属 |
+| [ARCHITECTURE.md](../ARCHITECTURE.md) | 长期控制/执行面 |
+| [ACCEPTANCE.md](../ACCEPTANCE.md) | 编号与证据格式 |
 | [MANUAL-INTEGRATION-TEST.md](MANUAL-INTEGRATION-TEST.md) | 逐步人工用例 |
-| [DECISIONS.md](DECISIONS.md) | 上游与版本登记 |
-| [GO-CHECKLIST.md](GO-CHECKLIST.md) | **开工检查与未拍板收口** |
-| [DEV-A.md](DEV-A.md) / [DEV-B.md](DEV-B.md) / [DEV-C.md](DEV-C.md) | 角色笔记 |
+| [DECISIONS.md](../DECISIONS.md) | 上游与版本登记 |
+| [GO-CHECKLIST.md](../GO-CHECKLIST.md) | **开工检查与未拍板收口** |
+| [DEV-A.md](../DEV-A.md) / [DEV-B.md](../DEV-B.md) / [DEV-C.md](../DEV-C.md) | 角色笔记 |
 | [demos/README.md](../demos/README.md) | 演示与工作区 |

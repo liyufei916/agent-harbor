@@ -50,7 +50,7 @@ func (a *App) AttachOrchestrator(appCtx context.Context) error {
 	if err != nil {
 		return err
 	}
-	rt := runtime.NewMacOS()
+	rt := runtime.NewDefault()
 	svc, err := orchestrator.New(appCtx, orchestrator.Dependencies{
 		Runtime: rt,
 		Kits:    agentKits,

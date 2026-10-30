@@ -5,6 +5,7 @@ package policy
 import (
 	"context"
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -121,13 +122,41 @@ func (b *Builder) Build(_ context.Context, req PolicyRequest) (PolicySnapshot, e
 		seen[account.ID] = true
 		var prof FixedProfile
 		if account.ProfileID == ProfileCustom {
-			origin := "https://" + strings.TrimSpace(account.Host)
-			if bp := strings.TrimRight(strings.TrimSpace(account.BasePath), "/"); bp != "" {
-				origin = origin + bp
-			}
-			custom, err := CustomMCPProfile(origin)
-			if err != nil || !custom.ValidConnection() {
-				return PolicySnapshot{}, ErrUnknownProfile
+			var custom FixedProfile
+			var err error
+			if strings.TrimSpace(account.Transport) == "stdio" {
+				// Host 形如 127.0.0.1:port；仅允许回环 http，由宿主 stdio 桥提供。
+				hostPort := strings.TrimSpace(account.Host)
+				hostname := hostPort
+				if h, _, splitErr := net.SplitHostPort(hostPort); splitErr == nil {
+					hostname = h
+				}
+				ip := net.ParseIP(hostname)
+				if ip == nil || !ip.IsLoopback() {
+					return PolicySnapshot{}, ErrUnknownProfile
+				}
+				custom = FixedProfile{
+					ID:                    ProfileCustom,
+					Kind:                  "mcp",
+					Protocol:              "streamable-http",
+					Origin:                "http://" + hostPort,
+					Host:                  hostname,
+					Paths:                 []string{"/mcp"},
+					TestPath:              "/mcp",
+					AllowInsecureLoopback: true,
+				}
+				if !custom.ValidConnection() {
+					return PolicySnapshot{}, ErrUnknownProfile
+				}
+			} else {
+				origin := "https://" + strings.TrimSpace(account.Host)
+				if bp := strings.TrimRight(strings.TrimSpace(account.BasePath), "/"); bp != "" {
+					origin = origin + bp
+				}
+				custom, err = CustomMCPProfile(origin)
+				if err != nil || !custom.ValidConnection() {
+					return PolicySnapshot{}, ErrUnknownProfile
+				}
 			}
 			if len(account.Tools) == 0 {
 				// 旧版连接未落盘 tools/list；须在「工具」页删除后重新保存 MCP。

@@ -7,14 +7,22 @@ const GUIDE_HTML = `
   <p>Agent Harbor 是桌面 Agent <strong>安全沙箱</strong>：API Key 只在本机录入；Agent 在隔离环境中跑；模型与 MCP 出站都经 Harbor Gate（安全闸口）。</p>
   <p class="meta">顶栏「真实绑定」表示已接桌面后端；「模拟模式」仅浏览器 mock，不能当作真实验收。完整说明可随时点顶栏右侧「使用说明」。</p>
 
+  <h3>能力边界（请先读）</h3>
+  <ul>
+    <li>隔离运行目标机：<strong>macOS Darwin 25 · arm64 · 非 root</strong>；不满足则阻断开跑（无「仍要继续」）。</li>
+    <li>Agent 须本机预装 CLI：Claude 用 <code>claude</code>；Codex 用 <code>codex</code>+<code>node</code>；dsh 用固定预览版。</li>
+    <li>MCP：远程 HTTP（Token / OAuth），或<strong>宿主 stdio</strong>（本机命令经回环桥；密钥不进沙箱，进程在宿主机）。</li>
+    <li>凭据默认进 macOS Keychain；钥匙串不可用时<strong>拒绝</strong>静默改存明文文件，须修复钥匙串后重启。</li>
+  </ul>
+
   <h3>推荐上手顺序</h3>
   <ol>
     <li><strong>首次引导 / 隔离检测</strong>：冷启动或设置里「下次启动重新显示引导」后，会逐条跑隔离能力检测；全部通过才能进 HOME。失败不能跳过。</li>
     <li><strong>设置</strong>：侧栏隔离灯为就绪；「重新检测隔离」时展开逐条、完成后收起；也可用「展开/收起明细」手动查看上次结果；检测 Claude / Codex / dsh 是否 Available。</li>
     <li><strong>模型</strong>：添加 Origin + Key + 模型名，勾选对应 Agent（协议须匹配）；或使用预置快捷项（须宿主已登记上游）。提交后 Key 不会留在输入框明文展示。</li>
-    <li><strong>工具</strong>（可选）：添加远程 MCP——浏览器 OAuth 或 Token。</li>
+    <li><strong>工具</strong>（可选）：添加远程 MCP——浏览器 OAuth 或 Token（须 HTTPS）。</li>
     <li><strong>HOME → 新会话</strong>：工作区 → Agent → 模型 → 工具；默认挂载为安全副本（clone）。</li>
-    <li><strong>工作台</strong>：看对话输出，下方输入下一轮；需要时「导回原文件夹」、扩权或停止。</li>
+    <li><strong>工作台</strong>：看对话输出，下方输入下一轮；停止后点「导回原文件夹」，再到源目录确认新文件。</li>
   </ol>
 
   <h3>隔离检测看什么</h3>
@@ -34,7 +42,8 @@ const GUIDE_HTML = `
   <ul>
     <li><strong>HOME</strong>：会话中心；同时运行中最多 2 个；打开工作台 / 停止 / 销毁。</li>
     <li><strong>模型</strong>：自定义账号可多选 Agent（上游须同时支持）；Claude 用 Messages，Codex 用 Responses。勿对仅 Anthropic 兼容的 DeepSeek 勾选 Codex。</li>
-    <li><strong>工具</strong>：MCP 双轨（OAuth 或 Token）；可编辑 / 删除。</li>
+    <li><strong>工具</strong>：远程 MCP（OAuth/Token）或宿主 stdio；可编辑 / 删除。</li>
+    <li><strong>设置 · 本机使用概况</strong>：首任务成功率、越权拒绝率、工具失败率（仅本机，不外传）。</li>
     <li><strong>设置</strong>：Agent 检测、默认挂载、清理偏好、侧栏偏好、已记住的网站、关于（含隔离逐条检测与「下次启动重新显示引导」）。</li>
     <li><strong>工作台</strong>：边界条 + 对话区（过滤协议 JSON）+ 摘要；顶栏可切换焦点会话。</li>
   </ul>

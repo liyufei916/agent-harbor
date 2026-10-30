@@ -9,7 +9,7 @@ import (
 
 // 即使提供方错误含敏感文本，也只向页面发送固定模板。
 var messages = map[string]string{
-	"INVALID_ARGUMENT": "会话参数不合法。请检查 Agent 与模型是否匹配、自定义 MCP 是否已保存工具列表。",
+	"INVALID_ARGUMENT":      "会话参数不合法。请检查 Agent 与模型是否匹配、自定义 MCP 是否已保存工具列表。",
 	"ACCOUNT_NOT_FOUND":     "账号尚未连接或不存在。",
 	"SESSION_BUSY":          "已有会话正在准备、运行或等待清理。",
 	"SESSION_LIMIT":         "已达到同时运行的会话上限。",

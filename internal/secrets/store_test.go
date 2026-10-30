@@ -39,6 +39,28 @@ func TestPutRejectsNonEmptyID(t *testing.T) {
 	}
 }
 
+func TestUpdateEndpointRefreshesHostAndTools(t *testing.T) {
+	s := NewStore()
+	ctx := context.Background()
+	id, err := s.Put(ctx, contracts.AccountInfo{
+		Kind: "mcp", Name: "stdio", ProfileID: "custom", Host: "127.0.0.1:1",
+		Transport: "stdio", Command: "/bin/true", AuthMode: "stdio", Tools: []string{"old"},
+	}, []byte(`{"command":"/bin/true"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpdateEndpoint(ctx, id, "127.0.0.1:9999", []string{"echo"}); err != nil {
+		t.Fatal(err)
+	}
+	meta, err := s.Lookup(ctx, id)
+	if err != nil || meta.Host != "127.0.0.1:9999" || len(meta.Tools) != 1 || meta.Tools[0] != "echo" {
+		t.Fatalf("meta=%+v err=%v", meta, err)
+	}
+	if err := s.UpdateEndpoint(ctx, "missing", "127.0.0.1:2", nil); err != ErrNotFound {
+		t.Fatalf("want not found, got %v", err)
+	}
+}
+
 func TestListFiltersByKind(t *testing.T) {
 	s := NewStore()
 	ctx := context.Background()

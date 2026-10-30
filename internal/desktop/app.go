@@ -8,9 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/liyufei916/agent-harbor/internal/contracts"
 	"github.com/liyufei916/agent-harbor/internal/gate"
+	"github.com/liyufei916/agent-harbor/internal/mcpstdio"
 	"github.com/liyufei916/agent-harbor/internal/policy"
 	"github.com/liyufei916/agent-harbor/internal/runtime"
 	"github.com/liyufei916/agent-harbor/internal/secrets"
@@ -42,14 +44,15 @@ type App struct {
 	conn    *gate.Connections
 	dataDir string
 
-	mu       sync.Mutex
-	sessions SessionService
-	agents   AgentDetector
-	rt       runtime.Runtime
-	prefs    contracts.UIPrefs
-	hosts    map[string]contracts.RememberedHost // key: workspace\x00host
-	oauth    map[string]*oauthPending
-	ready    bool
+	mu           sync.Mutex
+	sessions     SessionService
+	agents       AgentDetector
+	rt           runtime.Runtime
+	prefs        contracts.UIPrefs
+	hosts        map[string]contracts.RememberedHost // key: workspace\x00host
+	oauth        map[string]*oauthPending
+	stdioBridges map[string]*mcpstdio.Bridge
+	ready        bool
 }
 
 // NewApp 创建纯内存控制面（单测默认）。桌面进程请用 NewDesktopApp。
@@ -85,8 +88,96 @@ func NewAppWithDataDir(dataDir string) *App {
 	}
 	app.loadPersistedState()
 	app.gate = gate.New(store, pol)
-	app.conn = gate.NewConnections(store, pol)
+	app.conn = gate.NewConnections(store, pol).WithStdioKeeper(app)
+	app.stdioBridges = make(map[string]*mcpstdio.Bridge)
+	// 持久化 stdio 账号：应用重启后按 Keychain/文件库中的 command/args/env 重拉回环桥并更新 Host。
+	restoreCtx, cancelRestore := context.WithTimeout(context.Background(), 45*time.Second)
+	_ = app.RestoreStdioBridges(restoreCtx)
+	cancelRestore()
 	return app
+}
+
+// AdoptStdioBridge 由 Connections 在 stdio MCP 探测成功后调用。
+func (a *App) AdoptStdioBridge(accountID string, bridge *mcpstdio.Bridge) {
+	if a == nil || accountID == "" || bridge == nil {
+		return
+	}
+	a.mu.Lock()
+	if a.stdioBridges == nil {
+		a.stdioBridges = make(map[string]*mcpstdio.Bridge)
+	}
+	if old := a.stdioBridges[accountID]; old != nil {
+		_ = old.Close()
+	}
+	a.stdioBridges[accountID] = bridge
+	a.mu.Unlock()
+}
+
+// RestoreStdioBridges 从 Secrets 重拉所有 transport=stdio 的宿主桥；失败账号保留，用户可在工具页重新探测。
+// 返回成功重拉的账号数（供测试）；单账号失败不阻断其余。
+func (a *App) RestoreStdioBridges(ctx context.Context) int {
+	if a == nil || a.secrets == nil {
+		return 0
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ok := 0
+	for _, acc := range a.secrets.List(ctx, "mcp") {
+		if !strings.EqualFold(strings.TrimSpace(acc.Transport), "stdio") {
+			continue
+		}
+		if err := ctx.Err(); err != nil {
+			break
+		}
+		raw, err := a.secrets.Resolve(ctx, acc.ID)
+		if err != nil || len(raw) == 0 {
+			continue
+		}
+		spec, err := mcpstdio.DecodeSecret(raw)
+		if err != nil {
+			continue
+		}
+		if strings.TrimSpace(spec.Command) == "" {
+			spec.Command = strings.TrimSpace(acc.Command)
+		}
+		oneCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+		bridge, err := mcpstdio.Start(oneCtx, spec)
+		cancel()
+		if err != nil {
+			continue
+		}
+		hostPort := strings.TrimPrefix(bridge.Origin, "http://")
+		if err := a.secrets.UpdateEndpoint(ctx, acc.ID, hostPort, bridge.Tools); err != nil {
+			_ = bridge.Close()
+			continue
+		}
+		a.AdoptStdioBridge(acc.ID, bridge)
+		ok++
+	}
+	return ok
+}
+
+func (a *App) closeStdioBridge(accountID string) {
+	a.mu.Lock()
+	bridge := a.stdioBridges[accountID]
+	delete(a.stdioBridges, accountID)
+	a.mu.Unlock()
+	if bridge != nil {
+		_ = bridge.Close()
+	}
+}
+
+func (a *App) closeAllStdioBridges() {
+	a.mu.Lock()
+	bridges := a.stdioBridges
+	a.stdioBridges = make(map[string]*mcpstdio.Bridge)
+	a.mu.Unlock()
+	for _, bridge := range bridges {
+		if bridge != nil {
+			_ = bridge.Close()
+		}
+	}
 }
 
 // SetSessionService 替换会话服务。nil 表示尚未接入编排。
@@ -206,9 +297,10 @@ func (a *App) EmitHarborEvent(ev contracts.Event) {
 	}
 }
 
-// Shutdown 先停止编排。纯内存凭据在退出时清空；持久化 Store（Keychain/文件）保留跨重启。
+// Shutdown 先停止编排并关闭宿主 stdio 桥。纯内存凭据在退出时清空；持久化 Store（Keychain/文件）保留跨重启。
 func (a *App) Shutdown(ctx context.Context) error {
 	err := a.sessionRef().Shutdown(ctx)
+	a.closeAllStdioBridges()
 	if err == nil && a.dataDir == "" {
 		a.secrets.Clear()
 	}

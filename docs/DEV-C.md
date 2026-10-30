@@ -104,7 +104,7 @@ python3 -m http.server 5173
 
 ## 2026-10-25：按 TASK-SPLIT 启动 C 分工（历史）
 
-任务源：[TASK-SPLIT-ABC.md](TASK-SPLIT-ABC.md)。当时先做 P0 文档；**契约已定（v1.2），不再等冻结会**。当前以文末全量节为准。
+任务源：[TASK-SPLIT-ABC.md](archive/TASK-SPLIT-ABC.md)。当时先做 P0 文档；**契约已定（v1.2），不再等冻结会**。当前以文末全量节为准。
 
 ### 本轮已交付（C）
 
@@ -134,9 +134,9 @@ python3 -m http.server 5173
 
 - 顶栏会话切换；侧栏仅 HOME/模型/工具/设置（工作台不强占）
 - Wizard **四步**（含 clone/direct）
-- 模型自由 OpenAPI；工具 **OAuth | Token** 双轨 UI
+- 模型自由 OpenAPI；工具 **OAuth | Token | 宿主 stdio** 三轨 UI
 - 工作台：边界条、模型切换、权限一览、扩权 Modal、PTY 区
-- 设置：检测、默认挂载、记住主机、关于
+- 设置：检测（复制安装命令）、默认挂载、侧栏偏好、记住主机、本机使用概况、关于（运行模式 + 隔离逐条）
 
 ### 2026-10-25 C 开工推进
 
@@ -195,6 +195,16 @@ python3 -m http.server 5173
 
 手改 `bindings/`、改 `internal/`、把 mock 记为 I 通过、未冻接口当真实现。
 
+### 2026-10-30 产品侧补齐（与 B 同步）
+
+| 项 | 状态 |
+|---|---|
+| 工具页宿主 stdio 表单 + 能力边界文案 | **已做** |
+| OAuth IdP 自助说明 / 失败建议 | **已做** |
+| 设置：复制安装命令、本机使用概况、运行模式 | **已做** |
+| 使用说明 / demos 口播与导回证据稿 | **已做**（`usage-guide.js`、`demos/syncback-evidence.md`） |
+| 文档同步纪律 | 见 [GO-CHECKLIST §7](GO-CHECKLIST.md) |
+
 ---
 
 ## 分工备忘（C）
@@ -203,6 +213,6 @@ python3 -m http.server 5173
 |---|---|
 | 壳与页面、样式与交互 | `frontend/index.html`、`frontend/src/**` |
 | 接口封装与模拟数据 | `frontend/src/api.js`、`frontend/src/mock-api.js`、`live-api.js` |
-| 产品验收与演示说明 | `demos/`、[ACCEPTANCE.md](ACCEPTANCE.md)、[TASK-SPLIT-ABC.md](TASK-SPLIT-ABC.md) |
+| 产品验收与演示说明 | `demos/`、[ACCEPTANCE.md](ACCEPTANCE.md)、[TASK-SPLIT-ABC.md](archive/TASK-SPLIT-ABC.md) |
 
 不修改桌面 Go 入口与会话状态机；不手改 `frontend/bindings/`。

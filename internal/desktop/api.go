@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/liyufei916/agent-harbor/internal/contracts"
+	"github.com/liyufei916/agent-harbor/internal/secrets"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -144,6 +145,7 @@ func (d *DesktopAPI) ListAccounts(kind string) contracts.AccountsResponse {
 
 // RemoveAccount 删除账号及其内存凭据。
 func (d *DesktopAPI) RemoveAccount(accountID string) contracts.EmptyResponse {
+	d.app.closeStdioBridge(accountID)
 	if err := d.app.secrets.Delete(context.Background(), accountID); err != nil {
 		return contracts.EmptyResponse{Error: mapError(err)}
 	}
@@ -188,12 +190,14 @@ func (d *DesktopAPI) SyncBackWorkspace(sessionID string) contracts.SessionRespon
 
 // GetRuntimeHealth 调用 Runtime.Health；未装配 Runtime 时返回编排未就绪。
 func (d *DesktopAPI) GetRuntimeHealth() contracts.RuntimeHealthResponse {
+	vaultNote := secrets.VaultBackendNotice()
 	rt := d.app.runtimeRef()
 	if rt == nil {
 		return contracts.RuntimeHealthResponse{
-			Available: false,
-			Reason:    "编排/Runtime 尚未装配",
-			Error:     contracts.NewAppError(contracts.ErrOrchestratorUnavailable, "编排服务尚未就绪", false),
+			Available:   false,
+			Reason:      "编排/Runtime 尚未装配",
+			VaultNotice: vaultNote,
+			Error:       contracts.NewAppError(contracts.ErrOrchestratorUnavailable, "编排服务尚未就绪", false),
 		}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -205,15 +209,17 @@ func (d *DesktopAPI) GetRuntimeHealth() contracts.RuntimeHealthResponse {
 			reason = ae.Message
 		}
 		return contracts.RuntimeHealthResponse{
-			Available: false,
-			Reason:    reason,
-			Error:     ae,
+			Available:   false,
+			Reason:      reason,
+			VaultNotice: vaultNote,
+			Error:       ae,
 		}
 	}
 	return contracts.RuntimeHealthResponse{
 		Available:      true,
 		Reason:         "",
 		IsolationLevel: "seatbelt",
+		VaultNotice:    vaultNote,
 		Error:          nil,
 	}
 }
@@ -351,11 +357,11 @@ func (d *DesktopAPI) SwitchModel(in contracts.SwitchModelInput) contracts.Sessio
 
 // StartMcpOAuth 启动本机回环 OAuth 回调（authUrl 打开系统浏览器）。
 func (d *DesktopAPI) StartMcpOAuth(in contracts.StartMcpOAuthInput) contracts.McpOAuthResponse {
-	authURL, pendingID, err := d.app.startMcpOAuth(in)
+	out, err := d.app.startMcpOAuth(in)
 	if err != nil {
 		return contracts.McpOAuthResponse{Error: mapError(err)}
 	}
-	return contracts.McpOAuthResponse{AuthURL: authURL, PendingID: pendingID}
+	return out
 }
 
 // CancelMcpOAuth 取消进行中的 OAuth pending。

@@ -1,5 +1,7 @@
 # 研发 A 开发记录
 
+> **交付状态**：现行验收以 [ACCEPTANCE.md](ACCEPTANCE.md) 为准。2026-10-25 点状交付表已归档：[A-DELIVERY-STATUS](archive/A-DELIVERY-STATUS.md)。
+
 ## 运行中切换模型账号
 
 Orchestrator.SwitchModel 校验会话仍 running、账号存在且为 model，并要求新旧账号 ProfileID/Host 一致。Gate.SwitchModel 只在宿主内存中原子更新模型账号引用，不调用上游或回调编排；每个请求先捕获自己的账号，因此在途请求继续使用旧账号，后续请求使用新账号。工作区、Agent、Sentinel、隔离进程和固定模型路由均不变。失败不会改写编排中的当前账号。桌面 SwitchModel 已转发编排。
@@ -75,7 +77,7 @@ Seatbelt 诊断使用临时非敏感目录与两个本机受控监听器：工�
 
 本批顺序为隔离规则和真实探针 → Runtime → Claude Kit → 真实 Runtime 编排集成测试与文档。未修改前后端 DTO 或 B 的业务实现。
 
-- `runtime.NewMacOS()`：目前仅接受 Darwin 25 / arm64、非 root、非 setuid/setgid 宿主进程；Health 实际编译应用 profile，不可用时拒绝启动。
+- `runtime.NewDefault()` / `runtime.NewMacOS()`：装配用 `NewDefault`（build tag：Darwin→`NewMacOS`，其它平台→`ISOLATION_UNAVAILABLE` stub）。`NewMacOS` 仅接受 Darwin 25 / arm64、非 root、非 setuid/setgid 宿主进程；Health 实际编译应用 profile，不可用时拒绝启动。CI 另跑可移植 `TestSeatbeltProfileFailClosedShape`（deny-default / 禁 system.sb）。
 - `sandbox.sb` 默认拒绝；仅导入 dyld 基础规则，不导入较宽的 system.sb。固定系统运行目录只读，工作区及私有 HOME 可写，路径经符号链接解析和 SBPL 转义；父目录只开放必要元数据。
 - Gate 网络规则使用 SBPL 的 `remote tcp4 "localhost:port"`。在本机实际验证：127.0.0.1 指定端口可达；127.0.0.2 同端口、::1 同端口、其他回环端口、UDP、TEST-NET-1 直连与自建 Unix socket 均为权限拒绝。127.0.0.2 未配置本机地址，不能建立正向监听，但探针确认返回 EPERM/EACCES，而非不可达/拒绝连接。
 - Create 创建源码树外的私有 HOME、tmp 和不可由 Agent 写入的 profile；执行路径必须在只读文件白名单中，拒绝目录和 setuid/setgid 程序。配置先完整校验相对路径、冲突和大小，再以目录 0700、文件 0600 写入，拒绝覆盖和符号链接。
@@ -105,7 +107,7 @@ HARBOR_TEST_CLAUDE=1 go test -race -v ./internal/kits/claude -run TestInstalledC
 
 ### 接入与剩余事项
 
-B 可将 `runtime.NewMacOS()` 和 `claude.New(固定CLI路径, 固定模型名)` 注入既有 orchestrator.New。所有组件仍由宿主机装配，不绑定 Runtime/Kit 到 Wails。`runtime.ProbeExecutable` 仅供受信 Kit 做离线检测。
+B 可将 `runtime.NewDefault()` 和 `claude.New(固定CLI路径, 固定模型名)` 注入既有 orchestrator.New。所有组件仍由宿主机装配，不绑定 Runtime/Kit 到 Wails。`runtime.ProbeExecutable` 仅供受信 Kit 做离线检测。
 
 尚未完成：真实 Gate/Policy/Catalog 及 Wails 装配；模型协议、真实认证 MCP 发现/调用；真实 Agent 文件修改任务；完整 IPC/提权负例验收；允许子进程时的可靠清理。完整 I1–I11 不能因本批单元/系统探针通过而整体标为通过。
 
@@ -160,7 +162,7 @@ git diff --check
 
 以上检查均通过；其中 `harbor_platform` 系统测试要求支持的 Darwin 25/arm64 环境，普通 CI 的 macOS 14 不满足该安全基线，只运行可移植测试。A 当前仍可独立交付并验证的范围是契约/事件校验、会话生命周期与清理重试、严格单进程 macOS Runtime、Claude Kit 离线检测、Kit Registry 以及脱敏验收证据校验。真实 Gate/Policy/Secrets、模型与认证 MCP、Wails 装配、真实 Agent 文件任务和允许子进程后的可靠进程树清理仍需 B 或真实环境联调。
 
-2026-10-25 最新接线与修复状态见 [ABC 架构及联调审查](ABC-INTEGRATION-REVIEW.md#修复进展)。上文按日期保留的“待 Wails/真实组件装配”是历史记录；当前已完成装配，但真实上游任务与完整业务验收仍待执行。
+2026-10-25 最新接线与修复状态见 [ABC 架构及联调审查](archive/ABC-INTEGRATION-REVIEW.md#修复进展)。上文按日期保留的“待 Wails/真实组件装配”是历史记录；当前已完成装配，但真实上游任务与完整业务验收仍待执行。
 
 ## 2026-10-25：feat/page-design-full 编排首批实现
 
@@ -188,6 +190,6 @@ Policy 将挂载模式传给 Runtime；macOS Runtime 在应用数据目录 `Agen
 
 当前未关闭项：Codex Kit 在全量分支的安全移植及受控子进程方案、真实 Agent TUI 与 C 工作台联调、真实远程模型/认证 MCP、扩权 Gate/Policy 与页面完整联调、对外安全证据索引。microVM 仍为 backlog。上述缺口未完成前，不将 A 总体标为完成。
 
-同步 B 最新提交后，删除了另一份未经 Gate 原子校验的 SwitchModel 实现，旧 `SetModelAccount` 入口也统一转交受校验方法。Gate 重定向触发的 `Action` 已改为 `connect`，真实 HTTP→Gate→Orchestrator 测试确认挂起、决策及拒绝恢复；重定向仍不可因批准而自动携带凭据。会话权限一览由编排中的实际 Policy 构建，clone 项目规则标识仍为原工作区。证据索引见 [研发 A 交付状态](A-DELIVERY-STATUS.md)。
+同步 B 最新提交后，删除了另一份未经 Gate 原子校验的 SwitchModel 实现，旧 `SetModelAccount` 入口也统一转交受校验方法。Gate 重定向触发的 `Action` 已改为 `connect`，真实 HTTP→Gate→Orchestrator 测试确认挂起、决策及拒绝恢复；重定向仍不可因批准而自动携带凭据。会话权限一览由编排中的实际 Policy 构建，clone 项目规则标识仍为原工作区。证据索引见 [研发 A 交付状态](DEV-A.md)。
 
 再次同步 B 的重定向/DNS 与 Homebrew Claude 修复：多 MCP 跟随判断使用各自挂载的 Origin；跨域响应仍过滤原密钥与 Sentinel。新增失败测试复现“先校验 DNS、再按主机名拨号”的重绑定窗口，现改为仅连接本次校验的公网 IP，禁代理和额外端口，保留 TLS 主机名校验。Homebrew 检测所需配置只开放 OpenSSL/CA 目录，拒绝给 Agent 授权整个 `/opt/homebrew/etc` 或 `/usr/local/etc`。

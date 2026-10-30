@@ -10,8 +10,10 @@
 |---|---|
 | `runtime.go` | Health、Create、Exec、Destroy、Process.Wait 与受限句柄 |
 | `macos.go` | macOS 能力检查、私有 HOME、执行与清理 |
+| `default_darwin.go` / `default_stub.go` | `NewDefault()`：Darwin→`NewMacOS`，其它平台不可用 stub |
 | `proctree_darwin.go` | AllowDescendants 杀树 |
 | `sandbox.sb` | 默认拒绝；`ProcessFork` 由 Create 参数选择 |
+| `profile_test.go` | 可移植 fail-closed 形状断言（deny-default、禁 system.sb 等） |
 
 两天版将工作区授权及私有 HOME 配置合并进 Create，不再单独暴露 MountWorkspace；这是可见/可写范围配置，不意味着真实文件系统挂载。未来后端需保持同等语义。
 

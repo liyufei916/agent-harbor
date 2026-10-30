@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 )
 
-// fileVault：密钥写在 dir 下 0600 文件。非 Darwin 默认；Darwin 在 Keychain 不可用时回退。
+// fileVault：密钥写在 dir 下 0600 文件。仅非 Darwin 默认；Darwin 禁止静默回退到本库。
 type fileVault struct {
 	dir string
 }

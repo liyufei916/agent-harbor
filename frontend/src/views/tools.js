@@ -6,7 +6,7 @@
 import * as api from "../api.js";
 
 export function mountTools(root, ctx, opts = {}) {
-  let mode = "token"; // oauth | token
+  let mode = "token"; // oauth | token | stdio
   const returning = ctx.state.returnAfterAccount?.kind === "mcp";
   let editing = opts.intent === "add" || returning ? "new" : null;
   let pendingDelete = "";
@@ -54,6 +54,7 @@ export function mountTools(root, ctx, opts = {}) {
         <div>
           <h2>工具</h2>
           <p class="sub">给 Agent 一双手（MCP）。可跨 Claude/Codex/dsh 挂载。模型可在「模型」页勾选多 Agent 共用。</p>
+          <p class="meta warn">MCP：<strong>远程 HTTP</strong>（Token / OAuth）或<strong>宿主 stdio</strong>（本机进程，经回环桥；密钥不进沙箱）。须预装 Agent CLI；隔离仅 <strong>macOS Darwin 25 · arm64 · 非 root</strong>。</p>
         </div>
         <button type="button" class="btn primary" id="btn-add-mcp">+ 添加</button>
       </div>
@@ -67,7 +68,7 @@ export function mountTools(root, ctx, opts = {}) {
       ${listStatus ? `<p class="meta" id="mcp-list-status">${listStatus}</p>` : ""}
       ${
         list.length === 0 && editing !== "new"
-          ? `<div class="empty-state"><p>还没有工具。用浏览器登录 / SSO，或 API Key 添加 MCP。</p>
+          ? `<div class="empty-state"><p>还没有工具。可添加远程 HTTP MCP（Token/OAuth），或宿主 stdio（本机命令，Harbor 在宿主机拉起）。</p>
              <div class="actions"><button type="button" class="btn primary" id="empty-add-mcp">+ 添加第一个</button></div></div>`
           : ""
       }
@@ -88,7 +89,7 @@ export function mountTools(root, ctx, opts = {}) {
         <div class="row" style="justify-content:space-between">
           <div>
             <strong>${a.name}</strong>
-            <span class="meta">${a.authMode || "token"} · ${a.host || a.profileId}${toolsHint} · ● 已连接</span>
+            <span class="meta">${a.transport === "stdio" ? "stdio" : a.authMode || "token"} · ${a.transport === "stdio" ? a.command || "host" : a.host || a.profileId}${toolsHint} · ● 已连接</span>
           </div>
           <div class="row">
             <button type="button" class="btn" data-edit="${a.id}">编辑</button>
@@ -210,13 +211,16 @@ export function mountTools(root, ctx, opts = {}) {
       <section class="card">
         <h3>${isEdit ? "编辑 MCP" : "添加 MCP"}</h3>
         <label class="field">显示名<input id="t-name" value="${acc.name || ""}" maxlength="100"/></label>
-        <label class="field">服务地址<input id="t-origin" value="${originValue}" placeholder="https://mcp.example.com 或 https://host/v1/mcp"/></label>
-        <p class="meta">填公网 HTTPS 地址即按自定义 MCP 探测；仅用本机已登记 demo-mcp 时可留空地址。${
-          isEdit ? " 保存将删除旧账号并重新连接（须重贴 Token）。" : ""
-        }</p>
-        <p class="meta">认证方式</p>
-        <label class="radio"><input type="radio" name="auth" value="oauth" ${mode === "oauth" ? "checked" : ""} ${isEdit ? "disabled" : ""}/> 浏览器登录 / SSO${isEdit ? "（编辑请用 Token 重连）" : ""}</label>
-        <label class="radio"><input type="radio" name="auth" value="token" ${mode === "token" ? "checked" : ""}/> API Key / Token</label>
+        <p class="meta">接入方式</p>
+        <label class="radio"><input type="radio" name="auth" value="oauth" ${mode === "oauth" ? "checked" : ""} ${isEdit ? "disabled" : ""}/> 远程 · 浏览器登录 / SSO${isEdit ? "（编辑请用 Token/stdio 重连）" : ""}</label>
+        <label class="radio"><input type="radio" name="auth" value="token" ${mode === "token" ? "checked" : ""}/> 远程 · API Key / Token</label>
+        <label class="radio"><input type="radio" name="auth" value="stdio" ${mode === "stdio" ? "checked" : ""}/> 宿主 · 本地 stdio 进程</label>
+        <div id="t-http-origin" class="${mode === "stdio" ? "hidden" : ""}">
+          <label class="field">服务地址<input id="t-origin" value="${originValue}" placeholder="https://mcp.example.com 或 https://host/v1/mcp"/></label>
+          <p class="meta">填公网 HTTPS 地址即按自定义 MCP 探测；仅用本机已登记 demo-mcp 时可留空地址。${
+            isEdit ? " 保存将删除旧账号并重新连接。" : ""
+          }</p>
+        </div>
         <div id="t-token-box" class="${mode === "token" ? "" : "hidden"}">
           <label class="field">Token<input id="t-key" type="password" autocomplete="off" placeholder="${isEdit ? "重贴新 Token（不回显旧值）" : ""}"/></label>
           <p class="meta" id="t-key-hint">${
@@ -228,8 +232,23 @@ export function mountTools(root, ctx, opts = {}) {
           }</p>
           <label class="field">profileId（一般勿改）<input id="t-profile" value="${acc.profileId || "custom"}" placeholder="custom 或 demo-mcp"/></label>
         </div>
+        <div id="t-stdio-box" class="${mode === "stdio" ? "" : "hidden"}">
+          <p class="meta warn">命令在<strong>宿主机</strong>运行（非沙箱）；Harbor 用回环 HTTP 桥接，Agent 仍只连 Gateway。请只添加你信任的 MCP 服务器。</p>
+          <label class="field">可执行文件（绝对路径）<input id="t-command" value="${acc.command || ""}" placeholder="/opt/homebrew/bin/npx"/></label>
+          <label class="field">参数（空格分隔）<input id="t-args" value="" placeholder="-y @modelcontextprotocol/server-filesystem /path"/></label>
+          <label class="field">环境变量（每行 KEY=VALUE，可选）<textarea id="t-env" rows="3" placeholder="GITHUB_PERSONAL_ACCESS_TOKEN=…"></textarea></label>
+        </div>
         <div id="t-oauth-box" class="${mode === "oauth" && !isEdit ? "" : "hidden"}">
-          <p class="meta">须填写上方 HTTPS 服务地址。将打开系统浏览器；IdP 须把回调指到本机 <code>127.0.0.1</code>。浏览器出现「登录完成」后，点下方按钮或等待自动刷新。</p>
+          <p class="meta">须填写上方 HTTPS 服务地址。将打开系统浏览器；浏览器出现「登录完成」后，点下方按钮或等待自动刷新。</p>
+          <details class="meta" style="margin:8px 0">
+            <summary>IdP 自助登记（多数云厂商需要）</summary>
+            <ol>
+              <li>在授权服务器新建 <strong>Native / Public</strong> 客户端（或机密客户端并配置密钥）。</li>
+              <li>Redirect URI 填本机回环：<code>http://127.0.0.1:&lt;端口&gt;/callback</code>。固定端口请设环境变量 <code>HARBOR_MCP_OAUTH_REDIRECT_PORT</code>（便于预先登记）。</li>
+              <li>Client ID 默认尝试动态注册（DCR）；失败则用 <code>agent-harbor</code>。也可设 <code>HARBOR_MCP_OAUTH_CLIENT_ID</code> / <code>HARBOR_MCP_OAUTH_CLIENT_SECRET</code> / <code>HARBOR_MCP_OAUTH_TOKEN_PATH</code>。</li>
+              <li>换票失败时优先改用本页 <strong>API Key / Token</strong> 轨，不必卡在 OAuth。</li>
+            </ol>
+          </details>
           ${
             pendingId
               ? `<p class="meta ok">等待授权完成… pending <code>${pendingId}</code></p>
@@ -243,7 +262,7 @@ export function mountTools(root, ctx, opts = {}) {
         </div>
         <div class="actions">
           <button type="button" class="btn" id="t-cancel">取消</button>
-          <button type="button" class="btn primary ${mode === "token" ? "" : "hidden"}" id="t-save">保存</button>
+          <button type="button" class="btn primary ${mode === "oauth" ? "hidden" : ""}" id="t-save">保存</button>
           <span class="meta" id="t-status"></span>
         </div>
       </section>`;
@@ -273,24 +292,12 @@ export function mountTools(root, ctx, opts = {}) {
     if (save) {
       save.onclick = async () => {
         const name = form.querySelector("#t-name").value.trim();
-        const key = form.querySelector("#t-key").value;
-        const origin = form.querySelector("#t-origin").value.trim();
-        let profileId = form.querySelector("#t-profile").value.trim();
-        if (origin) {
-          profileId = profileId || "custom";
-        } else {
-          profileId = profileId || "demo-mcp";
-        }
         const status = form.querySelector("#t-status");
-        if (!name || !key) {
-          status.innerHTML = `<span class="bad">请填写显示名与 Token</span>`;
+        if (!name) {
+          status.innerHTML = `<span class="bad">请填写显示名</span>`;
           return;
         }
-        if (!origin && profileId === "custom") {
-          status.innerHTML = `<span class="bad">自定义 MCP 请填写服务地址</span>`;
-          return;
-        }
-        status.textContent = "正在探测上游…";
+        status.textContent = "正在探测…";
         save.disabled = true;
         try {
           if (editing !== "new") {
@@ -300,21 +307,74 @@ export function mountTools(root, ctx, opts = {}) {
               return;
             }
           }
-          const res = await api.connectMcp({ profileId, name, apiKey: key, origin });
+          let res;
+          if (mode === "stdio") {
+            const command = form.querySelector("#t-command")?.value.trim() || "";
+            const argsRaw = form.querySelector("#t-args")?.value.trim() || "";
+            const envRaw = form.querySelector("#t-env")?.value || "";
+            if (!command.startsWith("/")) {
+              status.innerHTML = `<span class="bad">可执行文件须为绝对路径（如 /opt/homebrew/bin/npx）</span>`;
+              return;
+            }
+            const args = argsRaw ? argsRaw.split(/\s+/).filter(Boolean) : [];
+            const env = {};
+            for (const line of envRaw.split("\n")) {
+              const trimmed = line.trim();
+              if (!trimmed || trimmed.startsWith("#")) continue;
+              const i = trimmed.indexOf("=");
+              if (i <= 0) {
+                status.innerHTML = `<span class="bad">环境变量格式须为 KEY=VALUE</span>`;
+                return;
+              }
+              env[trimmed.slice(0, i)] = trimmed.slice(i + 1);
+            }
+            res = await api.connectMcp({
+              name,
+              profileId: "custom",
+              transport: "stdio",
+              command,
+              args,
+              env,
+              apiKey: "stdio",
+            });
+          } else {
+            const key = form.querySelector("#t-key")?.value || "";
+            const origin = form.querySelector("#t-origin")?.value.trim() || "";
+            let profileId = form.querySelector("#t-profile")?.value.trim() || "";
+            if (origin) profileId = profileId || "custom";
+            else profileId = profileId || "demo-mcp";
+            if (!key) {
+              status.innerHTML = `<span class="bad">请填写 Token</span>`;
+              return;
+            }
+            if (!origin && profileId === "custom") {
+              status.innerHTML = `<span class="bad">自定义 MCP 请填写服务地址</span>`;
+              return;
+            }
+            res = await api.connectMcp({ profileId, name, apiKey: key, origin });
+          }
           if (res.error) {
             let extra = "";
             if (res.error.code === "SESSION_BUSY") {
-              extra =
-                `<p class="meta">另有连接探测或会话正在创建中，稍后再试。</p>`;
+              extra = `<p class="meta">另有连接探测或会话正在创建中，稍后再试。</p>`;
             } else if (res.error.code === "INVALID_ARGUMENT") {
-              extra = `<p class="meta">检查：Token 非空；服务地址为 https://主机[/路径]。</p>`;
+              extra =
+                mode === "stdio"
+                  ? `<p class="meta">检查：绝对路径命令；参数与环境变量无控制字符。</p>`
+                  : `<p class="meta">检查：Token 非空；服务地址为 https://主机[/路径]。</p>`;
             } else if (res.error.code === "UPSTREAM_UNAVAILABLE" || res.error.code === "UPSTREAM_AUTH_FAILED") {
-              extra = `<p class="meta">须填 <strong>MCP</strong> 端点（多为 …/mcp 或厂商给的 streamable URL），不要填模型 API 的 /v1。探测会 POST initialize + tools/list。</p>`;
+              extra =
+                mode === "stdio"
+                  ? `<p class="meta">进程须讲 MCP stdio（Content-Length 分帧），并在 initialize 后返回 tools/list。</p>`
+                  : `<p class="meta">须填 <strong>MCP</strong> 端点（多为 …/mcp），不要填模型 /v1。</p>`;
             }
             status.innerHTML = `<span class="bad">${res.error.code}: ${res.error.message}</span>${extra}`;
             return;
           }
-          form.querySelector("#t-key").value = "";
+          const keyEl = form.querySelector("#t-key");
+          if (keyEl) keyEl.value = "";
+          const envEl = form.querySelector("#t-env");
+          if (envEl) envEl.value = "";
           editing = null;
           ctx.onAccountsChanged?.();
           if (resumeWizard()) return;
@@ -345,12 +405,21 @@ export function mountTools(root, ctx, opts = {}) {
           origin,
         });
         if (res.error) {
-          oauthHint = `<span class="bad">${res.error.code}: ${res.error.message}</span>`;
+          oauthHint = `<span class="bad">${res.error.code}: ${res.error.message}</span>
+            <p class="meta">若 IdP 拒绝未登记客户端：先登记 redirect / client，或改用 Token；也可设 <code>HARBOR_MCP_OAUTH_CLIENT_ID</code> 后重试。</p>`;
           if (st) st.innerHTML = oauthHint;
           return;
         }
         pendingId = res.pendingId || "";
-        oauthHint = `<span class="ok">已打开系统浏览器。请等到回调页显示「登录完成」，再点「我已完成登录」；也可稍候自动写入列表。</span>`;
+        const srcLabel =
+          res.clientSource === "dcr"
+            ? "动态注册"
+            : res.clientSource === "env"
+              ? "环境变量"
+              : "默认 client_id";
+        oauthHint = `<span class="ok">已打开系统浏览器。请等到回调页显示「登录完成」，再点「我已完成登录」；也可稍候自动写入列表。</span>
+          <p class="meta">回调 <code>${res.redirectUri || "http://127.0.0.1:…/callback"}</code>
+          · client_id <code>${res.clientId || "agent-harbor"}</code>（${srcLabel}）</p>`;
         startPendingWatch();
         paintForm();
       };

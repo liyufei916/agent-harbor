@@ -1,6 +1,6 @@
 # 演示流程
 
-负责人：C，A/B 配合排查。不存放真实凭据或用户项目。任务拆分见 [TASK-SPLIT-ABC.md](../docs/TASK-SPLIT-ABC.md)。
+负责人：C，A/B 配合排查。不存放真实凭据或用户项目。任务拆分见 [TASK-SPLIT-ABC.md](../docs/archive/TASK-SPLIT-ABC.md)。
 
 | 模式 | 顶栏徽章 | 怎么开 | 能否记 I1–I11 |
 |---|---|---|---|
@@ -65,6 +65,24 @@
 | 9:30 | 收尾：mock≠I；子进程仅白名单 exec | 诚实边界 |
 
 阻断时：记「阻断 + 原因」，**不要**改口称 mock 通过。若仍见 `spawn EPERM`：确认已拉含 AllowDescendants 的构建并**新建会话**。
+
+---
+
+## 60 秒：导回成功态（评审补镜）
+
+前置：clone 会话、任务已让 Agent 在副本写下可见文件（如 `SUMMARY.md`）。完整填空见 [syncback-evidence.md](syncback-evidence.md)。
+
+| 秒 | 做什么 | 应看到 |
+|---|---|---|
+| 0–15 | 工作台确认对话有输出 / 摘要非空 | 本轮有成功态，不是空白停 |
+| 15–35 | 点停止 → 点 **导回原文件夹** → 确认 | toast「已导回…源目录确认」 |
+| 35–60 | Finder / `ls` 打开**源目录**（非副本） | 新文件出现；再回应用可销毁 |
+
+---
+
+## 口播能力边界（10 秒）
+
+「工具接远程 HTTP，或宿主 stdio（本机进程、密钥不进沙箱）；Agent 要本机 CLI；隔离是 Darwin 25 arm64。」
 
 ---
 
@@ -173,7 +191,7 @@ wails3 dev
 
 **打包产物全量走查清单**（启动自检 → 模型/工具 → 向导/工作台 → 多会话/设置）：[DESKTOP-PACKAGE-TEST.md](DESKTOP-PACKAGE-TEST.md)。
 
-逐步用例与证据格式：[MANUAL-INTEGRATION-TEST.md](../docs/MANUAL-INTEGRATION-TEST.md)。  
+I1/I2 本机步骤：[I1-I2-LIVE.md](I1-I2-LIVE.md)。历史详尽手册：[MANUAL-INTEGRATION-TEST.md](../docs/archive/MANUAL-INTEGRATION-TEST.md)。  
 C 实现笔记：[DEV-C.md](../docs/DEV-C.md)。
 
 ---
@@ -189,4 +207,4 @@ C 实现笔记：[DEV-C.md](../docs/DEV-C.md)。
 7. [ ] 停止后再跑一轮  
 8. [ ] 证据已脱敏写入 ACCEPTANCE 或联调 RESULTS  
 
-排期：[MVP-2D3P.md](../docs/MVP-2D3P.md)、[TASK-SPLIT-ABC.md](../docs/TASK-SPLIT-ABC.md)、[ACCEPTANCE.md](../docs/ACCEPTANCE.md)。
+排期：[MVP-2D3P.md](../docs/archive/MVP-2D3P.md)、[TASK-SPLIT-ABC.md](../docs/archive/TASK-SPLIT-ABC.md)、[ACCEPTANCE.md](../docs/ACCEPTANCE.md)。

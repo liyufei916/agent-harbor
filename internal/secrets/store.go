@@ -69,6 +69,10 @@ func (s *Store) Put(ctx context.Context, info contracts.AccountInfo, key []byte)
 		return "", ErrEmptyKey
 	}
 	id := newID(kind)
+	hint := keyHint(key)
+	if strings.TrimSpace(info.Transport) == "stdio" {
+		hint = "stdio"
+	}
 	meta := contracts.AccountInfo{
 		ID:        id,
 		Kind:      kind,
@@ -77,10 +81,13 @@ func (s *Store) Put(ctx context.Context, info contracts.AccountInfo, key []byte)
 		Host:      host,
 		BasePath:  strings.TrimRight(strings.TrimSpace(info.BasePath), "/"),
 		Model:     strings.TrimSpace(info.Model),
-		KeyHint:   keyHint(key),
+		KeyHint:   hint,
 		Tools:     append([]string(nil), info.Tools...),
 		Agents:    append([]string(nil), info.Agents...),
 		Protocols: append([]string(nil), info.Protocols...),
+		Transport: strings.TrimSpace(info.Transport),
+		Command:   strings.TrimSpace(info.Command),
+		AuthMode:  strings.TrimSpace(info.AuthMode),
 	}
 	keyCopy := append([]byte(nil), key...)
 	s.mu.Lock()
@@ -131,6 +138,25 @@ func (s *Store) Delete(_ context.Context, id string) error {
 	}
 	_ = s.vault.Delete(id)
 	delete(s.byID, id)
+	return s.saveMetaLocked()
+}
+
+// UpdateEndpoint 更新已有账号的 Host / Tools（stdio 桥重启换端口后调用）。不改密钥。
+func (s *Store) UpdateEndpoint(_ context.Context, id, host string, tools []string) error {
+	host = strings.TrimSpace(host)
+	if id == "" || host == "" {
+		return ErrInvalidInput
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	rec, ok := s.byID[id]
+	if !ok {
+		return ErrNotFound
+	}
+	rec.meta.Host = host
+	if tools != nil {
+		rec.meta.Tools = append([]string(nil), tools...)
+	}
 	return s.saveMetaLocked()
 }
 

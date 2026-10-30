@@ -18,6 +18,10 @@ import {
   mergeHistoryRow,
   buildRestartCreateSpec,
 } from "./session-history.js";
+import {
+  recordAudit,
+  recordSessionOutcome,
+} from "./usage-analytics.js";
 
 const badge = document.getElementById("mode-badge");
 const usageGuideBtn = document.getElementById("usage-guide-btn");
@@ -218,6 +222,7 @@ function upsertHistory(snapshot, createSpec) {
   if (i >= 0) list[i] = row;
   else list.unshift(row);
   ctx.state.sessionHistory = list.slice(0, 20);
+  recordSessionOutcome(snapshot);
 }
 
 function syncSessionSwitch() {

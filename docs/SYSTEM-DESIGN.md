@@ -7,9 +7,9 @@
 | 分支目标 | 按 [PAGE-DESIGN](PAGE-DESIGN.md) **完整**实现导航与各屏；**不裁** OAuth / clone / PTY；**不按交付排期砍范围** |
 | 产品屏 | [PAGE-DESIGN](PAGE-DESIGN.md) |
 | **接口唯一来源** | [CONTRACT](CONTRACT.md) v1.2 |
-| 屏级绑定表 | [PAGE-API-MAP](PAGE-API-MAP.md) |
+| 屏级绑定表 | [PAGE-DESIGN §9](PAGE-DESIGN.md#9-与架构-api-的绑定) |
 | 包级细则 / 替身 | [MODULE-DESIGN](MODULE-DESIGN.md) |
-| 任务卡 | [TASK-SPLIT-ABC](TASK-SPLIT-ABC.md) |
+| 任务卡 | [TASK-SPLIT-ABC](archive/TASK-SPLIT-ABC.md) |
 
 本文是 **V1 实施总纲**：架构怎么分、模块谁拥有、模块间只经哪些接口交互。字段与方法签名以 CONTRACT 为准；本文不重复粘贴全部 DTO。
 
@@ -134,7 +134,7 @@ flowchart LR
 | 内容 | 文档 |
 |---|---|
 | DesktopAPI 全方法、DTO、事件、错误码、行为表 | **[CONTRACT.md](CONTRACT.md)** |
-| 哪一屏调哪些方法 | [PAGE-API-MAP.md](PAGE-API-MAP.md) |
+| 哪一屏调哪些方法 | [PAGE-DESIGN §9](PAGE-DESIGN.md#9-与架构-api-的绑定) |
 | 后端窄接口（SessionService / Gate / …） | CONTRACT § 后端 + MODULE-DESIGN |
 
 **变更纪律**：改字段先改 CONTRACT → 同步 `internal/contracts` → B `wails3 generate` → C mock → 再写真实现。禁止只改前端猜字段。

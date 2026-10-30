@@ -41,7 +41,7 @@
 - 核心闭环：宿主机界面连接模型与工具 → 选择工作区并提交任务 → 隔离启动真实 Agent → 经 Gate 调模型和认证 MCP → 展示结果 → 停止清理并可再次运行。
 - 以单一 macOS/CPU 环境为目标，优先 Claude Code；一个已验证的模型协议组合、一个远程 Streamable HTTP 认证 MCP，同时仅一个会话，每会话一个非交互任务。
 - 使用专用非敏感工作区，direct 模式明确提示会修改原文件；真实凭据只存宿主机内存，重启需重新输入。模型使用显式 Base URL 反向代理，不实现通用 HTTPS MITM。
-- 本版只做配置与工作台。Codex/dsh 完整适配、OAuth、本地 stdio MCP、多会话、模型热切换、clone/导回、Keychain 持久化、完整 PTY 和长期授权管理均不作为两天必交。
+- 历史「两天必交」曾裁剪多项；**当前 main 已合入全量 PAGE**：Codex/dsh、OAuth、宿主 stdio MCP、多会话≤2、clone/导回、Keychain、PTY/对话区等以 CONTRACT / PAGE-DESIGN 为准（勿再按旧两天裁剪砍功能）。
 - 不因赶工删除真实 Agent、唯一认证 MCP、操作系统强制隔离、凭据外置或可靠清理；静态原型、curl 成功、模拟 MCP 不能冒充核心闭环验收。
 - 首小时冻结目标环境、Agent/模型/MCP 组合、接口与演示任务；随后验证隔离、上游接入、Wails 构建/绑定/事件。首日结束前三人完成真实联调，第二天下午冻结功能并回归。
 - 决策、接口和验收入口已建立：[DECISIONS.md](docs/DECISIONS.md)、[CONTRACT.md](docs/CONTRACT.md)、[ACCEPTANCE.md](docs/ACCEPTANCE.md)。版本、外部接入与隔离能力仍须实测，当前真实验证均待执行，不能凭设计推定通过。
@@ -60,16 +60,11 @@ Agent Harbor 是安全优先的桌面 Agent 沙箱：在隔离环境中运行 Cl
 | [开工检查](docs/GO-CHECKLIST.md) | **本分支开工**：遗漏/未拍板收口、本周 ABC、禁止项 |
 | [V1 总纲](docs/SYSTEM-DESIGN.md) | **本分支**：架构分层、模块所有权、ABC 分工；易混主责见 §6.1 |
 | [接口契约](docs/CONTRACT.md) | **唯一方法/DTO 来源（v1.2 全量）**；含 OAuth/PTY/clone/SwitchModel |
-| [任务拆分](docs/TASK-SPLIT-ABC.md) | A/B/C 任务卡（**v2.0 全量 PAGE**；已合入 `main`） |
-| [页面设计](docs/PAGE-DESIGN.md) | **产品真源**：导航与各屏（含双会话≤2、OAuth、对话区/PTY、clone） |
-| [屏 ↔ API](docs/PAGE-API-MAP.md) | 哪一屏调哪些 DesktopAPI |
+| [页面设计](docs/PAGE-DESIGN.md) | **产品真源**：导航与各屏；屏↔API 见 §9 |
 | [实施决策](docs/DECISIONS.md) / [验收清单](docs/ACCEPTANCE.md) | 环境/上游登记；独立开发与真实集成检查 |
 | [Go/Wails 目录设计](docs/DIRECTORY-STRUCTURE.md) | 目录、模块职责、三人分工、依赖方向 |
-| [产品总纲](docs/DESIGN.md) | 长期范围、威胁模型；重点 §7.4 / §7.6 |
-| [架构逻辑](docs/ARCHITECTURE.md) | 控制/执行面、状态机、请求路径 |
-| [实现列表](docs/IMPLEMENTATION.md) | 长期分期；不覆盖本分支全量裁定 |
-| [三人两天核心方案](docs/MVP-2D3P.md) | **历史两天裁剪**；本分支冲突时以 SYSTEM-DESIGN / PAGE-DESIGN / CONTRACT 为准 |
-| [三天竖切](docs/SPIKE-3D3P.md) | 历史 Spike；不得当产品安全保证 |
+| [产品总纲](docs/DESIGN.md) / [架构](docs/ARCHITECTURE.md) / [实现列表](docs/IMPLEMENTATION.md) | 威胁模型、控制/执行面、长期分期 |
+| [文档归档](docs/archive/README.md) | Spike / 两天裁剪 / 旧任务卡 / 一次性联调；**不以归档为准开工** |
 
 文档口径：隔离分期按 `IMPLEMENTATION.md` 与 `DESIGN.md` §7.4 / §7.6；**并发上限 2**、挂载含 `clone`、工具含 OAuth、工作台含对话区/WritePty，见 PAGE-DESIGN / CONTRACT v1.2。遇到未消解冲突先澄清，不自行把 MVP「延后」列当成已定砍法。
 
@@ -99,7 +94,7 @@ Agent Harbor 是安全优先的桌面 Agent 沙箱：在隔离环境中运行 Cl
 - **并发**：V1 同时运行最多 2 条，`awaiting_permission` 也计入；工作区解析为绝对路径并解析符号链接后互斥，同工作区禁止双开。同 Agent、不同工作区可并行，每会话独立 session_id、Sentinel、Policy、Runtime 与审计。
 - **切换模型**：`switchModel(session_id, model_account_id)` 校验已连接账号，更新 Gate 绑定，仅影响后续出站；默认不重建沙箱、不改变 Agent 与工作区。
 - **HTTP(S)**：执行面只能连接 Gate；Proxy 检查域名白名单，需要凭据时验证本会话 Sentinel，再由 Secrets 解析并代填真实密钥。不在白名单的访问触发扩权流程，未经批准不得转发。
-- **MCP**：Agent 仅配置统一 Gateway URL 与 Sentinel；Gateway 校验会话和 MCP 挂载列表后持证访问上游。若支持本地 stdio MCP，由宿主机或独立微沙箱运行，须标记更高信任，不在 Agent 沙箱内配置上游密钥。
+- **MCP**：Agent 仅配置统一 Gateway URL 与 Sentinel；Gateway 校验会话和 MCP 挂载列表后持证访问上游。支持**远程 Streamable HTTP**（Token/OAuth）与**宿主侧 stdio**（本机进程 + 回环 HTTP 桥，`internal/mcpstdio`；密钥与进程留在宿主机，沙箱仍只见 Gateway）。禁止在沙箱内直接拉起 stdio 或写入真实密钥。
 - **扩权**：只提供拒绝、仅本次、本项目始终允许；批准后更新相应作用域 Policy，再重新求值挂起请求。项目规则按工作区隔离，设置与权限一览共用存储，撤销即时生效；会话记忆在停止时清空。
 - **事件与审计**：UI 以 Orchestrator 的状态、权限和审计事件为准，不自行推断隔离状态。审计记录 session_id、域名、工具名/计数和结果，不记录密钥、Authorization 原文或文件正文。
 
@@ -117,9 +112,10 @@ Agent Harbor 是安全优先的桌面 Agent 沙箱：在隔离环境中运行 Cl
 ### 完整 V1 页面与控制面的契约
 
 - 新会话依次选择工作区、Agent、模型、工具（可跳过）；工作台以边界条、PTY 与活动摘要为主，不扩展为带文件树/编辑器的 IDE。
-- Agent 为预置 Kit 的可用性检测；模型为自由添加的名称 + API 地址 + Key（V1 无浏览器 OAuth）；工具为 MCP 注册，支持 OAuth/SSO 或 API Key。三者概念与数据源不可混用。
+- Agent 为预置 Kit 的可用性检测；模型为自由添加的名称 + API 地址 + Key（模型页无浏览器 OAuth）；工具为 MCP 注册，支持 OAuth/SSO、API Key 或宿主 stdio。三者概念与数据源不可混用。
 - 密钥只在宿主机「模型 / 工具」页录入，不在新会话向导或工作台录入，不回显完整密钥。默认设置通常只影响后续新会话，不隐式改写运行中会话。
-- 编排层入口包括 `createSession`、`getSession` / `listSessions`、`switchModel`、`stopSession` / `destroySession`、`respondPermission`、`getBoundary`、`streamTerminal`、`onEvent`；具体签名以架构文档及后续冻结的契约为准。
+- 编排层入口包括 `createSession`、`getSession` / `listSessions`、`switchModel`、`stopSession` / `destroySession`、`respondPermission`、`getBoundary`、`streamTerminal`、`onEvent`；具体签名以 [CONTRACT](docs/CONTRACT.md) 为准。
+- **文档同步**：功能优化须同步更新受影响 md（至少 CONTRACT / ARCHITECTURE / PAGE-DESIGN / README / 角色 DEV；见 [GO-CHECKLIST §7](docs/GO-CHECKLIST.md)），避免代码与文档口径漂移。
 
 ## 语言要求
 

@@ -46,9 +46,11 @@ export function mountHome(root, ctx) {
       list.length === 0
         ? `<div class="empty-state">
             <p>还没有会话。先在「模型」「工具」添加账号，再创建隔离会话。</p>
+            <p class="meta">前提：Darwin 25 · arm64；预装 Agent CLI；MCP 仅远程 HTTP。未安装 Agent 可到「设置」复制安装命令。</p>
             <div class="actions">
               <button type="button" class="btn" id="empty-models">去模型</button>
               <button type="button" class="btn" id="empty-tools">去工具</button>
+              <button type="button" class="btn" id="empty-settings">去设置</button>
               <button type="button" class="btn primary" id="empty-wizard" ${healthOk ? "" : "disabled"}>新会话</button>
             </div>
           </div>`
@@ -59,6 +61,7 @@ export function mountHome(root, ctx) {
   const listEl = root.querySelector("#home-list");
   root.querySelector("#empty-models")?.addEventListener("click", () => ctx.navigate("models"));
   root.querySelector("#empty-tools")?.addEventListener("click", () => ctx.navigate("tools"));
+  root.querySelector("#empty-settings")?.addEventListener("click", () => ctx.navigate("settings"));
   root.querySelector("#empty-wizard")?.addEventListener("click", () => {
     if (ctx.state.health?.available === false) {
       ctx.showBlock?.(ctx.state.health.reason);

@@ -24,13 +24,21 @@
 | **多会话 ≤2** | HOME 会话中心；同工作区禁双开；停止后可 **再次开始**（沿用配置直进工作台） |
 | **工作台对话** | 边界条 + 过滤协议 JSON 的可读输出 + 下方输入发下一轮；Claude/Codex 均支持同会话多轮 |
 | **多 Agent** | Claude Code / DeepSeek dsh / OpenAI Codex；同一模型账号可勾选多 Agent（须上游协议匹配） |
-| **MCP 双轨** | Token 或浏览器 OAuth；记住主机可撤销 |
+| **MCP** | 远程 HTTP（Token / OAuth）或**宿主 stdio**（本机进程经回环桥，密钥不进沙箱）；记住主机可撤销 |
 
 叙事用语：「隔离运行」「密钥留在本机」「经安全闸口」。交付形态是 **桌面 App**；浏览器 mock 只看 UI，**不计** I1–I11。
 
 ---
 
-## 快速构建
+## 获取（最终用户）
+
+优先从 [GitHub Releases](https://github.com/liyufei916/agent-harbor/releases) 下载 `AgentHarbor-macos.zip`（打 `v*` 标签或手动跑 Release workflow 会发布）。日常 CI 也会上传同名 Artifacts（保留 14 天）。
+
+**使用前提**：macOS Darwin 25 · arm64 · 非 root；本机预装要用的 Agent CLI；MCP 支持远程 HTTP 或宿主 stdio。应用未公证时，首次打开可能需在「隐私与安全性」允许。
+
+---
+
+## 快速构建（开发者）
 
 前置：Go 1.26+、[Wails v3 CLI](https://v3.wails.io/zh-cn/quick-start/why-wails/) `v3.0.0-beta.34`、Node 20.19+ 或 22.12+。
 
@@ -75,7 +83,7 @@ wails3 task darwin:package   # macOS .app
 
 分工：A 契约/编排/Runtime/Kit（[DEV-A](docs/DEV-A.md)）；B Gate/Policy/Secrets 与 Wails v3（[DEV-B](docs/DEV-B.md)）；C 全量 PAGE 壳与 mock（[DEV-C](docs/DEV-C.md)，D4 已过）。
 
-徽章显示 main 最新一次全部检查通过后发布的 Go 整体语句覆盖率（`go test -coverprofile=coverage.out ./...` 的 `total`），包含构建辅助包；环境不支持的隔离测试会跳过。CI 自动将 SVG 与完整统计发布到独立的 [`coverage-badge` 分支](https://github.com/liyufei916/agent-harbor/tree/coverage-badge)，PR 不发布；图片缓存可能导致短暂延迟。桌面统一 Wails v3.0.0-beta.34。
+徽章显示 main 最新一次全部检查通过后发布的 Go 整体语句覆盖率（`go test -coverprofile=coverage.out ./...` 的 `total`），包含构建辅助包；环境不支持的隔离测试会跳过。CI 自动将 SVG 与完整统计发布到独立的 [`coverage-badge` 分支](https://github.com/liyufei916/agent-harbor/tree/coverage-badge)，PR 不发布；图片缓存可能导致短暂延迟。每次 CI 还会上传 `AgentHarbor-macos.zip`（`darwin:package` 产物，保留 14 天），并单独断言可移植 Seatbelt profile 契约（deny-default / 禁止 system.sb / 出站 loopback）。桌面统一 Wails v3.0.0-beta.34。
 
 ### 更多构建与探测命令
 
@@ -92,7 +100,7 @@ go test -tags production,harbor_desktop -run TestNativeDesktopBindingsAndShutdow
 
 本机安装 Claude Code 并确保 `claude` 在应用的 PATH 中后，在桌面「模型」页填写名称、Anthropic 兼容 API 地址、模型名和 API Key；新会话选择 `Claude Code` 和该模型账号，再选择工作区和 MCP 启动。此方式无需配置 Claude 模型环境变量。
 
-预置 `demo-model` 的配置、版本要求和人工验收见 [Claude Kit 文档](internal/kits/claude/README.md) 与 [完整人工联调手册](docs/MANUAL-INTEGRATION-TEST.md)。
+预置 `demo-model` 的配置、版本要求和人工验收见 [Claude Kit 文档](internal/kits/claude/README.md) 与 [完整人工联调手册](docs/archive/MANUAL-INTEGRATION-TEST.md)。
 
 ## DeepSeek dsh
 
@@ -135,11 +143,11 @@ agent-harbor/
 ├── security/ demos/ docs/ scripts/ prototype/
 ```
 
-模块职责见 [internal/README.md](internal/README.md) 和 [frontend/README.md](frontend/README.md)。A 负责 Runtime/Kit/编排，B 负责 Gate/Policy/Secrets 与 Wails 绑定，C 负责页面与演示。并行开发先读 [SYSTEM-DESIGN](docs/SYSTEM-DESIGN.md)（含 §6.1 易混主责）、[模块设计](docs/MODULE-DESIGN.md)、[接口契约](docs/CONTRACT.md) **v1.2** 与 [TASK-SPLIT](docs/TASK-SPLIT-ABC.md) **v2.0**；版本与命令见 [实施决策](docs/DECISIONS.md)，验收见 [ACCEPTANCE.md](docs/ACCEPTANCE.md)。目录映射见 [DIRECTORY-STRUCTURE.md](docs/DIRECTORY-STRUCTURE.md)。
+模块职责见 [internal/README.md](internal/README.md) 和 [frontend/README.md](frontend/README.md)。A 负责 Runtime/Kit/编排，B 负责 Gate/Policy/Secrets 与 Wails 绑定，C 负责页面与演示。并行开发先读 [SYSTEM-DESIGN](docs/SYSTEM-DESIGN.md)（含 §6.1 易混主责）、[模块设计](docs/MODULE-DESIGN.md)、[接口契约](docs/CONTRACT.md) **v1.2** 与 [TASK-SPLIT](docs/archive/TASK-SPLIT-ABC.md) **v2.0**；版本与命令见 [实施决策](docs/DECISIONS.md)，验收见 [ACCEPTANCE.md](docs/ACCEPTANCE.md)。目录映射见 [DIRECTORY-STRUCTURE.md](docs/DIRECTORY-STRUCTURE.md)。
 
-产品范围以 [PAGE-DESIGN](docs/PAGE-DESIGN.md) 为准（历史上在 `feat/page-design-full` 落地，**已合入 `main`**）。与 [MVP-2D3P](docs/MVP-2D3P.md)「两天裁剪」冲突时以 PAGE-DESIGN 为准。
+产品范围以 [PAGE-DESIGN](docs/PAGE-DESIGN.md) 为准（历史上在 `feat/page-design-full` 落地，**已合入 `main`**）。与 [MVP-2D3P](docs/archive/MVP-2D3P.md)「两天裁剪」冲突时以 PAGE-DESIGN 为准。
 
-当前基线：macOS；Claude / Codex / dsh；Gate 反代与认证 MCP；工作台多轮对话、clone 导回、扩权与双会话。
+当前基线：macOS Darwin 25 · arm64；Claude / Codex / dsh（须本机 CLI）；Gate 反代、远程 HTTP MCP 与宿主 stdio 桥；工作台多轮对话、clone 导回、扩权与双会话；设置含本机使用概况。产品内「使用说明」与工具/向导页标明能力边界。可安装包见 Releases / CI Artifacts。
 
 ## GitHub 推送 / 拉取
 
@@ -158,20 +166,16 @@ HARBOR_NO_COMMIT=1 ./scripts/github-push.sh
 
 ## 文档怎么读
 
-| 顺序 | 文档 | 回答什么 |
-|---|---|---|
-| 开发入口 | [docs/MODULE-DESIGN.md](docs/MODULE-DESIGN.md) | 模块边界、依赖、所有权、替身与并行检查点 |
-| 接口 | [docs/CONTRACT.md](docs/CONTRACT.md) | 准确签名、事件/错误与生命周期 |
-| 决策/验收 | [docs/DECISIONS.md](docs/DECISIONS.md) / [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md) | 待验证项、真实检查步骤和证据 |
-| 目录 | [docs/DIRECTORY-STRUCTURE.md](docs/DIRECTORY-STRUCTURE.md) | Go/Wails 结构、职责和迁移映射 |
-| 产品真源 | [docs/PAGE-DESIGN.md](./docs/PAGE-DESIGN.md) | 全量页面、导航、文案与交互（本分支准绳） |
-| 任务卡 | [docs/TASK-SPLIT-ABC.md](./docs/TASK-SPLIT-ABC.md) | A/B/C 并行卡；P1-C-* / FULL-* |
-| 参考（非准绳） | [docs/MVP-2D3P.md](./docs/MVP-2D3P.md) | 历史两天裁剪；与 PAGE 冲突以 PAGE 为准 |
-| 导航 | [docs/README.md](./docs/README.md) | 设计文档关系及实现目录入口 |
-| 1 | [docs/DESIGN.md](./docs/DESIGN.md) | 做什么、不做什么、威胁与原则 |
-| 2 | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | 控制面 / 执行面、Harbor Gate、出站路径 |
-| 3 | [docs/IMPLEMENTATION.md](./docs/IMPLEMENTATION.md) | 分期任务与验收 |
-| 可选 | [docs/SPIKE-3D3P.md](./docs/SPIKE-3D3P.md) | 短周期证明「密钥不进沙箱」的竖切 |
+精简导航见 [docs/README.md](./docs/README.md)。日常只需：
+
+| 文档 | 回答什么 |
+|---|---|
+| [PAGE-DESIGN](./docs/PAGE-DESIGN.md) | 产品真源；屏↔API 见 §9 |
+| [CONTRACT](./docs/CONTRACT.md) | 方法 / 事件 / 错误码 |
+| [SYSTEM-DESIGN](./docs/SYSTEM-DESIGN.md) / [MODULE-DESIGN](./docs/MODULE-DESIGN.md) | 架构分层、包边界、ABC 主责 |
+| [DECISIONS](./docs/DECISIONS.md) / [ACCEPTANCE](./docs/ACCEPTANCE.md) | 已定技术选择；真实验收 |
+| [DESIGN](./docs/DESIGN.md) / [ARCHITECTURE](./docs/ARCHITECTURE.md) | 威胁模型、控制/执行面 |
+| [archive](./docs/archive/README.md) | 历史 Spike / 裁剪方案 / 一次性联调（不以归档开工） |
 
 ## 全量产品要点（PAGE-DESIGN）
 

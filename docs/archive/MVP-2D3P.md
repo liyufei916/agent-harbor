@@ -1,6 +1,6 @@
 # Agent Harbor：三人两天核心架构与模块划分
 
-> **分支注意（`feat/page-design-full`）**：本文描述的是**历史两天裁剪**。本分支产品/接口/分工以 [PAGE-DESIGN](PAGE-DESIGN.md)、[CONTRACT v1.2](CONTRACT.md)、[SYSTEM-DESIGN v2](SYSTEM-DESIGN.md)、[TASK-SPLIT v2.0](TASK-SPLIT-ABC.md) 为准；**不要**按下文「延后」列砍掉 OAuth / clone / PTY / 双会话 / 完整 HOME。
+> **分支注意（`feat/page-design-full`）**：本文描述的是**历史两天裁剪**。本分支产品/接口/分工以 [PAGE-DESIGN](../PAGE-DESIGN.md)、[CONTRACT v1.2](../CONTRACT.md)、[SYSTEM-DESIGN v2](../SYSTEM-DESIGN.md)、[TASK-SPLIT v2.0](TASK-SPLIT-ABC.md) 为准；**不要**按下文「延后」列砍掉 OAuth / clone / PTY / 双会话 / 完整 HOME。
 
 本文是两天演示版的建议实施方案，收敛完整产品设计，不替代长期架构。目标是可重复演示的真实闭环，不承诺两天内支持全部主流 Agent、MCP 或生产级安全认证。
 
@@ -15,7 +15,7 @@
 | Agent | Claude Code 优先；开工前确认 CLI、合法可用的模型账号及协议组合；Codex/dsh 复用 Kit 接口 | 另外两个 Agent 的完整验收 |
 | Runtime | macOS `sandbox-exec` / Seatbelt profile，强制限制文件、网络、进程与 IPC；须真机验证 | Linux、Windows、容器、microVM |
 | 模型 | 一个已验证的协议与固定上游，显式 Base URL 反向代理，支持流式响应 | 任意供应商切换、通用 HTTPS MITM |
-| MCP | 一个实际可访问、带测试凭据的远程 Streamable HTTP MCP；一次真实 `tools/list` 与 `tools/call` | OAuth、SSE 旧传输、本地 stdio、密码型及多字段认证 |
+| MCP | 一个实际可访问、带测试凭据的远程 Streamable HTTP MCP；一次真实 `tools/list` 与 `tools/call` | OAuth、SSE 旧传输、本地 stdio、密码型及多字段认证（**注**：当前 main 已支持 OAuth 与宿主 stdio 桥；本表为历史两天裁剪） |
 | 工作区 | 专门的演示目录，`direct` 读写；界面明确标注会修改原文件 | clone、导回与任意敏感工作区 |
 | 会话 | 同时仅 1 条；一次任务输入与输出展示，Agent 使用非交互模式 | 双会话、恢复、完整交互式 PTY |
 | 凭据 | 宿主机 Go 后端内存保存，重启重新填写；不写浏览器存储或配置文件 | Keychain 持久化、轮换管理 |
@@ -147,18 +147,18 @@ frontend/src/                # C：配置、工作台与绑定调用封装
 security/                    # A 主责，B/C 配合
 ```
 
-具体目录、根入口与生成产物约定见 [Go/Wails 目录设计](DIRECTORY-STRUCTURE.md)。
+具体目录、根入口与生成产物约定见 [Go/Wails 目录设计](../DIRECTORY-STRUCTURE.md)。
 
 ## 5. 首小时冻结的最小契约
 
-精确方法、Go 签名、JSON 字段、事件与错误、取消和资源语义统一维护在 [CONTRACT.md](CONTRACT.md)，不在本文重复声明。模块职责、依赖、替身与共享文件归属见 [MODULE-DESIGN.md](MODULE-DESIGN.md)。
+精确方法、Go 签名、JSON 字段、事件与错误、取消和资源语义统一维护在 [CONTRACT.md](../CONTRACT.md)，不在本文重复声明。模块职责、依赖、替身与共享文件归属见 [MODULE-DESIGN.md](../MODULE-DESIGN.md)。
 
 - 前端方法为 ListAgents、SelectWorkspace、ConnectModel、ConnectMcp、CreateSession、GetSession、StopSession；api.js 对页面提供对应 camelCase 包装。
 - 会话事件统一为 harbor:event，按 sessionId 和 seq 标识；类型载荷不能夹带内部凭据或句柄。
 - Gate Start 返回精确的 AllowedTCP，Runtime Create 一次配置工作区、私有 HOME 与隔离规则；本版不单独调用 MountWorkspace。
 - Create/Stop 快速返回快照，实际执行及清理通过事件确认；任务 context 由应用生命周期派生。
 - 失败且清理完成可释放锁；清理失败保留锁，避免残留进程与新会话并行。
-- 具体环境与真实接入项见 [DECISIONS.md](DECISIONS.md)，必须保留待验证状态；可执行验收见 [ACCEPTANCE.md](ACCEPTANCE.md)。
+- 具体环境与真实接入项见 [DECISIONS.md](../DECISIONS.md)，必须保留待验证状态；可执行验收见 [ACCEPTANCE.md](../ACCEPTANCE.md)。
 
 ## 6. 两日排期与集成检查点
 

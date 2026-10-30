@@ -12,6 +12,7 @@ import {
 import { showToast } from "../toast.js";
 import { askConfirm } from "../confirm-dialog.js";
 import { filterModelsForAgent } from "../agent-compat.js";
+import { recordAudit } from "../usage-analytics.js";
 
 export function mountSession(root, ctx) {
   const healthOk = ctx.state.health?.available !== false;
@@ -347,8 +348,8 @@ export function mountSession(root, ctx) {
     } else if (s.state === "stopped") {
       els.hint.classList.remove("hidden");
       els.hint.textContent = isClone
-        ? "已停止。销毁前可点「导回原文件夹」；销毁后副本删除。"
-        : "已停止。可回 HOME 再开。";
+        ? "本轮已结束。请点「导回原文件夹」把副本改动写回源目录，再到 Finder 确认新文件；然后可销毁副本。"
+        : "本轮已结束。可回 HOME「再次开始」或开新会话。";
     } else if (isClone && active) {
       els.hint.classList.remove("hidden");
       els.hint.textContent = "安全副本模式：改动在副本中；需要时点「导回原文件夹」覆盖写回原目录。";
@@ -389,6 +390,7 @@ export function mountSession(root, ctx) {
     } else if (ev.type === "audit" && ev.audit) {
       auditCount += 1;
       els.statAudit.textContent = String(auditCount);
+      recordAudit(ev.audit, ev.sessionId || "");
       const li = document.createElement("li");
       li.textContent = `${ev.audit.result} · ${ev.audit.tool || "-"} @ ${ev.audit.target || "-"}`;
       els.audit.prepend(li);
@@ -482,7 +484,12 @@ export function mountSession(root, ctx) {
           ctx.state.lastSnapshot = res.session;
           renderSnapshot(res.session);
         }
-        showToast("已导回原文件夹", "ok");
+        showToast("已导回原文件夹：请到源目录确认新文件/改动", "ok");
+        if (els.hint) {
+          els.hint.classList.remove("hidden");
+          els.hint.textContent =
+            "导回成功。请在源目录核对后，再决定是否销毁隔离副本。";
+        }
       } catch (e) {
         showToast(e?.message || "导回失败", "bad");
       } finally {
@@ -554,7 +561,7 @@ export function mountSession(root, ctx) {
             );
             if (!still) return;
           } else {
-            showToast("已导回原文件夹", "ok");
+            showToast("已导回原文件夹：请到源目录确认新文件/改动", "ok");
           }
         }
       }

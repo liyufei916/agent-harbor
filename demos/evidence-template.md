@@ -1,6 +1,6 @@
 # C 验收证据草稿（P0-C-DOC-3）
 
-正式通过项写入 [ACCEPTANCE.md](../docs/ACCEPTANCE.md) 或 [INTEGRATION-TEST-RESULTS.md](../docs/INTEGRATION-TEST-RESULTS.md)。本文件仅作操作时填空，**勿粘贴 Key**。
+正式通过项写入 [ACCEPTANCE.md](../docs/ACCEPTANCE.md) 或 [INTEGRATION-TEST-RESULTS.md](../docs/archive/INTEGRATION-TEST-RESULTS.md)。本文件仅作操作时填空，**勿粘贴 Key**。
 
 ## 环境（共用）
 
@@ -45,6 +45,14 @@ HARBOR_DEMO_MCP_ORIGIN / HARBOR_DEMO_MCP_TOOLS：
 证据：
 下一步：
 ```
+
+## I3 / I4 / I5（平台探针纪要入口）
+
+工程侧平台探针记录见 [ACCEPTANCE.md · 2026-10-30](../docs/ACCEPTANCE.md)。正式 live 仍须本机脱敏证据；勿把平台探针直接记「通过」关单。
+
+## 导回成功态
+
+填空与 60 秒脚本：[syncback-evidence.md](syncback-evidence.md)。
 
 ## I8 停止
 

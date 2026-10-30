@@ -1,14 +1,16 @@
 # 跨模块安全验收
 
-研发 A 的逐项完成状态和复现命令见[交付与验收状态](../docs/A-DELIVERY-STATUS.md)。平台探针通过不表示真实 I1–I11 已通过。
+研发 A 的逐项完成状态和复现命令见[交付与验收状态](../docs/DEV-A.md)。平台探针通过不表示真实 I1–I11 已通过。
 
 负责人：A 主责，B 配合 Gate/凭据检查，C 配合 UI 和生命周期。此处组织实际安全边界及端到端验收，模块单元测试仍就近放在源码旁。
 
 ## 当前产物
 
 - checks.py：校验脱敏验收证据的结构和明显凭据模式；不是在宿主机执行破坏性命令，也不替代真实探针。
+- seatbelt_probe.py：诊断用（导入 system.sb），**不是**生产 Runtime。
+- test_checks.py / **test_sandbox_profile.py**：CI 可移植断言——生产 `sandbox.sb` 须含 `(deny default)`、不得 `allow default`、不得依赖 `system.sb`。
 - fixtures/：只放无敏感信息的报告模板和受控样例；夹具不能替代真实生态兼容验收。
-- 验收结果记录目标 OS/CPU、Agent 版本、真实/受控上游、结果与时间，不记录 Key 和认证报文。
+- 验收结果记录目标 OS/CPU、Agent 版本、真实/受控上游、结果与时间，不记录 Key 和认证报文。I3/I4/I5 平台探针纪要见 [ACCEPTANCE.md](../docs/ACCEPTANCE.md)「2026-10-30」节。
 
 ## 必过检查
 
@@ -24,7 +26,7 @@
 
 辅助脚本使用 Python，操作系统与上游真实验收依赖实际 Go 应用实现，不另建 Python 业务后端。
 
-运行时私有 HOME、测试输出和敏感日志在源码树外生成；如将来增加可提交的报告目录，必须先脱敏。完整验收标准见[核心方案 §7](../docs/MVP-2D3P.md#7-验收清单与演示)。
+运行时私有 HOME、测试输出和敏感日志在源码树外生成；如将来增加可提交的报告目录，必须先脱敏。完整验收标准见[验收清单](../docs/ACCEPTANCE.md)。
 
 当前逐项验收入口为 [ACCEPTANCE.md](../docs/ACCEPTANCE.md)；接口与错误预期以 [CONTRACT.md](../docs/CONTRACT.md) 为准。独立 fake/mock 检查和真实安全/兼容验收分别记录，编排替身测试与 Seatbelt 初步诊断已执行，真实端到端验收仍待执行；详情见 [研发 A 开发记录](../docs/DEV-A.md)。
 

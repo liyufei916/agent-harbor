@@ -8,7 +8,8 @@
 | [orchestrator](orchestrator/README.md) | A | 会话生命周期（本分支目标：多会话≤2、扩权、**clone**、**PTY**）；回滚清理 |
 | [runtime](runtime/README.md) | A | 操作系统隔离、受限进程、**PTY 底层**与清理 |
 | [kits](kits/README.md) | A | Agent 无真实凭据启动适配 |
-| [gate](gate/README.md) | B | 模型流式反向代理、MCP Gateway、**OAuth 回调** |
+| [gate](gate/README.md) | B | 模型流式反向代理、MCP Gateway、连接探测（HTTP / stdio） |
+| [mcpstdio](mcpstdio/) | B | 宿主 stdio MCP → 回环 HTTP 桥 |
 | [policy](policy/README.md) | B | 工作区与出站授权、记住主机、mount 校验 |
 | [secrets](secrets/README.md) | B | 宿主机凭据与账号目录 |
 | [desktop](desktop/) | B | 桌面绑定、事件桥（含 `pty`）、注入 A 的编排 |
@@ -28,7 +29,7 @@ Orchestrator 调用 Policy、Gate、Kit、Runtime；Gate 经授权后解析 Secr
 - Agent 输出和 MCP 返回值视为不可信数据，不在宿主机执行代码。
 - 单元测试与 Go 源码就近放置为 *_test.go；跨模块检查放 [security](../security/README.md)。
 
-完整结构见[目录设计](../docs/DIRECTORY-STRUCTURE.md)。本分支分工见 [SYSTEM-DESIGN](../docs/SYSTEM-DESIGN.md) §6.1 与 [TASK-SPLIT](../docs/TASK-SPLIT-ABC.md) v2.0；[两天方案](../docs/MVP-2D3P.md) 仅作历史参考。
+完整结构见[目录设计](../docs/DIRECTORY-STRUCTURE.md)。本分支分工见 [SYSTEM-DESIGN](../docs/SYSTEM-DESIGN.md) §6.1 与 [TASK-SPLIT](../docs/archive/TASK-SPLIT-ABC.md) v2.0；[两天方案](../docs/archive/MVP-2D3P.md) 仅作历史参考。
 
 ## 并行开发入口
 

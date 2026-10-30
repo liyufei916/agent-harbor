@@ -57,7 +57,7 @@ wails3 task darwin:package
 
 ## 桌面人工验收
 
-通用准备、证据记录、安全与退出用例见 [完整人工测试手册](MANUAL-INTEGRATION-TEST.md)。以下步骤补充 dsh 特有差异；尚未执行的真实远程用例不得标为通过。
+通用准备、证据记录、安全与退出用例见 [完整人工测试手册](archive/MANUAL-INTEGRATION-TEST.md)。以下步骤补充 dsh 特有差异；尚未执行的真实远程用例不得标为通过。
 
 1. 创建不含真实项目或密钥的专用工作区，写入 `input.txt`，内容 `HARBOR-DSH-INPUT`；工作区不能包含 dsh 安装目录。记下实际批准的 MCP 工具名、输入 schema、预期只读返回。
 2. 从上述终端启动新构建应用。顶栏必须显示“真实绑定”，在“执行 Agent”选择 `DeepSeek dsh`，点击“重新检测”；预期显示 `0.2.1-rc.2`、可用，模型 profile 为只读的 `dsh-model`。未安装或版本不支持时不可开始。

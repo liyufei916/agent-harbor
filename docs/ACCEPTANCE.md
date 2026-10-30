@@ -77,20 +77,43 @@ D1–D5 支持并行开发与联调；I1–I11 支持本次真实闭环判断。
 
 ## 2026-10-25 Wails v3 升级检查
 
-D1 的绑定生成已执行；原生 WebView 冒烟通过生成绑定校验 DTO、业务错误、Go→JS 中文事件及最后窗口关闭回调。Go/CLI/前端 runtime 均固定 3.0.0-beta.34。命令与证据范围见 [升级验证](WAILS-V3-ASSESSMENT.md)。本项未使用真实凭据、未运行真实模型/MCP 任务，也未人工选择系统目录，不能据此将 I1–I11 整体改为通过。
+D1 的绑定生成已执行；原生 WebView 冒烟通过生成绑定校验 DTO、业务错误、Go→JS 中文事件及最后窗口关闭回调。Go/CLI/前端 runtime 均固定 3.0.0-beta.34。命令与证据范围见 [升级验证](archive/WAILS-V3-ASSESSMENT.md)。本项未使用真实凭据、未运行真实模型/MCP 任务，也未人工选择系统目录，不能据此将 I1–I11 整体改为通过。
 
 ## 2026-10-25 联调准入缺陷修复
 
-连接重定向/假成功、在途撤销、桌面准入与前端事件问题已修复并加入回归；退出失败可保留窗口重试，受限绑定仅七个方法。证据与范围见 [ABC 修复进展](ABC-INTEGRATION-REVIEW.md#修复进展)。独立 Postman 上游模拟已实际收到真实 Go HTTP 客户端请求；前端 11 项测试及实际 WebView 关闭通过。上述证据不改变真实 I1/I2 和完整 I3–I11 待执行的状态。
+连接重定向/假成功、在途撤销、桌面准入与前端事件问题已修复并加入回归；退出失败可保留窗口重试，受限绑定仅七个方法。证据与范围见 [ABC 修复进展](archive/ABC-INTEGRATION-REVIEW.md#修复进展)。独立 Postman 上游模拟已实际收到真实 Go HTTP 客户端请求；前端 11 项测试及实际 WebView 关闭通过。上述证据不改变真实 I1/I2 和完整 I3–I11 待执行的状态。
 
 ## 2026-10-25 P0-C-DOC-3 草稿状态（产品 C）
 
 | 编号 | 状态 | 说明 |
 |---|---|---|
-| I1 | **待重测** | 桌面 live：隔离就绪 + 连模型（DeepSeek 等）+ 可选 MCP。填空见 [evidence-template](../demos/evidence-template.md) |
-| I2 | **待重测** | Claude 已切 OS PTY + AllowDescendants；工作台 xterm。须脱敏证据：running、xterm 输出、无 spawn EPERM。话术见 [demos/README](../demos/README.md) |
+| I1 | **待重测** | 桌面 live：隔离就绪 + 连模型 + 可选 MCP。步骤见 [I1-I2-LIVE](../demos/I1-I2-LIVE.md)；填空 [evidence-template](../demos/evidence-template.md) |
+| I2 | **待重测** | Claude OS PTY + AllowDescendants；工作台对话区。须脱敏证据：running、输出、无 spawn EPERM。步骤同上；话术 [demos/README](../demos/README.md) |
 | 扩权 live | **待重测** | 跨主机重定向 / 未授权出站 → Modal；project 记住并注入下轮会话 |
 | I8 / I10 / I11 | 待执行 | 依赖 I2 通路 |
 | D4 | 通过（mock） | 见 §4.1；不计 I |
 
 **口径**：mock ≠ I 通过。工程已具备：AllowDescendants 杀树、Claude Terminal、xterm、Gate `authorizeOutboundHost` + 记住主机种子。缺的是 **本机 live 脱敏证据**，不是方法占位。
+
+## 2026-10-30 I3 / I4 / I5 工程证据（平台探针 · 非正式 live 关单）
+
+下列记录**不等于**「真实 Agent + 真实上游」关单；状态为「平台探针通过 / live 待补」。正式 live 仍用 [evidence-template](../demos/evidence-template.md) 填空。
+
+| 编号 | 状态 | 时间 | 操作与证据（脱敏） | 下一步 |
+|---|---|---|---|---|
+| I3 | **平台探针通过 / live 待补** | 2026-10-30 | Keychain fail-closed（无静默文件回退）+ `security -i`/`-X`；Gate Sentinel 兑换；`redact` 单测；公开事件不含完整 Key。命令：`go test ./internal/secrets ./internal/gate -count=1` | 用可轮换测试 Key 跑一次真实会话，确认 Agent env 仅 Sentinel |
+| I4 | **平台探针通过 / live 待补** | 2026-10-30 | `TestMacOSFileBoundaryAndNoFork`（`harbor_platform`）：工作区读写允许；区外文件/符号链接逃逸/fork → 退出 13。Darwin 25·arm64 本机：`go test -race -tags harbor_platform ./internal/runtime -run FileBoundary` | 真实 Claude 任务改工作区文件并尝试读区外路径，截脱敏审计 |
+| I5 | **平台探针通过 / live 待补** | 2026-10-30 | `TestMacOSExactGateNetwork`：仅允许的 loopback Gate 端口可达；其它端口 / unix socket 拒。同上 tags | live 会话诱导未授权出站，确认 Seatbelt 拒而非仅 Gate 业务层 |
+
+### 导回成功态（画面 + 一行日志）
+
+话术与填空见 [demos/syncback-evidence.md](../demos/syncback-evidence.md)。工程旁证：`TestSyncWorkspaceOverwritesAndKeepsExtra`。
+
+示例日志（源目录确认，路径脱敏）：
+
+```text
+$ ls -la "$SOURCE_WORKSPACE/SYNCBACK_DEMO.md"
+-rw-------  1 user  staff  18 Oct 30 10:00 SYNCBACK_DEMO.md
+$ grep -n harbor-syncback-ok "$SOURCE_WORKSPACE/SYNCBACK_DEMO.md"
+1:harbor-syncback-ok
+```

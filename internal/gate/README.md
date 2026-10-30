@@ -12,8 +12,10 @@
 | `stream.go` | 单次请求 60 秒空闲（有数据则重置）与 10 分钟总超时 |
 | `redact.go` | 响应分块中抹掉 Sentinel 与真实凭据 |
 | `sentinel.go` | 至少 32 字节安全随机令牌的生成与校验 |
-| `connections.go` | ConnectModel / ConnectMcp：先探测再写入 Secrets |
+| `connections.go` | ConnectModel / ConnectMcp（含 `transport=stdio` → `mcpstdio` 桥） |
 | `gate_test.go` | 反代改写、工具过滤、空闲超时、撤销、连接探测 |
+
+宿主 stdio 实现见旁包 [`internal/mcpstdio`](../mcpstdio/)；桌面层 `AdoptStdioBridge` 保活回环进程。
 
 ## 依赖与边界
 

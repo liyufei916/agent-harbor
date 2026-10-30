@@ -4,7 +4,7 @@
 |---|---|
 | 日期 | 2026-10-25 |
 | 结论 | **可以按 ABC 并行开工**；契约与范围已定；下列「未拍板」不挡 mock / `UNIMPLEMENTED` 并行 |
-| 真源 | [PAGE-DESIGN](PAGE-DESIGN.md) · [CONTRACT v1.2](CONTRACT.md) · [SYSTEM-DESIGN v2](SYSTEM-DESIGN.md) · [TASK-SPLIT v2.0](TASK-SPLIT-ABC.md) |
+| 真源 | [PAGE-DESIGN](PAGE-DESIGN.md) · [CONTRACT v1.2](CONTRACT.md) · [SYSTEM-DESIGN v2](SYSTEM-DESIGN.md) · [TASK-SPLIT v2.0](archive/TASK-SPLIT-ABC.md) |
 
 ---
 
@@ -14,7 +14,7 @@
 |---|---|---|
 | 产品屏 / 导航 | PAGE-DESIGN v1.1 | **齐**（桌面 App；浏览器仅 mock 预览） |
 | 方法 / DTO / 事件 | CONTRACT v1.2 | **齐**（含 OAuth/PTY/clone/SwitchModel） |
-| 屏 ↔ API | PAGE-API-MAP | **齐** |
+| 屏 ↔ API | PAGE-DESIGN §9 | **齐** |
 | 模块所有权 / 易混主责 | SYSTEM-DESIGN §3 + **§6.1** | **齐** |
 | 任务卡 / 依赖 | TASK-SPLIT v2.0 | **齐** |
 | 包替身 | MODULE-DESIGN | **齐**（口径已跟全量） |
@@ -31,7 +31,7 @@
 | 1 | 默认挂载 direct vs clone | 向导默认 **`clone`（安全副本）**；可选改 `direct`（强警告） | PAGE §5.3；ARCHITECTURE §10 |
 | 2 | 内嵌 PTY vs 外置终端 | **内嵌 PTY**（工作台）；不做唤起外部终端连沙箱 | PAGE §5.4；CONTRACT API-09 |
 | 3 | 是否只做 microVM | **本分支不挡主路径**：继续 Seatbelt / 严格进程隔离；microVM 仍 backlog（P1-A-07） | TASK-SPLIT；DEV-A |
-| 4 | 本地 stdio MCP | **V1 不做**；仅远程 Streamable HTTP（Token 或 OAuth） | CONTRACT / MVP 认证 MCP；PAGE 工具页 |
+| 4 | 本地 stdio MCP | **宿主侧已做**：stdio 进程 + 回环 HTTP 桥；沙箱仍只见 Gateway | CONTRACT / `internal/mcpstdio`；工具页 |
 | 5 | 品牌情绪文案 | **不挡开发**；沿用现有「密钥留在本机 · Agent 隔离运行」；对外口号可后改 | PAGE §3 |
 
 ---
@@ -82,10 +82,24 @@
 ## 6. 明确不做（本分支仍禁止误开）
 
 - 当网站做（无公网托管控制面）
-- 本地 stdio MCP、读浏览器密码库、关闭隔离开关、全网允许扩权
+- 在**沙箱内**拉起 stdio MCP / 把密钥写进 Agent 配置（宿主侧 stdio + 回环桥除外，见 §2 项 4）
+- 读浏览器密码库、关闭隔离开关、全网允许扩权
 - 用 mock / UNIMPLEMENTED 冒充 I1–I11
 - 手改 `frontend/bindings/`、前端直连上游
 - 按 MVP「延后」列砍 OAuth/clone/PTY
+
+## 7. 文档同步（每次优化必做）
+
+改能力或产品口径时，**同一批变更**同步受影响的 md，禁止代码已变文档仍写「禁止 / 未做」：
+
+| 变更类型 | 至少更新 |
+|---|---|
+| API / DTO / 错误码 | [CONTRACT](CONTRACT.md)、`internal/contracts` 旁注、[PAGE-DESIGN §9](PAGE-DESIGN.md#9-与架构-api-的绑定) |
+| 架构路径（Gate/stdio/Runtime） | [ARCHITECTURE](ARCHITECTURE.md)、[DESIGN](DESIGN.md) 相关开放问题、模块 README |
+| 产品页能力 / 边界文案 | [PAGE-DESIGN](PAGE-DESIGN.md)、[README](../README.md)、`frontend/src/usage-guide.js`、[demos/README](../demos/README.md) |
+| 装配 / OAuth / 发布 | [DEV-B](DEV-B.md)、[DECISIONS](DECISIONS.md)、Release/CI 说明 |
+| 验收证据 | [ACCEPTANCE](ACCEPTANCE.md)、`demos/*evidence*` |
+| 目录新增包 | [DIRECTORY-STRUCTURE](DIRECTORY-STRUCTURE.md)、[internal/README](../internal/README.md) |
 
 ---
 

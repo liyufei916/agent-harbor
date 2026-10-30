@@ -30,48 +30,44 @@ agent-harbor/
 │   │   └── session_test.go
 │   ├── runtime/                 # A：操作系统隔离与进程树管理
 │   │   ├── runtime.go           # 后端接口与句柄
-│   │   ├── macos.go             # macOS 限制与健康检查
+│   │   ├── macos.go             # macOS Seatbelt 实现
+│   │   ├── default_darwin.go    # NewDefault → NewMacOS
+│   │   ├── default_stub.go      # 非 Darwin：ISOLATION_UNAVAILABLE
 │   │   ├── sandbox.sb           # 随应用嵌入的 Seatbelt 模板
-│   │   └── runtime_test.go
+│   │   └── *_test.go
+│   ├── mcpstdio/                # B：宿主 stdio MCP → 回环 HTTP 桥
+│   │   ├── bridge.go
+│   │   └── testdata/fake_mcp.py
 │   ├── kits/                    # A：无真实凭据的 Agent 启动适配
-│   │   ├── kit.go               # 适配接口、能力描述及 LaunchSpec
-│   │   └── claude/              # 唯一必交适配，实测后记录支持版本
-│   │       ├── claude.go
-│   │       └── claude_test.go
+│   │   ├── kit.go
+│   │   ├── claude/ · codex/ · dsh/
 │   ├── gate/                    # B：Harbor Gate
-│   │   ├── gate.go              # 监听器、会话绑定与撤销
-│   │   ├── model_proxy.go       # 固定模型上游的流式反向代理
-│   │   ├── mcp_gateway.go       # 真实 MCP 协议及工具转发
-│   │   ├── sentinel.go          # 随机会话能力及校验
-│   │   └── gate_test.go
-│   ├── policy/                  # B：工作区、固定目标与工具授权快照
-│   │   ├── policy.go
-│   │   └── policy_test.go
-│   ├── secrets/                 # B：仅宿主机内存凭据
-│   │   ├── store.go
-│   │   └── store_test.go
-│   └── desktop/                 # B：DesktopAPI、错误转换、注入 A 的编排
+│   │   ├── gate.go · model_proxy.go · mcp_gateway.go · connections.go
+│   │   └── sentinel.go
+│   ├── policy/                  # B：工作区、固定目标与工具授权快照（含 stdio loopback）
+│   ├── secrets/                 # B：Keychain（Darwin fail-closed）/ 文件库
+│   └── desktop/                 # B：DesktopAPI、OAuth/DCR、stdio 桥保活、wire NewDefault
 │
 ├── frontend/                    # C：配置与工作台；B 配合绑定生成/构建
-│   ├── index.html
-│   ├── package.json
 │   ├── src/
-│   │   ├── main.js              # 页面装配、事件订阅与取消订阅
-│   │   ├── api.js               # 封装生成绑定，向视图提供业务方法
-│   │   ├── mock-api.js          # C：浏览器独立的同契约模拟 transport
-│   │   ├── views/
-│   │   │   ├── setup.js         # 模型/MCP 连接、工作区与任务输入
-│   │   │   └── session.js       # 状态、输出、活动与停止
-│   │   └── styles.css
+│   │   ├── main.js · api.js · mock-api.js · usage-guide.js
+│   │   ├── usage-analytics.js   # 本机使用概况（不外传）
+│   │   ├── agent-install.js     # 复制安装命令
+│   │   └── views/               # home/wizard/models/tools/settings/session/…
 │   ├── bindings/                # Wails v3 生成绑定，不手改
-│   └── dist/                    # 前端构建产物，不手写
+│   └── dist/
+│
+├── .github/workflows/
+│   ├── ci.yml                   # 测试、打包、上传 AgentHarbor-macos.zip
+│   └── release.yml              # v* / 手动 → GitHub Releases
 │
 ├── security/                    # A 主责，B/C 配合的跨模块安全验收
-│   ├── README.md
-│   ├── checks.py                # 实现后检查受限进程，不能默认在宿主机跑探测
-│   └── fixtures/                # 按需添加无敏感信息测试样例
-├── demos/                       # C：前置条件、演示步骤、测试任务与说明
-│   └── README.md
+│   ├── checks.py · seatbelt_probe.py
+│   ├── test_checks.py · test_sandbox_profile.py  # 可移植 deny-default 等
+│   └── fixtures/
+├── demos/                       # C：演示话术、导回证据、工作区
+│   ├── README.md · syncback-evidence.md · evidence-template.md
+│   └── workspace/
 ├── docs/
 │   ├── DIRECTORY-STRUCTURE.md   # 本文
 │   ├── MODULE-DESIGN.md         # 当前模块边界、依赖、替身与并行安排

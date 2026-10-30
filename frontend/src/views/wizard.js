@@ -4,6 +4,8 @@
  */
 import * as api from "../api.js";
 import { expectedModelProfile, filterModelsForAgent } from "../agent-compat.js";
+import { AGENT_INSTALL, copyText } from "../agent-install.js";
+import { showToast } from "../toast.js";
 
 const STEPS = ["workspace", "agent", "model", "tools"];
 
@@ -118,16 +120,25 @@ export function mountWizard(root, ctx, opts = {}) {
       body = `
         <h2>选择 Agent</h2>
         <p class="sub">预置列表；未安装灰显。<button type="button" class="btn" id="wz-redetect">重新检测</button></p>
+        <p class="meta warn">须本机 PATH 可调用对应 CLI（Claude：<code>claude</code>；Codex：<code>codex</code>+<code>node</code>；dsh：固定预览版）。隔离仅 Darwin 25 · arm64 · 非 root。</p>
         <div class="agent-grid" id="wz-agents">
           ${agents
-            .map(
-              (a) => `
-            <button type="button" class="agent-card ${draft.agentId === a.id ? "on" : ""} ${a.available ? "" : "disabled"}" data-id="${a.id}" ${a.available ? "" : "disabled"}>
-              <strong>${a.name}</strong>
-              <span class="meta">${a.available ? "● 可用" : "○ 未安装"} ${a.version || ""}</span>
-              ${a.available ? "" : `<span class="meta">${a.reason || "请安装后重试"}</span>`}
-            </button>`,
-            )
+            .map((a) => {
+              const install = AGENT_INSTALL[a.id];
+              return `
+            <div class="agent-card-wrap">
+              <button type="button" class="agent-card ${draft.agentId === a.id ? "on" : ""} ${a.available ? "" : "disabled"}" data-id="${a.id}" ${a.available ? "" : "disabled"}>
+                <strong>${a.name}</strong>
+                <span class="meta">${a.available ? "● 可用" : "○ 未安装"} ${a.version || ""}</span>
+                ${a.available ? "" : `<span class="meta">${a.reason || "请安装后重试"}</span>`}
+              </button>
+              ${
+                !a.available && install
+                  ? `<button type="button" class="btn" data-copy-install="${a.id}">复制安装命令</button>`
+                  : ""
+              }
+            </div>`;
+            })
             .join("")}
         </div>
       `;
@@ -152,6 +163,7 @@ export function mountWizard(root, ctx, opts = {}) {
       body = `
         <h2>需要哪些工具？（可跳过）</h2>
         <p class="sub">MCP 可跨 Agent 挂载（与模型不同）。未添加的请先去「工具」页。</p>
+        <p class="meta">可挂远程 HTTP MCP，或工具页添加的宿主 stdio（本机进程经回环桥）。</p>
         <div id="wz-mcps">
           ${
             mcps.length
@@ -246,6 +258,13 @@ export function mountWizard(root, ctx, opts = {}) {
             ctx.state.modelAccount = null;
           }
           paint();
+        };
+      });
+      wrap.querySelectorAll("[data-copy-install]").forEach((btn) => {
+        btn.onclick = async () => {
+          const id = btn.getAttribute("data-copy-install");
+          const okCopy = await copyText(AGENT_INSTALL[id]?.cmd || "");
+          showToast(okCopy ? "已复制安装命令" : "复制失败，请手动选择命令", okCopy ? "ok" : "bad");
         };
       });
       const ok = (ctx.state.agents || []).some((a) => a.id === draft.agentId && a.available);

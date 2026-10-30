@@ -33,6 +33,12 @@ type ConnectInput struct {
 	SkipProbe bool   `json:"skipProbe,omitempty"`
 	// Agents：该模型可供哪些 Agent 选用；空则按 profileId 默认单 Agent。
 	Agents []string `json:"agents,omitempty"`
+	// Transport：空/http=远程 HTTP；stdio=宿主侧本地进程（经回环桥，密钥不进沙箱）。
+	Transport string `json:"transport,omitempty"`
+	// Command / Args / Env：仅 transport=stdio；Command 须绝对路径；Env 只存本机凭据库。
+	Command string            `json:"command,omitempty"`
+	Args    []string          `json:"args,omitempty"`
+	Env     map[string]string `json:"env,omitempty"`
 }
 
 // AccountInfo 是脱敏后的账号元信息。
@@ -49,6 +55,9 @@ type AccountInfo struct {
 	Agents    []string `json:"agents,omitempty"`   // 可选用的 Agent id；空=仅按 profileId 单绑
 	// Protocols：连接时实际探测成功的协议（anthropic / openai-responses）；开会话按 Agent 校验。
 	Protocols []string `json:"protocols,omitempty"`
+	Transport string   `json:"transport,omitempty"` // stdio | 空(http)
+	Command   string   `json:"command,omitempty"`   // stdio 可执行文件（绝对路径），无密钥
+	AuthMode  string   `json:"authMode,omitempty"`  // token | oauth | stdio
 }
 
 // SessionSpec 是创建会话的前端请求。
@@ -129,10 +138,12 @@ type SessionsResponse struct {
 
 // RuntimeHealthResponse 是隔离/Runtime 探测结果（扁平字段）。
 type RuntimeHealthResponse struct {
-	Available      bool      `json:"available"`
-	Reason         string    `json:"reason"`
-	IsolationLevel string    `json:"isolationLevel,omitempty"`
-	Error          *AppError `json:"error"`
+	Available      bool   `json:"available"`
+	Reason         string `json:"reason"`
+	IsolationLevel string `json:"isolationLevel,omitempty"`
+	// VaultNotice：凭据介质告警（如 Keychain 不可用）；空表示正常。禁止含密钥。
+	VaultNotice string    `json:"vaultNotice,omitempty"`
+	Error       *AppError `json:"error"`
 }
 
 // PermissionOverview 是权限一览只读摘要；禁止含 Key/Sentinel。
@@ -237,9 +248,12 @@ type StartMcpOAuthInput struct {
 
 // McpOAuthResponse OAuth 启动结果。
 type McpOAuthResponse struct {
-	AuthURL   string    `json:"authUrl"`
-	PendingID string    `json:"pendingId"`
-	Error     *AppError `json:"error"`
+	AuthURL      string    `json:"authUrl"`
+	PendingID    string    `json:"pendingId"`
+	RedirectURI  string    `json:"redirectUri,omitempty"`  // 须在 IdP 登记的回环回调
+	ClientID     string    `json:"clientId,omitempty"`     // 实际使用的 client_id（勿当密钥）
+	ClientSource string    `json:"clientSource,omitempty"` // env | dcr | default
+	Error        *AppError `json:"error"`
 }
 
 // PtyInput PTY 写入或改尺寸。

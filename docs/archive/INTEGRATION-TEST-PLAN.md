@@ -1,6 +1,6 @@
 # 正式联调操作步骤
 
-本轮启动日期：2026-10-25。验收编号和最终标准以 [ACCEPTANCE.md](ACCEPTANCE.md) 为准，执行结果记录于 [本轮报告](INTEGRATION-TEST-RESULTS.md)。准入回归通过后，仍须执行真实模型、真实认证 MCP 和真实 Agent 任务。
+本轮启动日期：2026-10-25。验收编号和最终标准以 [ACCEPTANCE.md](../ACCEPTANCE.md) 为准，执行结果记录于 [本轮报告](INTEGRATION-TEST-RESULTS.md)。准入回归通过后，仍须执行真实模型、真实认证 MCP 和真实 Agent 任务。
 
 逐项点击、可复制的任务与命令、预期结果和故障定位见 [完整人工测试手册](MANUAL-INTEGRATION-TEST.md)。该手册区分真实桌面、工程师受控验证与浏览器 mock，不将未执行用例记为通过。
 

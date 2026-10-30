@@ -2,12 +2,17 @@
  * PAGE-DESIGN §5.8 设置（本机默认；无关闭隔离）
  */
 import * as api from "../api.js";
+import { AGENT_INSTALL, copyText } from "../agent-install.js";
 import { showToast } from "../toast.js";
 import {
   freshCheckItems,
   paintCheckList,
   runIsolationProbe,
 } from "../isolation-checks.js";
+import {
+  clearUsageAnalytics,
+  summarizeUsage,
+} from "../usage-analytics.js";
 
 export function mountSettings(root, ctx) {
   root.innerHTML = `
@@ -16,7 +21,8 @@ export function mountSettings(root, ctx) {
 
     <section class="card">
       <h3>Agent 检测</h3>
-      <p class="meta" id="settings-agent">—</p>
+      <p class="meta">须本机预装 CLI；隔离仅 <strong>macOS Darwin 25 · arm64 · 非 root</strong>。MCP 仅远程 HTTP（无本地 stdio）。</p>
+      <div class="meta" id="settings-agent">—</div>
       <button type="button" class="btn" id="btn-refresh-agents">重新检测</button>
     </section>
 
@@ -79,8 +85,19 @@ export function mountSettings(root, ctx) {
     </section>
 
     <section class="card" style="margin-top:12px">
+      <h3>本机使用概况</h3>
+      <p class="meta">仅存本机 localStorage，不外传。复用审计事件与会话终态。</p>
+      <div class="meta" id="usage-stats">—</div>
+      <div class="actions">
+        <button type="button" class="btn" id="btn-refresh-usage">刷新</button>
+        <button type="button" class="btn" id="btn-clear-usage">清除本地统计</button>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:12px">
       <h3>关于</h3>
-      <p class="meta">对照 PAGE-DESIGN 全量（已合入 main）。</p>
+      <p class="meta" id="about-run-mode">运行模式：检测中…</p>
+      <p class="meta">对照 PAGE-DESIGN 全量（已合入 main）。可安装包见 GitHub Releases / CI Artifacts。</p>
       <div class="isolation-checks-head">
         <p class="meta" style="margin:0">隔离能力检测</p>
         <button type="button" class="btn" id="btn-toggle-health-checks" aria-expanded="false" aria-controls="about-health-checks-wrap">
@@ -91,6 +108,7 @@ export function mountSettings(root, ctx) {
         <ul class="block-checks" id="about-health-checks"></ul>
       </div>
       <p class="meta" id="about-health" role="status">—</p>
+      <p class="meta warn hidden" id="about-vault" role="status"></p>
       <p class="meta hidden" id="about-onboard-note"></p>
       <div class="actions">
         <button type="button" class="btn" id="btn-rehealth">重新检测隔离</button>
@@ -136,13 +154,30 @@ export function mountSettings(root, ctx) {
       return;
     }
     el.innerHTML = (res.agents || [])
-      .map(
-        (a) =>
-          `${a.available ? "●" : "○"} ${a.name} ${a.version || ""} ${
-            a.available ? "" : "· " + (a.reason || "")
-          }`,
-      )
-      .join("<br/>");
+      .map((a) => {
+        const install = AGENT_INSTALL[a.id];
+        const miss = !a.available;
+        return `<div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px;margin:6px 0">
+          <div>
+            ${a.available ? "●" : "○"} <strong>${a.name}</strong> ${a.version || ""}
+            ${miss ? `<span class="meta"> · ${a.reason || "未安装"}</span>` : ""}
+            ${miss && install ? `<p class="meta" style="margin:4px 0 0">${install.hint}</p>` : ""}
+          </div>
+          ${
+            miss && install
+              ? `<button type="button" class="btn" data-copy-install="${a.id}">复制安装命令</button>`
+              : ""
+          }
+        </div>`;
+      })
+      .join("");
+    el.querySelectorAll("[data-copy-install]").forEach((btn) => {
+      btn.onclick = async () => {
+        const id = btn.getAttribute("data-copy-install");
+        const ok = await copyText(AGENT_INSTALL[id]?.cmd || "");
+        showToast(ok ? "已复制安装命令" : "复制失败，请手动选中命令", ok ? "ok" : "bad");
+      };
+    });
     ctx.state.agents = res.agents || [];
   }
 
@@ -244,6 +279,35 @@ export function mountSettings(root, ctx) {
     el.onchange = savePrefs;
   });
   loadPrefs();
+  function paintUsage() {
+    const el = root.querySelector("#usage-stats");
+    if (!el) return;
+    const s = summarizeUsage();
+    const top =
+      s.topFailures.length === 0
+        ? "<li class='meta'>暂无</li>"
+        : s.topFailures.map((f) => `<li>${f.label} · ${f.count}</li>`).join("");
+    el.innerHTML = `
+      <p>会话样本：${s.sessions} · 审计条数：${s.auditTotal}</p>
+      <p>首任务成功率：${s.firstTaskSuccessRate}</p>
+      <p>越权拒绝率：${s.denyRate}</p>
+      <p>工具调用失败率：${s.mcpFailRate}</p>
+      <p>典型失败 Top：</p>
+      <ul class="audit-list">${top}</ul>`;
+  }
+  paintUsage();
+  root.querySelector("#btn-refresh-usage")?.addEventListener("click", paintUsage);
+  root.querySelector("#btn-clear-usage")?.addEventListener("click", () => {
+    clearUsageAnalytics();
+    paintUsage();
+    showToast("已清除本机使用统计", "ok");
+  });
+  const runMode = root.querySelector("#about-run-mode");
+  if (runMode) {
+    runMode.textContent = api.isMock()
+      ? "运行模式：模拟（浏览器 mock）— 不能当真实验收"
+      : "运行模式：真实绑定（桌面后端）";
+  }
   const sel = root.querySelector("#scenario");
   if (sel) {
     sel.value = api.getMockScenario();
@@ -291,9 +355,22 @@ export function mountSettings(root, ctx) {
           paintCheckList(aboutChecks, items);
         },
       });
+      const vaultEl = root.querySelector("#about-vault");
+      if (vaultEl) {
+        if (h?.vaultNotice) {
+          vaultEl.textContent = h.vaultNotice;
+          vaultEl.classList.remove("hidden");
+        } else {
+          vaultEl.textContent = "";
+          vaultEl.classList.add("hidden");
+        }
+      }
       if (h?.available) {
         el.innerHTML = `<span class="ok">● 隔离可用 ${h.isolationLevel || ""}</span>`;
-        showToast("隔离检测通过", "ok");
+        showToast(
+          h?.vaultNotice ? "隔离通过；凭据库有告警，见关于" : "隔离检测通过",
+          h?.vaultNotice ? "bad" : "ok",
+        );
       } else {
         el.innerHTML = `<span class="bad">○ ${h?.reason || "不可用"}</span>`;
         showToast(h?.reason || "隔离不可用", "bad");
