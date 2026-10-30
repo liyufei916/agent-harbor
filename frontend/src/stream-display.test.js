@@ -69,8 +69,26 @@ test("stream-display 展示 Read 缺 file_path 的完整要点", () => {
       },
     }) + "\n";
   const out = d.push(chunk);
-  assert.match(out, /file_path/);
-  assert.match(out, /missing/);
+  assert.match(out, /读取缺少文件路径|file_path/);
+});
+
+test("stream-display 将 File does not exist 中文化", () => {
+  const d = createStreamDisplay();
+  const chunk =
+    JSON.stringify({
+      type: "user",
+      message: {
+        content: [
+          {
+            type: "tool_result",
+            is_error: true,
+            content: "<tool_use_error>File does not exist.</tool_use_error>",
+          },
+        ],
+      },
+    }) + "\n";
+  const out = d.push(chunk);
+  assert.match(out, /找不到该文件/);
 });
 
 test("stream-display 跨 chunk 拼完整 JSON 行", () => {

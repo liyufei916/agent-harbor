@@ -1,0 +1,36 @@
+=== RUN   TestMacOSFileBoundaryAndNoFork
+=== RUN   TestMacOSFileBoundaryAndNoFork/read
+=== RUN   TestMacOSFileBoundaryAndNoFork/write
+=== RUN   TestMacOSFileBoundaryAndNoFork/outside
+=== RUN   TestMacOSFileBoundaryAndNoFork/outside-write
+=== RUN   TestMacOSFileBoundaryAndNoFork/symlink
+=== RUN   TestMacOSFileBoundaryAndNoFork/fork
+=== RUN   TestMacOSFileBoundaryAndNoFork/posix-spawn
+=== RUN   TestMacOSFileBoundaryAndNoFork/posix-spawn-new-group
+--- PASS: TestMacOSFileBoundaryAndNoFork (2.41s)
+    --- PASS: TestMacOSFileBoundaryAndNoFork/read (1.07s)
+    --- PASS: TestMacOSFileBoundaryAndNoFork/write (1.08s)
+    --- PASS: TestMacOSFileBoundaryAndNoFork/outside (0.07s)
+    --- PASS: TestMacOSFileBoundaryAndNoFork/outside-write (0.04s)
+    --- PASS: TestMacOSFileBoundaryAndNoFork/symlink (0.04s)
+    --- PASS: TestMacOSFileBoundaryAndNoFork/fork (0.04s)
+    --- PASS: TestMacOSFileBoundaryAndNoFork/posix-spawn (0.04s)
+    --- PASS: TestMacOSFileBoundaryAndNoFork/posix-spawn-new-group (0.04s)
+=== RUN   TestMacOSExactGateNetwork
+=== RUN   TestMacOSExactGateNetwork/gate
+=== RUN   TestMacOSExactGateNetwork/other-port
+=== RUN   TestMacOSExactGateNetwork/other-loopback-ip
+=== RUN   TestMacOSExactGateNetwork/ipv6-same-port
+=== RUN   TestMacOSExactGateNetwork/udp-same-port
+=== RUN   TestMacOSExactGateNetwork/unix-control
+=== RUN   TestMacOSExactGateNetwork/direct-ip
+--- PASS: TestMacOSExactGateNetwork (1.33s)
+    --- PASS: TestMacOSExactGateNetwork/gate (1.05s)
+    --- PASS: TestMacOSExactGateNetwork/other-port (0.07s)
+    --- PASS: TestMacOSExactGateNetwork/other-loopback-ip (0.04s)
+    --- PASS: TestMacOSExactGateNetwork/ipv6-same-port (0.04s)
+    --- PASS: TestMacOSExactGateNetwork/udp-same-port (0.04s)
+    --- PASS: TestMacOSExactGateNetwork/unix-control (0.04s)
+    --- PASS: TestMacOSExactGateNetwork/direct-ip (0.04s)
+PASS
+ok  	github.com/liyufei916/agent-harbor/internal/runtime	5.260s

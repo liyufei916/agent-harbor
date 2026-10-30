@@ -90,7 +90,7 @@ func NewAppWithDataDir(dataDir string) *App {
 			AskClearOnStop:        true,
 			ClearOnStopDefault:    "keep",
 		},
-		hosts:    make(map[string]contracts.RememberedHost),
+		hosts: make(map[string]contracts.RememberedHost),
 	}
 	app.loadPersistedState()
 	app.gate = gate.New(store, pol)

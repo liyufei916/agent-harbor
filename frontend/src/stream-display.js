@@ -3,6 +3,31 @@
  * 支持 Claude --print stream-json 与 Codex exec --json。
  */
 
+/** 将 Agent 英文工具错误压成可操作中文（不含 Key）。 */
+export function humanizeAgentToolError(raw) {
+  const text = String(raw || "").replace(/\s+/g, " ").trim();
+  const lower = text.toLowerCase();
+  if (/not authorized|not allowed|permission|tool.*not.*permit|unknown tool|not in.*allow/i.test(text)) {
+    return "本次会话未授权该工具；请到「工具」页确认白名单后重开会话。";
+  }
+  if (/file does not exist|no such file|enoent|not found.*file/i.test(text)) {
+    return "找不到该文件；确认路径在当前工作区（clone 模式下为副本目录），或先创建再读取。";
+  }
+  if (/file_path.*missing|required parameter.*file_path/i.test(text)) {
+    return "读取缺少文件路径参数；请改用工作区内的明确路径重试。";
+  }
+  if (/inputvalidationerror/i.test(text)) {
+    const brief = text.replace(/^inputvalidationerror:\s*/i, "").slice(0, 120);
+    return `工具参数不合法：${brief || "请检查路径与必填项后重试"}。`;
+  }
+  if (/eperm|operation not permitted|sandbox/i.test(text) || lower.includes("denied")) {
+    return "系统隔离拒绝该操作（工作区外读写或未授权出站）；改回工作区内路径，或在扩权弹窗中决策。";
+  }
+  const lines = text.split(/[.\n]/).map((l) => l.trim()).filter(Boolean);
+  const err = (lines.slice(0, 2).join(" · ") || text || "工具失败").slice(0, 180);
+  return err;
+}
+
 function contentParts(message) {
   const parts = message?.content;
   if (!Array.isArray(parts)) return [];
@@ -45,9 +70,7 @@ function formatClaudeEvent(obj) {
         const raw = String(part.content || "error")
           .replace(/<\/?tool_use_error>/g, "")
           .trim();
-        const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean);
-        const err = (lines.slice(0, 3).join(" · ") || "error").slice(0, 240);
-        out += `✗ ${err}\r\n`;
+        out += `✗ ${humanizeAgentToolError(raw)}\r\n`;
       }
     }
     return out;
