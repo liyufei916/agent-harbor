@@ -119,3 +119,15 @@ $ grep -n harbor-live-i2 demos/workspace/summary.txt
 ```
 
 仍开放：Apple 公证；扩权 GUI 点选补镜（API 已过）；302 异常项按需。导回口播见 [B6-SUCCESS-DEMO](../demos/B6-SUCCESS-DEMO.md)。
+
+## Codex / dsh 真实短任务（待填 · 固定提交）
+
+命令：`go run ./scripts/cmd/agent-task-evidence -agents=codex,dsh`  
+填空与陌生用户路径：[stranger-first-run-record.md](../demos/stranger-first-run-record.md)。**通过项须含本机跑出的报告行**（勿用 Claude 项顶替）。
+
+| Agent | 状态 | 证据（脱敏） |
+|---|---|---|
+| codex | **待执行** | |
+| dsh | **待执行** | |
+
+陌生用户获取→首配→首任务：Release [v0.0.0-ci.8efc0d9](https://github.com/liyufei916/agent-harbor/releases/tag/v0.0.0-ci.8efc0d9) + SHA256 见 `demos/evidence/AgentHarbor-macos-8efc0d9.sha256`；人工勾选表同上。

@@ -22,9 +22,9 @@
 6. HOME → 新会话：选工作区（可用仓库 `demos/workspace`）→ Agent → 模型 → 开始 → 发一条短任务（如「列出当前目录」）  
 7. 失败恢复：设置「重新检测隔离」；`WORKSPACE_BUSY` 先停旧会话；错 Key 会 `UPSTREAM_AUTH_FAILED` 且不成账号
 
-### 陌生用户记录模板（固定提交）
+### 陌生用户记录（固定提交）
 
-复验时在本机记下：提交 SHA、获取来源（Release tag / CI run URL）、校验和是否匹配、Agent（claude/codex/dsh）、是否跑通首任务、扩权点选后是否出现结果提示。勿粘贴 Key。
+填空表：[stranger-first-run-record.md](stranger-first-run-record.md)（获取 → 校验 → 首配 → 首任务；含 Claude/Codex/dsh 矩阵）。勿粘贴 Key。
 
 ## 路径 B：源码开发桌面
 
@@ -48,4 +48,6 @@ npm ci --prefix frontend
 ```bash
 go run ./scripts/cmd/live-acceptance
 go run ./scripts/cmd/i1i2-cmd-evidence
+# Codex / dsh 各一条真实短任务（须本机 CLI + 已存匹配模型）
+go run ./scripts/cmd/agent-task-evidence -agents=codex,dsh
 ```
