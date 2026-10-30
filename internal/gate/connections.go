@@ -272,9 +272,7 @@ func (c *Connections) connect(ctx context.Context, in contracts.ConnectInput, ki
 			}
 		}
 		if profileID == policy.ProfileCustom {
-			if len(tools) == 0 {
-				return contracts.AccountInfo{}, contracts.NewAppError(contracts.ErrUpstreamUnavailable, "MCP 未返回可用工具。请确认地址是 Streamable HTTP MCP 端点（常见以 /mcp 结尾），不是模型 /v1 地址。", true)
-			}
+			// 工具发现为空：仍可保存账号，会话内 call 受空白名单限制（可继续但工具受限）。
 			prof.Tools = append([]string(nil), tools...)
 		}
 	} else if len(customCandidates) > 0 {
@@ -351,6 +349,9 @@ func (c *Connections) connect(ctx context.Context, in contracts.ConnectInput, ki
 		if len(prof.Paths) == 1 && prof.Paths[0] != "/mcp" {
 			meta.BasePath = prof.Paths[0]
 		}
+		if len(meta.Tools) == 0 {
+			meta.OfflineHint = "可继续但工具受限：未发现可用工具，会话内 tools/call 将全部拒绝"
+		}
 	}
 	id, err := c.secrets.Put(ctx, meta, []byte(key))
 	if err != nil {
@@ -426,6 +427,7 @@ func uniqStrings(in []string) []string {
 // 客户端优先提出的版本；接受列表覆盖评审要求的邻近修订。
 const mcpProtocolVersion = "2025-03-26"
 
+// mcpAcceptedProtocolVersions 钉扎邻近修订；未知但形如 YYYY-MM-DD 的版本走宽松协商。
 var mcpAcceptedProtocolVersions = []string{
 	"2025-06-18",
 	"2025-03-26",
@@ -434,10 +436,26 @@ var mcpAcceptedProtocolVersions = []string{
 
 func mcpProtocolAccepted(v string) bool {
 	v = strings.TrimSpace(v)
+	if v == "" {
+		// 上游未回版本时按客户端提出版本协商成功。
+		return true
+	}
 	for _, a := range mcpAcceptedProtocolVersions {
 		if a == v {
 			return true
 		}
+	}
+	// 宽松：符合 MCP 日期版式的修订（避免私有方言硬拒；工具面仍受白名单约束）。
+	if len(v) == 10 && v[4] == '-' && v[7] == '-' {
+		for i, c := range v {
+			if i == 4 || i == 7 {
+				continue
+			}
+			if c < '0' || c > '9' {
+				return false
+			}
+		}
+		return true
 	}
 	return false
 }
@@ -842,9 +860,13 @@ func (c *Connections) probeMCP(ctx context.Context, prof policy.FixedProfile, ke
 	}
 	err = decodeRPC(resp, 1, &initialized)
 	resp.Body.Close()
-	if err != nil || !mcpProtocolAccepted(initialized.Protocol) || len(initialized.Capabilities.Tools) == 0 || string(initialized.Capabilities.Tools) == "null" {
+	if err != nil {
+		return nil, err
+	}
+	if !mcpProtocolAccepted(initialized.Protocol) {
 		return nil, ErrUpstreamDown
 	}
+	toolsCapOK := len(initialized.Capabilities.Tools) > 0 && string(initialized.Capabilities.Tools) != "null"
 	resp, err = c.probeRequest(ctx, prof, key, session, http.MethodPost, []byte(`{"jsonrpc":"2.0","method":"notifications/initialized"}`), modelAuthBearer)
 	if err != nil {
 		return nil, err
@@ -852,6 +874,13 @@ func (c *Connections) probeMCP(ctx context.Context, prof policy.FixedProfile, ke
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusAccepted {
 		return nil, ErrUpstreamDown
+	}
+	// 无 tools 能力：可继续连接但工具受限（空发现集）；固定 profile 仍须登记工具齐全。
+	if !toolsCapOK {
+		if len(prof.Tools) > 0 {
+			return nil, ErrUpstreamDown
+		}
+		return nil, nil
 	}
 	found := map[string]bool{}
 	var discovered []string
@@ -861,7 +890,11 @@ func (c *Connections) probeMCP(ctx context.Context, prof policy.FixedProfile, ke
 		payload, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": map[string]string{"cursor": cursor}})
 		resp, err = c.probeRequest(ctx, prof, key, session, http.MethodPost, payload, modelAuthBearer)
 		if err != nil {
-			return nil, err
+			// 工具发现失败：自定义可降级为空列表；固定 profile 仍硬失败。
+			if len(prof.Tools) > 0 {
+				return nil, err
+			}
+			return nil, nil
 		}
 		var list struct {
 			Tools []struct {
@@ -872,7 +905,10 @@ func (c *Connections) probeMCP(ctx context.Context, prof policy.FixedProfile, ke
 		err = decodeRPC(resp, 2, &list)
 		resp.Body.Close()
 		if err != nil {
-			return nil, err
+			if len(prof.Tools) > 0 {
+				return nil, err
+			}
+			return discovered, nil
 		}
 		for _, tool := range list.Tools {
 			if tool.Name == "" || found[tool.Name] {
@@ -893,12 +929,18 @@ func (c *Connections) probeMCP(ctx context.Context, prof policy.FixedProfile, ke
 			return discovered, nil
 		}
 		if seen[list.NextCursor] {
-			return nil, ErrUpstreamDown
+			if len(prof.Tools) > 0 {
+				return nil, ErrUpstreamDown
+			}
+			return discovered, nil
 		}
 		seen[list.NextCursor] = true
 		cursor = list.NextCursor
 	}
-	return nil, ErrUpstreamDown
+	if len(prof.Tools) > 0 {
+		return nil, ErrUpstreamDown
+	}
+	return discovered, nil
 }
 
 func mapProbeErr(ctx context.Context, err error) error {

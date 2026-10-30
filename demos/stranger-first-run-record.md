@@ -3,6 +3,8 @@
 给复验/评审用：从**获取产物**到**跑通首任务**。**勿粘贴 Key / Sentinel。**  
 操作说明见 [FIRST-RUN.md](FIRST-RUN.md)。多 Agent 命令级证据可用：
 
+> **信任前提（下载页 / 首屏须明示）**：当前 Release **未做 Apple 公证**；Gatekeeper 拦截时走「仍要打开」。钥匙串授权、CLI 缺失分支见下表「失败恢复」。**须非作者本人或新机视角填勾选**（模板非空≠已完成实证）。
+
 ```bash
 go run ./scripts/cmd/agent-task-evidence -agents=codex,dsh
 ```

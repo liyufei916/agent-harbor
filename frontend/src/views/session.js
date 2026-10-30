@@ -24,6 +24,7 @@ import {
 import { recordAudit, recordPermissionDecision } from "../usage-analytics.js";
 import { formatErrorWithHint } from "../error-hints.js";
 import { markTutorialStep } from "../tutorial-progress.js";
+import { healthAllowsStart, healthBlockReason } from "../health-ready.js";
 
 const SWITCH_MODEL_META =
   "仅可切换同 profile / 同主机账号；跨协议或改固定模型名不支持。";
@@ -36,7 +37,7 @@ function escapeAttr(s) {
 }
 
 export function mountSession(root, ctx) {
-  const healthOk = ctx.state.health?.available !== false;
+  const healthOk = healthAllowsStart(ctx.state.health);
 
   root.innerHTML = `
     <div id="sess-empty" class="empty-state">
@@ -226,8 +227,8 @@ export function mountSession(root, ctx) {
   const emptyWizard = root.querySelector("#sess-empty-wizard");
   if (emptyWizard && typeof emptyWizard.addEventListener === "function") {
     emptyWizard.addEventListener("click", () => {
-      if (ctx.state.health?.available === false) {
-        ctx.showBlock?.(ctx.state.health.reason);
+      if (!healthAllowsStart(ctx.state.health)) {
+        ctx.showBlock?.(healthBlockReason(ctx.state.health));
         return;
       }
       ctx.navigate?.("wizard", { fresh: true });

@@ -15,7 +15,7 @@
 
 0. **获取**：优先 [Releases](https://github.com/liyufei916/agent-harbor/releases) 的 `AgentHarbor-macos.zip` + `.sha256`；或 CI Artifact（同名，保留 14 天）。校验：`shasum -a 256 -c AgentHarbor-macos.zip.sha256`  
 1. 解压后打开 `AgentHarbor.app`  
-2. 若 Gatekeeper 拦截：系统设置 → 隐私与安全 → 仍要打开（**未公证**时常见）  
+2. **信任前提**：当前分发 **未公证**；若 Gatekeeper 拦截：系统设置 → 隐私与安全 → 仍要打开（预期路径，非故障）  
 3. 侧栏应显示「隔离就绪」；否则看阻断页文案，**不要**找「仍要继续」  
 4. 「模型」→ 添加：显示名 + Origin + Key → 连接（成功后 Key 清空，列表仅有引用）  
 5. （可选）「工具」→ Token 轨连接只读 MCP；stdio 为高级项（宿主进程，更高信任）  

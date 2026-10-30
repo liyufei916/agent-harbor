@@ -3,6 +3,7 @@
  */
 import * as api from "../api.js";
 import { AGENT_INSTALL, copyText } from "../agent-install.js";
+import { allEnvHintsHTML } from "../agent-env-hints.js";
 import { showToast } from "../toast.js";
 import {
   freshCheckItems,
@@ -19,6 +20,10 @@ export function mountSettings(root, ctx) {
       <p class="meta">Seatbelt：须本机预装 CLI（Darwin 25 · arm64 · 非 root）。Docker：检测/运行用镜像内 CLI。MCP：远程 HTTP（Token/OAuth）或宿主 stdio（进程在宿主机）。</p>
       <div class="meta" id="settings-agent">—</div>
       <button type="button" class="btn" id="btn-refresh-agents">重新检测</button>
+      <details style="margin-top:12px">
+        <summary class="meta">预置 profile 环境变量（Codex / dsh）</summary>
+        ${allEnvHintsHTML()}
+      </details>
     </section>
 
     <section class="card" style="margin-top:12px">

@@ -30,6 +30,7 @@ import {
   tutorialSteps,
 } from "./tutorial-progress.js";
 import { normalizeTier } from "./security-tier.js";
+import { healthAllowsStart, healthBlockReason } from "./health-ready.js";
 
 const badge = document.getElementById("mode-badge");
 const usageGuideBtn = document.getElementById("usage-guide-btn");
@@ -155,8 +156,8 @@ const ctx = {
       showToast("找不到会话记录", "bad");
       return { error: { code: "SESSION_NOT_FOUND", message: "无历史" } };
     }
-    if (ctx.state.health?.available === false) {
-      showBlock(ctx.state.health.reason);
+    if (!healthAllowsStart(ctx.state.health)) {
+      showBlock(healthBlockReason(ctx.state.health));
       return { error: { code: "ISOLATION_UNAVAILABLE", message: "隔离不可用" } };
     }
     const res = await api.startSession(sessionId);
@@ -469,8 +470,8 @@ function navigate(name, opts = {}) {
       setSidebarCollapsed(true, { persist: false });
     }
   }
-  if (ctx.state.health && ctx.state.health.available === false && name === "wizard") {
-    showBlock(ctx.state.health.reason);
+  if (ctx.state.health && !healthAllowsStart(ctx.state.health) && name === "wizard") {
+    showBlock(healthBlockReason(ctx.state.health));
   } else {
     hideBlock();
   }
@@ -478,14 +479,14 @@ function navigate(name, opts = {}) {
 
 function applyHealthToShell(health) {
   ctx.state.health = health;
-  const ok = !!health?.available;
+  const ok = healthAllowsStart(health);
   healthDot.className = `health-dot ${ok ? "ok" : "bad"}`;
   healthText.textContent = ok
-    ? health.provisional
-      ? "隔离就绪（占位）"
-      : "隔离就绪"
-    : "隔离不可用";
-  if (!ok) healthText.title = health?.reason || "点击查看说明";
+    ? "隔离就绪"
+    : health?.provisional
+      ? "隔离未验证（占位）"
+      : "隔离不可用";
+  if (!ok) healthText.title = healthBlockReason(health);
   else healthText.title = "";
   if (ok) markTutorialStep(0);
   const healthEl = document.getElementById("health-light");
@@ -599,7 +600,7 @@ async function boot() {
   });
 
   document.getElementById("health-light")?.addEventListener("click", () => {
-    if (ctx.state.health?.available === false) showBlock(ctx.state.health.reason);
+    if (!healthAllowsStart(ctx.state.health)) showBlock(healthBlockReason(ctx.state.health));
   });
 
   sessionSwitch.onchange = () => {

@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 
@@ -13,6 +14,28 @@ import (
 	"github.com/liyufei916/agent-harbor/internal/orchestrator"
 	"github.com/liyufei916/agent-harbor/internal/runtime"
 )
+
+// attachedSessionService 是 AttachOrchestrator 后桌面必需的完整会话能力。
+// 缺任一方法则启动失败，避免运行时才 unimplemented。
+type attachedSessionService interface {
+	SessionService
+	Start(context.Context, string) (contracts.SessionSnapshot, error)
+	Health(context.Context) error
+	Boundary(context.Context, string) (contracts.PermissionOverview, error)
+	RequestPermission(context.Context, string, contracts.PermissionNeeded) (string, error)
+	ProjectWorkspace(context.Context, string) (string, error)
+	ResolvePermission(context.Context, contracts.ResolvePermissionInput) error
+	SwitchModel(context.Context, contracts.SwitchModelInput) (contracts.SessionSnapshot, error)
+	WritePty(context.Context, contracts.PtyInput) error
+	ResizePty(context.Context, contracts.PtyInput) error
+}
+
+func requireAttachedSessionService(svc any) error {
+	if _, ok := svc.(attachedSessionService); !ok {
+		return fmt.Errorf("session service missing required desktop capabilities")
+	}
+	return nil
+}
 
 // AttachOrchestrator 用研发 A 的 Runtime、Claude/Codex/dsh Kit 与 Orchestrator 接上本进程的 Gate/Policy/Secrets。
 // appCtx 是应用级 context，会话任务从它派生；不要传入已取消的请求 context。
@@ -65,6 +88,9 @@ func (a *App) AttachOrchestrator(appCtx context.Context) error {
 	}
 	a.SetRuntime(rt)
 	a.SetAgentDetector(registryDetector{reg: reg})
+	if err := requireAttachedSessionService(svc); err != nil {
+		return err
+	}
 	a.SetSessionService(svc)
 	return nil
 }

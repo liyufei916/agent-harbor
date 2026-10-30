@@ -80,9 +80,12 @@ jobs:
 
       - name: Generate unit coverage
         run: |
-          go test -coverprofile=coverage.out ./...
+          # 排除 build/android|ios 脚手架（若仍存在）以免 summary 充斥 0.0% 噪音
+          pkgs=$(go list ./... | grep -Ev '/build/(android|ios)(/|$)')
+          go test -coverprofile=coverage.out $pkgs
           go tool cover -func=coverage.out | tee coverage-summary.txt
           python3 scripts/coverage-badge.py coverage-summary.txt coverage.svg
+          echo "$GITHUB_SHA" > coverage-source-sha.txt
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -92,6 +95,7 @@ jobs:
             coverage.out
             coverage-summary.txt
             coverage.svg
+            coverage-source-sha.txt
           retention-days: 7
 
       - name: Run vet
@@ -197,12 +201,13 @@ jobs:
           fi
           cp "$REPORT_DIR/coverage.svg" coverage.svg
           cp "$REPORT_DIR/coverage-summary.txt" coverage-summary.txt
+          cp "$REPORT_DIR/coverage-source-sha.txt" coverage-source-sha.txt
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add coverage.svg coverage-summary.txt
+          git add coverage.svg coverage-summary.txt coverage-source-sha.txt
           if git diff --cached --quiet; then
             echo "覆盖率报告未变化"
             exit 0
           fi
-          git commit -m "更新 main 覆盖率徽章"
+          git commit -m "更新 main 覆盖率徽章 ($(cat coverage-source-sha.txt | cut -c1-7))"
           git push origin HEAD:coverage-badge

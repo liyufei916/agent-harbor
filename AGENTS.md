@@ -90,8 +90,8 @@ Agent Harbor 是安全优先的桌面 Agent 沙箱：在隔离环境中运行 Cl
 ### 完整 V1 会话与请求主路径
 
 - **启动**：校验隔离能力、工作区、Agent、模型账号、并发与工作区冲突 → 生成 Policy 快照（workspace、mount_mode、allow_domains、mcp_ids、agent、model_account_id）→ 创建 Runtime → 启动 Gate → Kit 注入 Sentinel 与网关地址 → 执行 Agent。Runtime、Gate、注入全部就绪后才进入 `running`。
-- **状态机**：`idle → provisioning → running ↔ awaiting_permission → stopping → stopped → destroyed`；准备失败进入 `failed` 并回滚。`stopped` 可保留运行数据并再次启动；销毁删除会话运行数据，保留宿主机密钥。
-- **并发**：V1 同时运行最多 2 条，`awaiting_permission` 也计入；工作区解析为绝对路径并解析符号链接后互斥，同工作区禁止双开。同 Agent、不同工作区可并行，每会话独立 session_id、Sentinel、Policy、Runtime 与审计。
+- **状态机**：`idle → provisioning → running → stopping → stopped → destroyed`；准备失败进入 `failed` 并回滚。扩权等待**不**增加快照态：会话保持 `running`，用 `permission_needed` 事件 + `ResolvePermission`（见 [CONTRACT](docs/CONTRACT.md)）。`stopped` 可保留运行数据并再次启动；销毁删除会话运行数据，保留宿主机密钥。
+- **并发**：V1 同时运行最多 2 条（含扩权等待中的 `running`）；工作区解析为绝对路径并解析符号链接后互斥，同工作区禁止双开。同 Agent、不同工作区可并行，每会话独立 session_id、Sentinel、Policy、Runtime 与审计。
 - **切换模型**：`switchModel(session_id, model_account_id)` 校验已连接账号，更新 Gate 绑定，仅影响后续出站；默认不重建沙箱、不改变 Agent 与工作区。
 - **HTTP(S)**：执行面只能连接 Gate；Proxy 检查域名白名单，需要凭据时验证本会话 Sentinel，再由 Secrets 解析并代填真实密钥。不在白名单的访问触发扩权流程，未经批准不得转发。
 - **MCP**：Agent 仅配置统一 Gateway URL 与 Sentinel；Gateway 校验会话和 MCP 挂载列表后持证访问上游。支持**远程 Streamable HTTP**（Token/OAuth）与**宿主侧 stdio**（本机进程 + 回环 HTTP 桥，`internal/mcpstdio`；密钥与进程留在宿主机，沙箱仍只见 Gateway）。禁止在沙箱内直接拉起 stdio 或写入真实密钥。

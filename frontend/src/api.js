@@ -27,12 +27,17 @@ async function call(method, ...args) {
   try {
     if (typeof transport[method] !== "function") {
       if (method === "getRuntimeHealth") {
+        // 缺绑定不得伪装 available：provisional 占位一律 fail-closed。
         return {
-          available: true,
-          reason: "live 健康检查占位可用",
+          available: false,
+          reason: "桌面未绑定 GetRuntimeHealth，隔离未验证（占位不可用）",
           isolationLevel: "",
           provisional: true,
-          error: null,
+          error: {
+            code: "UNIMPLEMENTED",
+            message: "当前桌面未绑定 GetRuntimeHealth，请重新生成 Wails 绑定后重启。",
+            retryable: false,
+          },
         };
       }
       if (

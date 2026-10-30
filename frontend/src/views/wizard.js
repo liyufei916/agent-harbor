@@ -8,6 +8,8 @@ import { AGENT_INSTALL, copyText } from "../agent-install.js";
 import { showToast } from "../toast.js";
 import { ingressFindings } from "../ingress-check.js";
 import { markTutorialStep } from "../tutorial-progress.js";
+import { envHintHTML } from "../agent-env-hints.js";
+import { healthAllowsStart, healthBlockReason } from "../health-ready.js";
 
 const STEPS = ["workspace", "agent", "model", "tools"];
 
@@ -132,7 +134,7 @@ export function mountWizard(root, ctx, opts = {}) {
           <button type="button" class="btn" id="wz-redetect-early">重新检测 CLI</button>
         </div>
         <div class="card drop-zone">
-          <button type="button" class="btn primary" id="wz-pick">选择文件夹（mock）</button>
+          <button type="button" class="btn primary" id="wz-pick">${api.isMock() ? "选择文件夹（mock）" : "选择文件夹"}</button>
           <button type="button" class="btn" id="wz-pick-b" title="第二条演示路径，用于双会话">演示路径 B</button>
           <p class="meta" id="wz-path">${draft.workspace || "未选择"}</p>
         </div>
@@ -172,6 +174,7 @@ export function mountWizard(root, ctx, opts = {}) {
             })
             .join("")}
         </div>
+        ${envHintHTML(draft.agentId)}
       `;
     } else if (step === 2) {
       const needProfile = expectedModelProfile(draft.agentId, agents);
@@ -227,7 +230,7 @@ export function mountWizard(root, ctx, opts = {}) {
         : `<div class="actions">
             <button type="button" class="btn" id="wz-back">上一步</button>
             <button type="button" class="btn" id="wz-skip">跳过工具</button>
-            <button type="button" class="btn primary" id="wz-start">开始运行</button>
+            <button type="button" class="btn primary" id="wz-start" ${healthAllowsStart(ctx.state.health) ? "" : "disabled"}>开始运行</button>
             <button type="button" class="btn" id="wz-home">返回 HOME</button>
           </div>`;
 
@@ -352,6 +355,11 @@ export function mountWizard(root, ctx, opts = {}) {
         if (skipTools) draft.mcpIds = [];
         draft.task = wrap.querySelector("#wz-task")?.value.trim() || draft.task;
         const msg = wrap.querySelector("#wz-msg");
+        if (!healthAllowsStart(ctx.state.health)) {
+          ctx.showBlock?.(healthBlockReason(ctx.state.health));
+          msg.innerHTML = `<span class="bad">隔离未就绪，禁止开跑</span>`;
+          return;
+        }
         if (!draft.workspace || !draft.modelAccountId || !draft.task) {
           msg.innerHTML = `<span class="bad">请补全工作区、模型与任务</span>`;
           return;

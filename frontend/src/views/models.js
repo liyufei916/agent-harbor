@@ -5,6 +5,7 @@
  */
 import * as api from "../api.js";
 import { defaultAgentsForProfile, modelCompatLabel } from "../agent-compat.js";
+import { fixedProfileHint } from "../agent-env-hints.js";
 import { showToast } from "../toast.js";
 
 const AGENT_OPTS = [
@@ -28,12 +29,12 @@ const FIXED_PRESETS = [
   {
     name: "OpenAI Codex",
     profileId: "codex-model",
-    hint: "Responses API；须已 export HARBOR_CODEX_MODEL_ORIGIN（如 https://api.openai.com）",
+    hint: fixedProfileHint("codex-model"),
   },
   {
     name: "DeepSeek dsh",
     profileId: "dsh-model",
-    hint: "须已 export HARBOR_DSH_MODEL_ORIGIN 等",
+    hint: fixedProfileHint("dsh-model"),
   },
 ];
 

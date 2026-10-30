@@ -2,13 +2,14 @@
  * PAGE-DESIGN §5.2 HOME — 会话中心 running x/2
  */
 import { askConfirm } from "../confirm-dialog.js";
+import { healthAllowsStart, healthBlockReason } from "../health-ready.js";
 
 export function mountHome(root, ctx) {
   const list = ctx.state.sessionHistory || [];
   const running = list.filter((s) =>
     ["provisioning", "running", "stopping"].includes(s.state),
   ).length;
-  const healthOk = ctx.state.health?.available !== false;
+  const healthOk = healthAllowsStart(ctx.state.health);
   const atLimit = running >= 2;
 
   root.innerHTML = `
@@ -63,8 +64,8 @@ export function mountHome(root, ctx) {
   root.querySelector("#empty-tools")?.addEventListener("click", () => ctx.navigate("tools"));
   root.querySelector("#empty-settings")?.addEventListener("click", () => ctx.navigate("settings"));
   root.querySelector("#empty-wizard")?.addEventListener("click", () => {
-    if (ctx.state.health?.available === false) {
-      ctx.showBlock?.(ctx.state.health.reason);
+    if (!healthAllowsStart(ctx.state.health)) {
+      ctx.showBlock?.(healthBlockReason(ctx.state.health));
       return;
     }
     ctx.navigate("wizard", { fresh: true });
@@ -95,8 +96,8 @@ export function mountHome(root, ctx) {
   });
 
   root.querySelector("#btn-new-session").onclick = () => {
-    if (ctx.state.health?.available === false) {
-      ctx.showBlock?.(ctx.state.health.reason);
+    if (!healthAllowsStart(ctx.state.health)) {
+      ctx.showBlock?.(healthBlockReason(ctx.state.health));
       return;
     }
     ctx.navigate("wizard", { fresh: true });
@@ -134,8 +135,8 @@ export function mountHome(root, ctx) {
   });
   listEl.querySelectorAll("[data-again]").forEach((btn) => {
     btn.onclick = async () => {
-      if (ctx.state.health?.available === false) {
-        ctx.showBlock?.(ctx.state.health.reason);
+      if (!healthAllowsStart(ctx.state.health)) {
+        ctx.showBlock?.(healthBlockReason(ctx.state.health));
         return;
       }
       btn.disabled = true;

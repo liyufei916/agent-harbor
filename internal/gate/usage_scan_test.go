@@ -24,12 +24,15 @@ func TestUsageScannerReadsAnthropicAndOpenAIFields(t *testing.T) {
 }
 
 func TestMCPProtocolAcceptedList(t *testing.T) {
-	for _, v := range []string{"2025-03-26", "2024-11-05", "2025-06-18"} {
+	for _, v := range []string{"2025-03-26", "2024-11-05", "2025-06-18", "", "2024-11-05", "2026-01-01"} {
 		if !mcpProtocolAccepted(v) {
-			t.Fatalf("should accept %s", v)
+			t.Fatalf("should accept %q", v)
 		}
 	}
-	if mcpProtocolAccepted("1999-01-01") {
-		t.Fatal("unknown version")
+	if mcpProtocolAccepted("not-a-date") {
+		t.Fatal("non-date version")
+	}
+	if mcpProtocolAccepted("v1") {
+		t.Fatal("opaque version")
 	}
 }
