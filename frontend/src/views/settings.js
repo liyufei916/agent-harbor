@@ -68,6 +68,18 @@ export function mountSettings(root, ctx) {
     </section>
 
     <section class="card" style="margin-top:12px">
+      <h3>安全档位（出站种子）</h3>
+      <p class="meta">新建会话时把档位主机注入 Gate ExtraHosts（project 作用域）；仍无全网放行，陌生主机要扩权。</p>
+      <label class="field">档位
+        <select id="set-security-tier">
+          <option value="strict">严格 — 仅模型/MCP Origin</option>
+          <option value="standard">标准 — +常用包管理源（默认）</option>
+          <option value="relaxed">宽松 — +GitHub 等开发站</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="card" style="margin-top:12px">
       <h3>网络安全 · 已记住的网站</h3>
       <div id="set-hosts" class="meta">加载中…</div>
       <button type="button" class="btn" id="btn-reload-hosts">刷新</button>
@@ -235,6 +247,11 @@ export function mountSettings(root, ctx) {
     return "system";
   }
 
+  function normalizeTierPref(tier) {
+    if (tier === "strict" || tier === "relaxed" || tier === "standard") return tier;
+    return "standard";
+  }
+
   async function loadPrefs() {
     const res = await api.getUIPrefs();
     const prefs = res.prefs || ctx.state.uiPrefs || {};
@@ -247,6 +264,8 @@ export function mountSettings(root, ctx) {
     root.querySelectorAll('input[name="clear-default"]').forEach((el) => {
       el.checked = el.value === clearDef;
     });
+    const tierEl = root.querySelector("#set-security-tier");
+    if (tierEl) tierEl.value = normalizeTierPref(prefs.securityTier);
     syncClearDefaultEnabled();
   }
 
@@ -258,6 +277,9 @@ export function mountSettings(root, ctx) {
       autoCollapseWorkbench: root.querySelector("#set-auto-collapse").checked,
       askClearOnStop: root.querySelector("#set-ask-clear").checked,
       clearOnStopDefault: clearRadio?.value === "clear" ? "clear" : "keep",
+      securityTier: normalizeTierPref(
+        root.querySelector("#set-security-tier")?.value,
+      ),
     };
     const res = await api.setUIPrefs(prefs);
     const st = root.querySelector("#set-prefs-status");
@@ -275,6 +297,7 @@ export function mountSettings(root, ctx) {
   root.querySelector("#set-sidebar-collapsed").onchange = savePrefs;
   root.querySelector("#set-auto-collapse").onchange = savePrefs;
   root.querySelector("#set-ask-clear").onchange = savePrefs;
+  root.querySelector("#set-security-tier")?.addEventListener("change", savePrefs);
   root.querySelectorAll('input[name="clear-default"]').forEach((el) => {
     el.onchange = savePrefs;
   });

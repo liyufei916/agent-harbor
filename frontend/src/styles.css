@@ -746,6 +746,21 @@ label.field textarea { min-height: 88px; resize: vertical; }
   font: inherit;
   font-size: 12px;
 }
+.perm-pending {
+  background: color-mix(in srgb, #c47b2b 35%, transparent);
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, #c47b2b 55%, var(--line));
+}
+.perm-three-q {
+  margin: 12px 0;
+  padding-left: 1.2rem;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.perm-three-q li {
+  margin-bottom: 8px;
+}
 .permission-overview-card {
   width: min(560px, 100%);
   max-height: min(84vh, 720px);

@@ -6,6 +6,8 @@ import * as api from "../api.js";
 import { expectedModelProfile, filterModelsForAgent } from "../agent-compat.js";
 import { AGENT_INSTALL, copyText } from "../agent-install.js";
 import { showToast } from "../toast.js";
+import { ingressFindings } from "../ingress-check.js";
+import { markTutorialStep } from "../tutorial-progress.js";
 
 const STEPS = ["workspace", "agent", "model", "tools"];
 
@@ -101,6 +103,13 @@ export function mountWizard(root, ctx, opts = {}) {
     let body = "";
 
     if (step === 0) {
+      const findings = ingressFindings(draft.workspace);
+      const findLis = findings
+        .map(
+          (f) =>
+            `<li class="${f.level === "warn" ? "bad" : "meta"}"><strong>${f.title}</strong> — ${f.detail}</li>`,
+        )
+        .join("");
       body = `
         <h2>选择工作区</h2>
         <p class="sub">选择要隔离运行的项目文件夹。</p>
@@ -109,9 +118,13 @@ export function mountWizard(root, ctx, opts = {}) {
           <button type="button" class="btn" id="wz-pick-b" title="第二条演示路径，用于双会话">演示路径 B</button>
           <p class="meta" id="wz-path">${draft.workspace || "未选择"}</p>
         </div>
+        <div class="card" style="margin-top:12px">
+          <h3>进舱预检</h3>
+          <ul class="audit-list">${findLis}</ul>
+        </div>
         <p class="meta">浏览器 mock 无系统选目录；桌面 live 才弹面板。SSH 密钥等敏感目录不会进入隔离环境。</p>
         <h3>文件怎么进隔离环境？</h3>
-        <label class="radio"><input type="radio" name="mount" value="clone" ${draft.mountMode === "clone" ? "checked" : ""}/> 安全副本（推荐）— 在副本里改，工作台可一键导回原文件夹</label>
+        <label class="radio"><input type="radio" name="mount" value="clone" ${draft.mountMode === "clone" ? "checked" : ""}/> 安全副本（推荐）— 在副本里改，导回前做出舱审查</label>
         <label class="radio"><input type="radio" name="mount" value="direct" ${draft.mountMode === "direct" ? "checked" : ""}/> 直接编辑 — 改动立刻写回该文件夹</label>
         ${draft.mountMode === "direct" ? `<p class="meta warn">直接编辑会修改所选文件夹中的文件。</p>` : ""}
       `;
@@ -359,6 +372,7 @@ export function mountWizard(root, ctx, opts = {}) {
         ctx.state.lastTask = draft.task;
         ctx.state.wizardResume = null;
         ctx.state.returnAfterAccount = null;
+        markTutorialStep(2);
         ctx.onSessionCreated(res.session, createSpec);
       };
       wrap.querySelector("#wz-skip").onclick = () => start(true);

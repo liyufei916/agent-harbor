@@ -12,8 +12,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Sora:wght@400;500;600&display=swap" rel="stylesheet" />
-    <script type="module" crossorigin src="/assets/index-BoR2tPAe.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-Bpye53iQ.css">
+    <link rel="stylesheet" href="/node_modules/@xterm/xterm/css/xterm.css" />
+    <link rel="stylesheet" href="/src/styles.css" />
   </head>
   <body>
     <div id="onboarding-root" class="onboarding-layer hidden"></div>
@@ -26,6 +26,10 @@
           <span class="meta">当前会话</span>
           <select id="session-switch" aria-label="切换会话"></select>
         </label>
+        <span id="perm-pending-badge" class="badge perm-pending hidden" title="有待决定的扩权请求">待扩权</span>
+        <button type="button" class="btn titlebar-help" id="tutorial-btn" title="使用教程">
+          使用教程
+        </button>
         <button type="button" class="btn titlebar-help" id="usage-guide-btn" title="使用说明">
           使用说明
         </button>
@@ -79,5 +83,6 @@
     </div>
     <div id="block-root" class="block-layer hidden"></div>
     <div id="modal-root" class="modal-layer hidden"></div>
+    <script type="module" src="/src/main.js"></script>
   </body>
 </html>

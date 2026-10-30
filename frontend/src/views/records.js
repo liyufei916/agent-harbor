@@ -1,13 +1,24 @@
 /**
- * PAGE-DESIGN：侧栏「记录」— 本机用量 / 阻拦 / 扩权（不外传）
+ * 侧栏「记录」— 用量 / 阻拦 / 扩权 / 诊断
  */
+import * as api from "../api.js";
 import { showToast } from "../toast.js";
 import {
   clearUsageAnalytics,
+  estimateCostStatus,
+  exportUsageBundle,
   formatEventRow,
   listUsageEvents,
+  loadModelPrices,
+  saveModelPrices,
   summarizeUsage,
 } from "../usage-analytics.js";
+import {
+  TIER_LABELS,
+  hostsForTier,
+  normalizeTier,
+  tierDescription,
+} from "../security-tier.js";
 
 /**
  * @param {HTMLElement} root
@@ -15,10 +26,13 @@ import {
  * @param {{ tab?: string }} [opts]
  */
 export function mountRecords(root, ctx, opts = {}) {
-  let tab = opts.tab === "blocks" || opts.tab === "permissions" ? opts.tab : "usage";
+  const allowed = ["usage", "blocks", "permissions", "diagnose"];
+  let tab = allowed.includes(opts.tab) ? opts.tab : "usage";
 
-  function paint() {
+  async function paint() {
     const s = summarizeUsage();
+    const cost = estimateCostStatus();
+    const prices = loadModelPrices();
     const top =
       s.topFailures.length === 0
         ? "<li class='meta'>暂无</li>"
@@ -28,63 +42,113 @@ export function mountRecords(root, ctx, opts = {}) {
     const perms = listUsageEvents("permissions", { limit: 120 });
     const sessions = listUsageEvents("sessions", { limit: 80 });
 
+    const health = ctx.state.health;
+    const tier = normalizeTier(ctx.state.uiPrefs?.securityTier || "standard");
+    let hosts = [];
+    try {
+      const hr = await api.listRememberedHosts(ctx.state.workspace || "");
+      hosts = hr.hosts || [];
+    } catch {
+      hosts = [];
+    }
+
     root.innerHTML = `
       <h2>记录</h2>
-      <p class="sub">仅存本机浏览器/桌面 localStorage，不外传。密钥与 Sentinel 不会写入此处。</p>
+      <p class="sub">仅存本机，不外传。导出为脱敏 JSON（会话 ID 截断）。</p>
 
       <div class="row records-tabs" role="tablist" style="gap:8px;margin:12px 0;flex-wrap:wrap">
-        <button type="button" class="btn ${tab === "usage" ? "primary" : ""}" data-tab="usage" role="tab" aria-selected="${tab === "usage"}">用量</button>
-        <button type="button" class="btn ${tab === "blocks" ? "primary" : ""}" data-tab="blocks" role="tab" aria-selected="${tab === "blocks"}">阻拦</button>
-        <button type="button" class="btn ${tab === "permissions" ? "primary" : ""}" data-tab="permissions" role="tab" aria-selected="${tab === "permissions"}">扩权</button>
+        <button type="button" class="btn ${tab === "usage" ? "primary" : ""}" data-tab="usage" role="tab">用量</button>
+        <button type="button" class="btn ${tab === "blocks" ? "primary" : ""}" data-tab="blocks" role="tab">阻拦</button>
+        <button type="button" class="btn ${tab === "permissions" ? "primary" : ""}" data-tab="permissions" role="tab">扩权</button>
+        <button type="button" class="btn ${tab === "diagnose" ? "primary" : ""}" data-tab="diagnose" role="tab">诊断</button>
       </div>
 
       <section class="card ${tab === "usage" ? "" : "hidden"}" data-panel="usage">
         <h3>本机会话用量</h3>
-        <p class="meta">按会话首次终态近似「首任务」；阻拦率来自审计 denied，工具失败来自 failed。</p>
-        <div class="meta" id="rec-usage-stats">
-          <p>会话样本：${s.sessions} · 审计条数：${s.auditTotal} · 扩权决策：${s.permissionCount}</p>
+        <p class="meta">按会话首次终态近似「首任务」；阻拦率来自审计 denied。</p>
+        <div class="meta">
+          <p>会话样本：${s.sessions} · 审计：${s.auditTotal} · 扩权：${s.permissionCount}</p>
           <p>首任务成功率：${s.firstTaskSuccessRate}</p>
-          <p>阻拦（denied）占比：${s.denyRate}</p>
-          <p>工具调用失败占比：${s.mcpFailRate}</p>
+          <p>阻拦占比：${s.denyRate} · 工具失败：${s.mcpFailRate}</p>
+          <p>费用估算：<strong>${cost.status}</strong> — ${cost.detail}</p>
           <p>典型失败 Top：</p>
           <ul class="audit-list">${top}</ul>
         </div>
+        <h4 class="meta" style="margin-top:12px">参考单价（人工填写，CNY/USD 勿混加）</h4>
+        <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">
+          <label class="field">模型 <input id="price-model" placeholder="如 deepseek-chat" /></label>
+          <label class="field">输入/1M <input id="price-in" type="number" min="0" step="0.01" placeholder="0" /></label>
+          <label class="field">输出/1M <input id="price-out" type="number" min="0" step="0.01" placeholder="0" /></label>
+          <label class="field">币种
+            <select id="price-ccy"><option value="CNY">CNY</option><option value="USD">USD</option></select>
+          </label>
+          <button type="button" class="btn" id="price-add">保存单价</button>
+        </div>
+        <ul class="audit-list" style="margin-top:8px">
+          ${
+            prices.length === 0
+              ? "<li class='meta'>尚无单价快照</li>"
+              : prices
+                  .map(
+                    (p) =>
+                      `<li>${p.model} · in ${p.inputPer1M} / out ${p.outputPer1M} ${p.currency} · ${p.asOf}</li>`,
+                  )
+                  .join("")
+          }
+        </ul>
         <h4 class="meta" style="margin-top:12px">近期会话终态</h4>
-        <ul class="audit-list" id="rec-sessions">
+        <ul class="audit-list">
           ${
             sessions.length === 0
-              ? "<li class='meta'>暂无终态记录。跑完会话后会出现在这里。</li>"
+              ? "<li class='meta'>暂无终态记录。</li>"
               : sessions.map((e) => `<li>${formatEventRow(e)}</li>`).join("")
           }
         </ul>
       </section>
 
-      <section class="card ${tab === "blocks" ? "" : "hidden"}" data-panel="blocks">
+      <section class="card ${tab === "blocks" ? "" : "hidden"}">
         <h3>阻拦明细</h3>
-        <p class="meta">Gate / 策略直接拒绝（denied）或工具失败（failed），<strong>未</strong>进入扩权弹窗。与「扩权」页分开。</p>
         <ul class="audit-list">
           ${
             blocks.length === 0
-              ? "<li class='meta'>暂无阻拦。未授权出站被直接拒绝时会记入。</li>"
+              ? "<li class='meta'>暂无阻拦。</li>"
               : blocks.map((e) => `<li>${formatEventRow(e)}</li>`).join("")
           }
         </ul>
       </section>
 
-      <section class="card ${tab === "permissions" ? "" : "hidden"}" data-panel="permissions">
+      <section class="card ${tab === "permissions" ? "" : "hidden"}">
         <h3>扩权明细</h3>
-        <p class="meta">用户对 <code>permission_needed</code> 的 deny / once / project。界面演示项会标注。</p>
         <ul class="audit-list">
           ${
             perms.length === 0
-              ? "<li class='meta'>暂无扩权决策。跨主机重定向触发 Modal 并选择后会出现。</li>"
+              ? "<li class='meta'>暂无扩权决策。</li>"
               : perms.map((e) => `<li>${formatEventRow(e)}</li>`).join("")
           }
         </ul>
       </section>
 
+      <section class="card ${tab === "diagnose" ? "" : "hidden"}">
+        <h3>安全诊断（只读聚合）</h3>
+        <p class="meta">不参与放行；汇总隔离、凭据库、档位与记住主机。</p>
+        <ul class="audit-list">
+          <li>隔离：${health?.available === false ? "不可用" : health?.available ? "就绪" : "未知"}${health?.reason ? ` · ${health.reason}` : ""}</li>
+          <li>凭据库：${health?.vaultNotice || "无告警"}</li>
+          <li>安全档位：${TIER_LABELS[tier] || tier}</li>
+          <li>档位说明：${tierDescription(tier)}</li>
+          <li>档位种子主机数：${hostsForTier(tier).length}（下次新会话由桌面注入 ExtraHosts）</li>
+          <li>已记住主机：${hosts.length}</li>
+          ${hosts
+            .slice(0, 20)
+            .map((h) => `<li class="meta">${h.host} · ${h.scope} · ${h.workspace || ""}</li>`)
+            .join("")}
+          <li>本机阻拦条数：${blocks.length} · 扩权条数：${perms.length}</li>
+        </ul>
+      </section>
+
       <div class="actions" style="margin-top:12px">
         <button type="button" class="btn" id="rec-refresh">刷新</button>
+        <button type="button" class="btn primary" id="rec-export">导出脱敏 JSON</button>
         <button type="button" class="btn" id="rec-clear">清除本机记录</button>
       </div>
     `;
@@ -103,6 +167,41 @@ export function mountRecords(root, ctx, opts = {}) {
       clearUsageAnalytics();
       paint();
       showToast("已清除本机记录", "ok");
+    });
+    root.querySelector("#rec-export")?.addEventListener("click", () => {
+      const bundle = exportUsageBundle();
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], {
+        type: "application/json",
+      });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `harbor-records-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast("已导出脱敏 JSON", "ok");
+    });
+    root.querySelector("#price-add")?.addEventListener("click", () => {
+      const model = root.querySelector("#price-model")?.value?.trim();
+      const inputPer1M = Number(root.querySelector("#price-in")?.value || 0);
+      const outputPer1M = Number(root.querySelector("#price-out")?.value || 0);
+      const currency = root.querySelector("#price-ccy")?.value || "CNY";
+      if (!model) {
+        showToast("请填写模型名", "bad");
+        return;
+      }
+      const next = [
+        {
+          model,
+          inputPer1M,
+          outputPer1M,
+          currency,
+          asOf: new Date().toISOString().slice(0, 10),
+        },
+        ...prices.filter((p) => p.model !== model),
+      ];
+      saveModelPrices(next);
+      paint();
+      showToast("已保存单价快照", "ok");
     });
   }
 

@@ -13,6 +13,8 @@ import {
   mountPermissionOverviewModal,
   hidePermissionOverviewModal,
 } from "./permission-overview-modal.js";
+import { askExitReview } from "./exit-review-modal.js";
+import { mountRunReportModal } from "./run-report-modal.js";
 import { showToast } from "../toast.js";
 import { askConfirm } from "../confirm-dialog.js";
 import {
@@ -20,6 +22,8 @@ import {
   filterModelsForSwitch,
 } from "../agent-compat.js";
 import { recordAudit, recordPermissionDecision } from "../usage-analytics.js";
+import { formatErrorWithHint } from "../error-hints.js";
+import { markTutorialStep } from "../tutorial-progress.js";
 
 const SWITCH_MODEL_META =
   "仅可切换同 profile / 同主机账号；跨协议或改固定模型名不支持。";
@@ -455,10 +459,12 @@ export function mountSession(root, ctx) {
     } else if (ev.type === "output" && ev.output) {
       outCount += 1;
       els.statOut.textContent = String(outCount);
+      markTutorialStep(3);
       tail.append(ev.seq, ev.output.text || "");
       appendPty(ev.output.text || "");
     } else if (ev.type === "pty" && (ev.pty || ev.output)) {
       const t = (ev.pty || ev.output).text || "";
+      markTutorialStep(3);
       appendPty(t);
     } else if (ev.type === "audit" && ev.audit) {
       auditCount += 1;
@@ -468,7 +474,7 @@ export function mountSession(root, ctx) {
       li.textContent = `${ev.audit.result} · ${ev.audit.tool || "-"} @ ${ev.audit.target || "-"}`;
       els.audit.prepend(li);
     } else if (ev.type === "error" && ev.error) {
-      els.error.textContent = `${ev.error.code}: ${ev.error.message}`;
+      els.error.textContent = formatErrorWithHint(ev.error);
     } else if (ev.type === "permission_needed" && ev.permission) {
       const snap = ctx.state.lastSnapshot;
       const sid = ctx.state.sessionId || snap?.sessionId || "";
@@ -479,6 +485,7 @@ export function mountSession(root, ctx) {
         sessionLabel: `${snap?.agentId || "—"} · ${snap?.workspace || "—"} · ${sid}`,
         target: ev.permission.target,
         action: ev.permission.action,
+        onPendingChange: (pending) => ctx.setPermissionPending?.(pending),
         async onDecide(decision) {
           // uiDemo：仅前端演练，无 Orch 挂起；live 不得调 ResolvePermission（会 INVALID_ARGUMENT）。
           // mock 真事件 / live Gate 真事件：必须走 resolvePermission。
@@ -556,15 +563,10 @@ export function mountSession(root, ctx) {
       if (!ctx.state.sessionId) return;
       const snap = ctx.state.lastSnapshot;
       const dest = snap?.sourceWorkspace || "";
-      const ok = await askConfirm(
-        {
-          title: "导回原文件夹",
-          body: `将安全副本中的文件合并写回原文件夹。\n\n目标：${dest || "（未知）"}\n\n同名文件会被覆盖；原目录多出来的文件不会删除。`,
-          confirmLabel: "导回",
-          cancelLabel: "取消",
-        },
-        modalRoot,
-      );
+      const ok = await askExitReview(modalRoot, {
+        sourceWorkspace: dest,
+        paths: [],
+      });
       if (!ok) return;
       els.syncBack.disabled = true;
       showToast("正在导回…", "");
@@ -677,6 +679,12 @@ export function mountSession(root, ctx) {
           renderSnapshot(res.session);
         }
         showToast(destroyAfter ? "已停止，正在清理…" : "已停止", "ok");
+        const reportSnap = ctx.state.lastSnapshot || res.session;
+        mountRunReportModal(modalRoot, {
+          sessionId: ctx.state.sessionId || reportSnap?.sessionId || "",
+          workspace: reportSnap?.workspace || reportSnap?.sourceWorkspace || "",
+          agentId: reportSnap?.agentId || "",
+        });
         if (destroyAfter && ctx.state.sessionId) {
           const sid = ctx.state.sessionId;
           const waitClean = () =>

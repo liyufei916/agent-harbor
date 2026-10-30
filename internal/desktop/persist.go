@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/liyufei916/agent-harbor/internal/contracts"
 )
@@ -58,7 +59,7 @@ func (a *App) loadPersistedState() {
 	}
 }
 
-// normalizeUIPrefs 规范化 Theme / ClearOnStopDefault。
+// normalizeUIPrefs 规范化 Theme / ClearOnStopDefault / SecurityTier。
 func normalizeUIPrefs(p contracts.UIPrefs) contracts.UIPrefs {
 	switch p.Theme {
 	case "light", "dark", "system":
@@ -68,6 +69,12 @@ func normalizeUIPrefs(p contracts.UIPrefs) contracts.UIPrefs {
 	}
 	if p.ClearOnStopDefault != "clear" {
 		p.ClearOnStopDefault = "keep"
+	}
+	switch strings.ToLower(strings.TrimSpace(p.SecurityTier)) {
+	case "strict", "standard", "relaxed":
+		p.SecurityTier = strings.ToLower(strings.TrimSpace(p.SecurityTier))
+	default:
+		p.SecurityTier = "standard"
 	}
 	return p
 }

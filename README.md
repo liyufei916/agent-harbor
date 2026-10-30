@@ -34,7 +34,17 @@
 
 优先从 [GitHub Releases](https://github.com/liyufei916/agent-harbor/releases) 下载 `AgentHarbor-macos.zip`（打 `v*` 标签或手动跑 Release workflow 会发布）。日常 CI 也会上传同名 Artifacts（保留 14 天）。
 
-**使用前提**：macOS Darwin 25 · arm64 · 非 root；本机预装要用的 Agent CLI；MCP 支持远程 HTTP 或宿主 stdio。应用未公证时，首次打开可能需在「隐私与安全性」允许。
+**校验下载（推荐）**：若 Release / Artifact 附带 `AgentHarbor-macos.zip.sha256`（或同目录 checksum 文件），在本机比对：
+
+```bash
+shasum -a 256 -c AgentHarbor-macos.zip.sha256
+# 或：
+shasum -a 256 AgentHarbor-macos.zip   # 与公布的哈希逐字对比
+```
+
+不一致时不要打开应用。应用未公证时，首次打开可能需在「隐私与安全性」允许。
+
+**使用前提**：macOS Darwin 25 · arm64 · 非 root；本机预装要用的 Agent CLI；MCP 支持远程 HTTP 或宿主 stdio。
 
 ---
 

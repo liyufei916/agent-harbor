@@ -18,7 +18,10 @@
 | OAuth / stdio MCP | 回环 OAuth、宿主 stdio 桥 |
 | Keychain | Darwin Keychain fail-closed；`vaultNotice` |
 | 浅色主题 | `UIPrefs.theme` system/light/dark |
+| 安全档位种子 | `UIPrefs.securityTier` → CreateSession ExtraHosts |
+| 记录/诊断/扩权 UX | 导出 JSON、诊断 Tab、Modal 三问+超时拒绝、出舱审查、运行报告、教程进度 |
 | Seatbelt（macOS） | P1 主路径；Health fail-closed |
+| Gate 非 2xx 抹 Key 片段 | 错误响应额外抹前 8/末 4 位 |
 
 ## 仍 blocked / backlog（非「忘做 eng」）
 

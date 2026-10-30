@@ -41,6 +41,7 @@ let uiPrefs = {
   askClearOnStop: true,
   clearOnStopDefault: "keep",
   theme: "system",
+  securityTier: "standard",
 };
 
 function hostKey(host, workspace) {

@@ -508,15 +508,16 @@ Agent Harbor
 
 ### 5.7b 记录（侧栏 · 工具与设置之间）
 
-单页三 Tab，数据仅本机 localStorage（`usage-analytics`），**无新 DesktopAPI**：
+单页四 Tab，数据仅本机 localStorage（`usage-analytics`），**无新 DesktopAPI**（诊断只读聚合已有 Health/记住主机）：
 
 | Tab | 内容 |
 |---|---|
-| **用量** | 本机会话维度摘要（样本数、首终态成功率、denied/failed 占比）+ 近期会话终态 |
+| **用量** | 会话摘要 + 可选人工单价快照（无 token 则标未计价）+ 近期终态 |
 | **阻拦** | Gate/策略直接拒绝的 audit（`denied` / `failed`），未进扩权弹窗 |
 | **扩权** | 用户对 `permission_needed` 的 deny/once/project（含界面演示标注） |
+| **诊断** | 隔离/凭据库/安全档位/记住主机/阻拦条数只读聚合 |
 
-提供刷新与「清除本机记录」。文案强调不外传、不含 Key/Sentinel。
+提供刷新、**导出脱敏 JSON**与「清除本机记录」。文案强调不外传、不含 Key/Sentinel。
 
 ### 5.8 设置
 

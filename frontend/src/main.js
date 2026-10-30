@@ -23,6 +23,14 @@ import {
   recordAudit,
   recordSessionOutcome,
 } from "./usage-analytics.js";
+import {
+  loadTutorialProgress,
+  markTutorialStep,
+  resetTutorial,
+  skipTutorial,
+  tutorialSteps,
+} from "./tutorial-progress.js";
+import { normalizeTier } from "./security-tier.js";
 
 const badge = document.getElementById("mode-badge");
 const usageGuideBtn = document.getElementById("usage-guide-btn");
@@ -70,7 +78,13 @@ const ctx = {
       askClearOnStop: true,
       clearOnStopDefault: "keep",
       theme: "system",
+      securityTier: "standard",
     },
+    permissionPending: false,
+  },
+  setPermissionPending(pending) {
+    ctx.state.permissionPending = !!pending;
+    updatePermissionBadge();
   },
   navigate(name, opts) {
     navigate(name, opts);
@@ -119,6 +133,7 @@ const ctx = {
   },
   onSessionCreated(snapshot, createSpec) {
     api.activateSession?.(snapshot);
+    markTutorialStep(2);
     ctx.state.sessionId = snapshot.sessionId;
     ctx.state.lastSnapshot = snapshot;
     if (createSpec?.task) ctx.state.lastTask = createSpec.task;
@@ -269,6 +284,65 @@ if (usageGuideBtn) {
   usageGuideBtn.addEventListener("click", () => showUsageGuide());
 }
 
+function updatePermissionBadge() {
+  const el = document.getElementById("perm-pending-badge");
+  if (!el) return;
+  const on = !!ctx.state.permissionPending;
+  el.classList.toggle("hidden", !on);
+  el.textContent = on ? "待扩权" : "";
+}
+
+function showTutorialPanel() {
+  const modal = document.getElementById("modal-root");
+  if (!modal) return;
+  const prog = loadTutorialProgress();
+  const steps = tutorialSteps();
+  const lis = steps
+    .map((s, i) => {
+      const done = prog.completed || prog.step > i;
+      return `<li class="${done ? "meta" : ""}">${done ? "✓" : "○"} ${s.label}</li>`;
+    })
+    .join("");
+  modal.classList.remove("hidden");
+  modal.innerHTML = `
+    <div class="modal-card permission-overview-card" role="dialog" aria-modal="true">
+      <div class="row" style="justify-content:space-between;gap:12px">
+        <h2 style="margin:0">使用教程</h2>
+        <button type="button" class="btn" id="tut-close">关闭</button>
+      </div>
+      <p class="meta">${prog.completed ? "已完成上手步骤。" : prog.skipped ? "已跳过；可重新开始。" : `当前进度 ${Math.min(prog.step, steps.length)}/${steps.length}`}</p>
+      <ol class="audit-list">${lis}</ol>
+      <div class="actions">
+        <button type="button" class="btn" id="tut-skip">稍后体验</button>
+        <button type="button" class="btn" id="tut-reset">重新学习</button>
+        <button type="button" class="btn primary" id="tut-go">去 HOME</button>
+      </div>
+    </div>`;
+  const close = () => {
+    modal.classList.add("hidden");
+    modal.innerHTML = "";
+  };
+  modal.querySelector("#tut-close")?.addEventListener("click", close);
+  modal.querySelector("#tut-skip")?.addEventListener("click", () => {
+    skipTutorial();
+    close();
+    showToast("已跳过教程", "ok");
+  });
+  modal.querySelector("#tut-reset")?.addEventListener("click", () => {
+    resetTutorial();
+    close();
+    showTutorialPanel();
+  });
+  modal.querySelector("#tut-go")?.addEventListener("click", () => {
+    close();
+    navigate("home");
+  });
+}
+
+document.getElementById("tutorial-btn")?.addEventListener("click", () => {
+  showTutorialPanel();
+});
+
 function isWailsShell() {
   if (
     location.protocol === "wails:" ||
@@ -359,6 +433,7 @@ function applyUIPrefs(prefs) {
     clearOnStopDefault:
       prefs.clearOnStopDefault === "clear" ? "clear" : "keep",
     theme: normalizeThemePref(prefs.theme),
+    securityTier: normalizeTier(prefs.securityTier),
   };
   applyDocumentTheme(ctx.state.uiPrefs.theme);
   // 工作台内若开了自动收缩且用户未手动展开，保持收窄，不把「默认展开」盖掉临时态
@@ -426,6 +501,7 @@ function applyHealthToShell(health) {
     : "隔离不可用";
   if (!ok) healthText.title = health?.reason || "点击查看说明";
   else healthText.title = "";
+  if (ok) markTutorialStep(0);
   const healthEl = document.getElementById("health-light");
   healthEl?.classList.toggle("clickable", !ok);
   if (currentRoute === "home") mountHome(views.home, ctx);

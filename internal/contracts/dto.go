@@ -196,6 +196,8 @@ type UIPrefs struct {
 	Theme                 string `json:"theme,omitempty"` // system | light | dark；空=system
 	AskClearOnStop        bool   `json:"askClearOnStop"`
 	ClearOnStopDefault    string `json:"clearOnStopDefault,omitempty"` // keep | clear；空=keep
+	// SecurityTier：strict | standard | relaxed；空=standard。创建会话时种子 ExtraHosts。
+	SecurityTier string `json:"securityTier,omitempty"`
 }
 
 // UIPrefsResponse 包装偏好。

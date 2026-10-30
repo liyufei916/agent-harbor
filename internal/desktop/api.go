@@ -102,6 +102,7 @@ func (d *DesktopAPI) CreateSession(spec contracts.SessionSpec) contracts.Session
 	if spec.Workspace != "" {
 		spec.RememberedHosts = d.app.listRemembered(spec.Workspace)
 	}
+	spec.RememberedHosts = mergeRememberedWithTier(spec.RememberedHosts, spec.Workspace, d.app.prefs.SecurityTier)
 	snap, err := d.app.sessionRef().Create(ctx, spec)
 	if err != nil {
 		return contracts.SessionResponse{Error: mapError(err)}

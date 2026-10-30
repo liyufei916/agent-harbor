@@ -86,7 +86,8 @@ func relayResponse(w http.ResponseWriter, resp *http.Response, secrets []string,
 		idle:     idle,
 		deadline: time.Now().Add(total),
 	}
-	red := newSecretRedactor(secrets)
+	errorBody := resp.StatusCode < 200 || resp.StatusCode >= 300
+	red := newSecretRedactorOpts(secrets, errorBody)
 	buf := make([]byte, 32*1024)
 	n, err := reader.Read(buf)
 	if n == 0 && err != nil && !errors.Is(err, io.EOF) {

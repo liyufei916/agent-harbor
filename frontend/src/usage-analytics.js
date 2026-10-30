@@ -270,3 +270,76 @@ export function formatEventRow(ev) {
 export function clearUsageAnalytics() {
   storageRemove();
 }
+
+/** @returns {{ exportedAt: string, version: number, events: UsageEvent[], summary: ReturnType<typeof summarizeUsage> }} */
+export function exportUsageBundle() {
+  const { events } = load();
+  return {
+    exportedAt: new Date().toISOString(),
+    version: 1,
+    summary: summarizeUsage(),
+    events: events.map((e) => ({
+      t: e.t,
+      kind: e.kind,
+      result: e.result || "",
+      tool: e.tool || "",
+      target: e.target || "",
+      sessionId: e.sessionId ? shortSession(e.sessionId) : "",
+      state: e.state || "",
+      code: e.code || "",
+      decision: e.decision || "",
+      action: e.action || "",
+    })),
+  };
+}
+
+const PRICE_KEY = "harbor-usage-prices";
+
+/**
+ * @typedef {{ model: string, inputPer1M: number, outputPer1M: number, currency: string, asOf: string }} ModelPrice
+ */
+
+/** @returns {ModelPrice[]} */
+export function loadModelPrices() {
+  try {
+    const raw =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem(PRICE_KEY)
+        : null;
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/** @param {ModelPrice[]} prices */
+export function saveModelPrices(prices) {
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(PRICE_KEY, JSON.stringify(prices.slice(0, 40)));
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * 无真实 token 时只展示「未计价」；有人工单价时给出口径说明。
+ * @returns {{ status: string, detail: string }}
+ */
+export function estimateCostStatus() {
+  const prices = loadModelPrices();
+  const s = summarizeUsage();
+  if (prices.length === 0) {
+    return {
+      status: "未配置单价",
+      detail: "在下方填写模型参考单价后，仅作估算口径；当前事件无 token 字段，金额显示为未计价。",
+    };
+  }
+  return {
+    status: "未计价（缺 token）",
+    detail: `已保存 ${prices.length} 条单价快照；本机记录未含 input/output token，故不编造金额。会话样本 ${s.sessions}。`,
+  };
+}

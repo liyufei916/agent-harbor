@@ -12,14 +12,39 @@ type secretRedactor struct {
 }
 
 func newSecretRedactor(secrets []string) *secretRedactor {
+	return newSecretRedactorOpts(secrets, false)
+}
+
+// newSecretRedactorOpts：errorBody 为真时额外抹掉密钥前 8 / 末 4 位片段（非 2xx 常见回显）。
+func newSecretRedactorOpts(secrets []string, errorBody bool) *secretRedactor {
 	r := &secretRedactor{}
+	var frags [][]byte
 	for _, s := range secrets {
-		if len(s) < 8 {
+		if len(s) < 4 {
 			continue
 		}
 		b := []byte(s)
-		r.secrets = append(r.secrets, b)
-		if n := len(b) - 1; n > r.keep {
+		if len(s) >= 8 {
+			frags = append(frags, b)
+			if errorBody {
+				frags = append(frags, append([]byte(nil), b[:8]...))
+				frags = append(frags, append([]byte(nil), b[len(b)-4:]...))
+			}
+		} else if errorBody {
+			frags = append(frags, b)
+		}
+	}
+	// 长优先，避免短片段先匹配
+	for i := 0; i < len(frags); i++ {
+		for j := i + 1; j < len(frags); j++ {
+			if len(frags[j]) > len(frags[i]) {
+				frags[i], frags[j] = frags[j], frags[i]
+			}
+		}
+	}
+	r.secrets = frags
+	for _, frag := range frags {
+		if n := len(frag) - 1; n > r.keep {
 			r.keep = n
 		}
 	}
