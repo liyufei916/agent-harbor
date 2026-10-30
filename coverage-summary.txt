@@ -39,8 +39,9 @@ github.com/liyufei916/agent-harbor/internal/desktop/api.go:399:				StartMcpOAuth
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:408:				CancelMcpOAuth			100.0%
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:416:				WritePty			87.5%
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:432:				ResizePty			87.5%
-github.com/liyufei916/agent-harbor/internal/desktop/api.go:448:				SaveTextFile			33.3%
-github.com/liyufei916/agent-harbor/internal/desktop/api.go:488:				revealInFileManager		0.0%
+github.com/liyufei916/agent-harbor/internal/desktop/api.go:448:				SaveTextFile			50.0%
+github.com/liyufei916/agent-harbor/internal/desktop/api.go:476:				finishSaveTextFile		88.9%
+github.com/liyufei916/agent-harbor/internal/desktop/api.go:493:				revealInFileManager		0.0%
 github.com/liyufei916/agent-harbor/internal/desktop/app.go:60:				NewApp				100.0%
 github.com/liyufei916/agent-harbor/internal/desktop/app.go:65:				NewDesktopApp			0.0%
 github.com/liyufei916/agent-harbor/internal/desktop/app.go:70:				NewAppWithDataDir		100.0%
@@ -235,12 +236,13 @@ github.com/liyufei916/agent-harbor/internal/kits/codex/codex.go:354:			inspectEx
 github.com/liyufei916/agent-harbor/internal/kits/dsh/conversation.go:18:		NewConversation			0.0%
 github.com/liyufei916/agent-harbor/internal/kits/dsh/conversation.go:27:		conversationFile		100.0%
 github.com/liyufei916/agent-harbor/internal/kits/dsh/conversation.go:37:		encodeConversationMessage	83.3%
-github.com/liyufei916/agent-harbor/internal/kits/dsh/dsh.go:31:				New				100.0%
-github.com/liyufei916/agent-harbor/internal/kits/dsh/dsh.go:41:				kitError			100.0%
-github.com/liyufei916/agent-harbor/internal/kits/dsh/dsh.go:46:				paths				85.2%
-github.com/liyufei916/agent-harbor/internal/kits/dsh/dsh.go:88:				Detect				38.1%
-github.com/liyufei916/agent-harbor/internal/kits/dsh/dsh.go:117:			gateURL				100.0%
-github.com/liyufei916/agent-harbor/internal/kits/dsh/dsh.go:127:			Build				92.3%
+github.com/liyufei916/agent-harbor/internal/kits/dsh/dsh.go:35:				New				100.0%
+github.com/liyufei916/agent-harbor/internal/kits/dsh/dsh.go:45:				kitError			100.0%
+github.com/liyufei916/agent-harbor/internal/kits/dsh/dsh.go:50:				paths				85.2%
+github.com/liyufei916/agent-harbor/internal/kits/dsh/dsh.go:92:				probeInstall			100.0%
+github.com/liyufei916/agent-harbor/internal/kits/dsh/dsh.go:99:				Detect				85.7%
+github.com/liyufei916/agent-harbor/internal/kits/dsh/dsh.go:128:			gateURL				100.0%
+github.com/liyufei916/agent-harbor/internal/kits/dsh/dsh.go:138:			Build				92.3%
 github.com/liyufei916/agent-harbor/internal/kits/dsh/profile.go:12:			profile				0.0%
 github.com/liyufei916/agent-harbor/internal/kits/dsh/profile.go:16:			buildProfile			93.5%
 github.com/liyufei916/agent-harbor/internal/kits/kit.go:40:				MCPName				100.0%
@@ -459,4 +461,4 @@ github.com/liyufei916/agent-harbor/scripts/cmd/syncback-checksum/main.go:14:		ha
 github.com/liyufei916/agent-harbor/scripts/cmd/syncback-checksum/main.go:23:		main				0.0%
 github.com/liyufei916/agent-harbor/shutdown.go:17:					newExitGate			100.0%
 github.com/liyufei916/agent-harbor/shutdown.go:20:					request				90.5%
-total:											(statements)			63.6%
+total:											(statements)			63.9%
