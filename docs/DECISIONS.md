@@ -56,6 +56,15 @@
 | CI | `darwin:package` 后上传 `AgentHarbor-macos.zip`（14 天）；可移植 Seatbelt profile 断言步骤 |
 | Release | `.github/workflows/release.yml`：`v*` 标签或手动触发 → GitHub Releases 挂 zip + sha256 |
 
+### 二期隔离后端（2026-10-30）
+
+| 项 | 约定 |
+|---|---|
+| 选型 | **Docker 容器**为 P2 主路径；**microVM 延后预研**，不挡二期 |
+| 默认 | 桌面仍 P1 Seatbelt；显式 `HARBOR_RUNTIME=docker`（或 `p2` / `container`）才切 Docker |
+| 分支 | `feat/p2-docker-runtime`；计划见 [P2-DOCKER.md](P2-DOCKER.md) |
+| 硬约束 | 不挂 `docker.sock`；无 daemon → fail-closed；Gate/UI 契约不变 |
+
 ## 2026-10-24 开发环境观测
 
 A 在 macOS 26.7 arm64、Go 1.27.2 下完成契约与编排测试，检测到 Claude Code 2.1.292 原生安装。为独立编译加入最小 go.mod（module 沿用上文建议值，暂定 go 1.23.0，尚未在该最低版本运行验证）；B 已在本分支完成 Wails v3 初始化与版本登记。Seatbelt 初探有正/负例，但生产限制与进程树清理仍待实现。观测不等于团队环境冻结或真实 Agent 兼容性通过，详细证据见 [研发 A 开发记录](DEV-A.md)。

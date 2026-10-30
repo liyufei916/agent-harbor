@@ -16,6 +16,7 @@
 | [ACCEPTANCE.md](ACCEPTANCE.md) | I1–I11 与证据格式 |
 | [GO-CHECKLIST.md](GO-CHECKLIST.md) | 开工检查 + 文档同步纪律 |
 | [ENG-STATUS.md](ENG-STATUS.md) | eng 已齐 vs live/公证/P2 backlog |
+| [P2-DOCKER.md](P2-DOCKER.md) | 二期 Docker Runtime 选型与切片 |
 
 ## 角色日志
 
