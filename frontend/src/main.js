@@ -33,6 +33,7 @@ import { normalizeTier } from "./security-tier.js";
 import { healthAllowsStart, healthBlockReason } from "./health-ready.js";
 
 const badge = document.getElementById("mode-badge");
+const isolationBadge = document.getElementById("isolation-badge");
 const usageGuideBtn = document.getElementById("usage-guide-btn");
 const sidebar = document.getElementById("sidebar");
 const healthDot = document.getElementById("health-dot");
@@ -263,6 +264,48 @@ function syncBadge() {
     // 桌面真连不再展示开发期 UNIMPLEMENTED 横幅；说明见顶栏「使用说明」
     banner?.classList.add("hidden");
   }
+  syncIsolationBadge();
+}
+
+/** 标题栏标记当前隔离后端：生效值来自 Health；与偏好不一致时提示待重启。 */
+function syncIsolationBadge() {
+  if (!isolationBadge) return;
+  const health = ctx.state.health;
+  const levelRaw = String(health?.isolationLevel || "").toLowerCase();
+  const fromHealth =
+    levelRaw === "docker" || levelRaw.includes("docker")
+      ? "docker"
+      : levelRaw === "seatbelt" || levelRaw.includes("seatbelt") || levelRaw.includes("mock-seatbelt")
+        ? "seatbelt"
+        : "";
+  const preferred = preferredIsolationLevel();
+  const label = (v) => (v === "docker" ? "Docker" : "Seatbelt");
+  const pendingRestart = !!fromHealth && fromHealth !== preferred;
+  const verified = healthAllowsStart(health) && !!fromHealth;
+
+  if (pendingRestart) {
+    // 偏好已改但本进程仍跑旧 Runtime：徽章跟偏好走，并标明须重启。
+    isolationBadge.textContent = `${label(preferred)}（待重启）`;
+    isolationBadge.className = "badge isolation-badge isolation-pending";
+  } else if ((fromHealth || preferred) === "docker") {
+    isolationBadge.textContent = verified ? "Docker" : "Docker（偏好）";
+    isolationBadge.className = `badge isolation-badge ${verified ? "isolation-docker" : "isolation-pending"}`;
+  } else {
+    isolationBadge.textContent = verified ? "Seatbelt" : "Seatbelt（偏好）";
+    isolationBadge.className = `badge isolation-badge ${verified ? "isolation-seatbelt" : "isolation-pending"}`;
+  }
+
+  const bits = [];
+  if (fromHealth) {
+    bits.push(`当前生效：${label(fromHealth) === "Docker" ? "容器隔离（Docker）" : "Seatbelt"}`);
+  } else {
+    bits.push(`设置偏好：${label(preferred) === "Docker" ? "容器隔离（Docker）" : "Seatbelt"}（尚未由健康检查确认）`);
+  }
+  if (pendingRestart) {
+    bits.push(`偏好已改为 ${label(preferred)}，须重启应用后生效`);
+  }
+  bits.push("设置 → 隔离后端 可切换");
+  isolationBadge.title = bits.join(" · ");
 }
 
 if (usageGuideBtn) {
@@ -410,6 +453,7 @@ function onSystemThemeChange() {
 
 function applyUIPrefs(prefs) {
   if (!prefs) return;
+  const backend = String(prefs.isolationBackend || "").toLowerCase();
   ctx.state.uiPrefs = {
     ...(ctx.state.uiPrefs || {}),
     sidebarCollapsed: !!prefs.sidebarCollapsed,
@@ -419,8 +463,14 @@ function applyUIPrefs(prefs) {
       prefs.clearOnStopDefault === "clear" ? "clear" : "keep",
     theme: normalizeThemePref(prefs.theme),
     securityTier: normalizeTier(prefs.securityTier),
+    isolationBackend:
+      backend === "docker" || backend === "p2" || backend === "container"
+        ? "docker"
+        : "seatbelt",
+    engineSource: prefs.engineSource,
   };
   applyDocumentTheme(ctx.state.uiPrefs.theme);
+  syncIsolationBadge();
   // 工作台内若开了自动收缩且用户未手动展开，保持收窄，不把「默认展开」盖掉临时态
   if (
     currentRoute === "session" &&
@@ -455,7 +505,7 @@ function navigate(name, opts = {}) {
   if (name === "models") mountModels(views.models, ctx, opts);
   if (name === "tools") mountTools(views.tools, ctx, opts);
   if (name === "records") mountRecords(views.records, ctx, opts);
-  if (name === "settings") mountSettings(views.settings, ctx);
+  if (name === "settings") mountSettings(views.settings, ctx, opts);
   if (name === "session") {
     if (!ctx.state.sessionId) {
       sessionView?.showEmpty?.() || sessionView?.resetForNewSession?.(null);
@@ -491,6 +541,7 @@ function applyHealthToShell(health) {
   if (ok) markTutorialStep(0);
   const healthEl = document.getElementById("health-light");
   healthEl?.classList.toggle("clickable", !ok);
+  syncIsolationBadge();
   if (currentRoute === "home") mountHome(views.home, ctx);
   return health;
 }
@@ -522,9 +573,9 @@ function showBlock(reason) {
       if (currentRoute === "wizard") navigate("wizard");
       else navigate(currentRoute || "home");
     },
-    onSettings: () => {
+    onSettings: (opts = {}) => {
       hideBlock();
-      navigate("settings");
+      navigate("settings", { focusIsolation: opts.focusIsolation !== false });
     },
   });
 }
@@ -557,6 +608,15 @@ function maybeOnboarding(_health) {
       onboardRoot.classList.add("hidden");
       shell.classList.remove("hidden");
       navigate("home");
+    },
+    onSettings(opts = {}) {
+      // 失败也不能卡死在引导：进设置改引擎；标记已引导以免反复遮罩
+      try {
+        localStorage.setItem("harbor-onboarded", "1");
+      } catch {}
+      onboardRoot.classList.add("hidden");
+      shell.classList.remove("hidden");
+      navigate("settings", { focusIsolation: opts.focusIsolation !== false });
     },
   });
   return true;
