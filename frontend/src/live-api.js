@@ -58,6 +58,7 @@ export function createLiveTransport() {
     writePty: bind("WritePty"),
     resizePty: bind("ResizePty"),
     saveTextFile: bind("SaveTextFile"),
+    restartApp: bind("RestartApp"),
     onEvent(callback) {
       return Events.On("harbor:event", (ev) => callback(unwrapEvent(ev)));
     },

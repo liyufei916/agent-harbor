@@ -4,16 +4,23 @@
 import * as api from "../api.js";
 import { AGENT_INSTALL, copyText } from "../agent-install.js";
 import { allEnvHintsHTML } from "../agent-env-hints.js";
+import { requestAppRestart } from "../restart-app.js";
 import { showToast } from "../toast.js";
 import {
   freshCheckItems,
   paintCheckList,
   runIsolationProbe,
 } from "../isolation-checks.js";
-export function mountSettings(root, ctx) {
+export function mountSettings(root, ctx, opts = {}) {
+  const focusIsolation = !!opts.focusIsolation;
   root.innerHTML = `
     <h2>设置</h2>
     <p class="sub">只改本机默认偏好。无「关闭隔离 / 本机直跑 Agent」。</p>
+    <div id="settings-recovery-banner" class="banner warn-banner ${focusIsolation ? "" : "hidden"}" role="status">
+      <strong>隔离未就绪 · 可在此改引擎</strong>
+      <p class="meta">托管 Colima 检测失败时，若本机已有 Docker Desktop，请改选「本机 Docker」并连接；或把后端改回 Seatbelt。改完后<strong>重启应用</strong>再开跑。</p>
+      <div class="actions" id="settings-recovery-actions"></div>
+    </div>
 
     <section class="card">
       <h3>Agent 检测</h3>
@@ -84,7 +91,7 @@ export function mountSettings(root, ctx) {
       </label>
     </section>
 
-    <section class="card" style="margin-top:12px">
+    <section class="card ${focusIsolation ? "settings-focus-isolation" : ""}" style="margin-top:12px" id="settings-isolation">
       <h3>隔离后端（P2）</h3>
       <p class="meta">二选一：<strong>Seatbelt</strong>（P1 默认，macOS 沙箱）或 <strong>容器隔离</strong>（P2，一会话一容器）。Colima / 本机 Docker 只是容器隔离的<strong>引擎</strong>，选 Seatbelt 时不必选引擎。<strong>改后端后需重启</strong>；<code>HARBOR_RUNTIME</code> 优先。</p>
       <label class="field">后端
@@ -93,6 +100,10 @@ export function mountSettings(root, ctx) {
           <option value="docker">容器隔离（P2）</option>
         </select>
       </label>
+      <div class="actions" id="isolation-restart-row" hidden>
+        <button type="button" class="btn primary" id="btn-restart-for-isolation">重启应用使生效</button>
+        <span class="meta">偏好已保存，本进程仍用旧隔离后端。</span>
+      </div>
       <div id="engine-panel" class="engine-panel" hidden>
         <p class="meta"><strong>无 Docker Desktop</strong> → 用「Harbor 托管 Colima」并<strong>一键安装</strong>（才下载）。<strong>本机已有 Docker</strong> → 选「本机 Docker」，只检测连接、<strong>不下载托管组件</strong>。</p>
         <label class="field">容器引擎来源
@@ -345,6 +356,53 @@ export function mountSettings(root, ctx) {
     }
   }
 
+  function paintRecoveryActions(h) {
+    const banner = root.querySelector("#settings-recovery-banner");
+    const actions = root.querySelector("#settings-recovery-actions");
+    if (!banner || !actions) return;
+    const backend = normalizeIsolationBackend(
+      root.querySelector("#set-isolation-backend")?.value ||
+        ctx.state.uiPrefs?.isolationBackend,
+    );
+    const show =
+      focusIsolation ||
+      (backend === "docker" && h && !h.ready && !h.installing);
+    banner.classList.toggle("hidden", !show);
+    if (!show) {
+      actions.innerHTML = "";
+      return;
+    }
+    const bits = [];
+    if (h?.dockerDesktopInstalled && currentEngineSource() !== "system-docker") {
+      bits.push(
+        `<button type="button" class="btn primary" id="btn-prefer-system-docker">改用本机 Docker</button>`,
+      );
+    }
+    if (backend === "docker") {
+      bits.push(
+        `<button type="button" class="btn" id="btn-prefer-seatbelt">退回 Seatbelt</button>`,
+      );
+    }
+    actions.innerHTML = bits.join("") || `<p class="meta">请在下方选择引擎并检测。</p>`;
+    actions.querySelector("#btn-prefer-system-docker")?.addEventListener("click", async () => {
+      const eng = root.querySelector("#set-engine-source");
+      const iso = root.querySelector("#set-isolation-backend");
+      if (iso) iso.value = "docker";
+      if (eng) eng.value = "system-docker";
+      syncEnginePanel("docker");
+      await savePrefs();
+      showToast("已改为本机 Docker，正在连接…", "ok");
+      root.querySelector("#btn-engine-ensure")?.click();
+    });
+    actions.querySelector("#btn-prefer-seatbelt")?.addEventListener("click", async () => {
+      const iso = root.querySelector("#set-isolation-backend");
+      if (iso) iso.value = "seatbelt";
+      syncEnginePanel("seatbelt");
+      await savePrefs();
+      showToast("已退回 Seatbelt，请重启应用后重新检测", "ok");
+    });
+  }
+
   function paintEngineHealth(h) {
     const el = root.querySelector("#engine-health-status");
     const desk = root.querySelector("#engine-desktop-status");
@@ -358,6 +416,7 @@ export function mountSettings(root, ctx) {
       }
     }
     syncEnsureButton(h);
+    paintRecoveryActions(h);
     if (!el) return;
     if (!h) {
       el.textContent = "引擎状态：—";
@@ -411,7 +470,27 @@ export function mountSettings(root, ctx) {
     syncClearDefaultEnabled();
     syncEnginePanel(backend);
     if (backend === "docker") {
-      refreshEngineHealth().catch(() => paintEngineHealth(null));
+      refreshEngineHealth()
+        .then(async (h) => {
+          // 从阻断页进入且已装 Desktop：默认切到本机 Docker，避免卡在托管 Colima 探测失败
+          if (
+            focusIsolation &&
+            h?.dockerDesktopInstalled &&
+            normalizeEngineSource(prefs.engineSource) !== "system-docker"
+          ) {
+            const engEl = root.querySelector("#set-engine-source");
+            if (engEl) engEl.value = "system-docker";
+            await savePrefs();
+            showToast("已检测到 Docker Desktop，已切换为「本机 Docker」并连接", "ok");
+            // 直接探测本机 daemon，避免只改偏好仍卡在未就绪
+            root.querySelector("#btn-engine-ensure")?.click();
+            return;
+          }
+          return h;
+        })
+        .catch(() => paintEngineHealth(null));
+    } else if (focusIsolation) {
+      paintRecoveryActions(null);
     }
   }
 
@@ -452,16 +531,35 @@ export function mountSettings(root, ctx) {
 
     if (prevBackend !== nextBackend) {
       if (nextBackend === "docker") {
-        st.innerHTML = `<span class="warn">已保存 · 请选择引擎并点「一键安装并启用」，然后重启应用</span>`;
-        showToast("已切到容器隔离：请一键安装引擎后再重启", "ok");
+        st.innerHTML = `<span class="warn">已保存 · 请选择引擎并启用，再点「重启应用使生效」</span>`;
+        showToast("已切到容器隔离：启用引擎后请重启", "ok");
         refreshEngineHealth().catch(() => paintEngineHealth(null));
       } else {
-        st.innerHTML = `<span class="warn">已保存 · 隔离后端须重启应用后生效</span>`;
-        showToast("隔离后端已保存，请重启应用后生效", "ok");
+        st.innerHTML = `<span class="warn">已保存 · 请点「重启应用使生效」</span>`;
+        showToast("隔离后端已保存，请重启应用", "ok");
       }
     } else {
       st.innerHTML = `<span class="ok">已保存</span>`;
     }
+    syncIsolationRestartRow();
+  }
+
+  function syncIsolationRestartRow() {
+    const row = root.querySelector("#isolation-restart-row");
+    if (!row) return;
+    const preferred = normalizeIsolationBackend(
+      root.querySelector("#set-isolation-backend")?.value ||
+        ctx.state.uiPrefs?.isolationBackend,
+    );
+    const level = String(ctx.state.health?.isolationLevel || "").toLowerCase();
+    const fromHealth =
+      level.includes("docker")
+        ? "docker"
+        : level.includes("seatbelt") || level.includes("mock-seatbelt")
+          ? "seatbelt"
+          : "";
+    const need = !!fromHealth && fromHealth !== preferred;
+    row.hidden = !need;
   }
 
   function paintRunMode(backend) {
@@ -477,6 +575,11 @@ export function mountSettings(root, ctx) {
       : `运行模式：真实绑定（桌面后端）· ${backendLabel}`;
   }
 
+  root.querySelector("#btn-restart-for-isolation")?.addEventListener("click", () => {
+    void requestAppRestart({
+      reason: "重启后将按已保存的隔离后端偏好重新装配 Runtime。",
+    });
+  });
   root.querySelector("#set-theme").onchange = savePrefs;
   root.querySelector("#set-sidebar-collapsed").onchange = savePrefs;
   root.querySelector("#set-auto-collapse").onchange = savePrefs;
@@ -543,8 +646,10 @@ export function mountSettings(root, ctx) {
       paintEngineHealth(h);
       if (h?.ready) {
         paintEngineProgress(100, system ? "本机 Docker 可用" : "安装完成", false);
-        if (st) st.innerHTML = `<span class="ok">引擎已就绪 · 请重启应用使容器隔离生效</span>`;
+        if (st)
+          st.innerHTML = `<span class="ok">引擎已就绪 · 请点上方「重启应用使生效」</span>`;
         showToast("容器引擎已就绪，请重启应用", "ok");
+        syncIsolationRestartRow();
       } else {
         if (st)
           st.innerHTML = `<span class="bad">${h?.message || h?.error?.message || "失败"}</span>`;
@@ -579,6 +684,7 @@ export function mountSettings(root, ctx) {
   });
   loadPrefs();
   paintRunMode(ctx.state.uiPrefs?.isolationBackend);
+  syncIsolationRestartRow();
   // cleanup when leaving settings: views typically remount; best-effort
   root.addEventListener(
     "harbor:settings-dispose",
@@ -673,4 +779,12 @@ export function mountSettings(root, ctx) {
   refreshAgents();
   refreshHosts();
   root.querySelector("#btn-rehealth").click();
+  if (focusIsolation) {
+    requestAnimationFrame(() => {
+      root.querySelector("#settings-isolation")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }
 }

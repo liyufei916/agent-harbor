@@ -498,6 +498,20 @@ export async function saveTextFile(input) {
   };
 }
 
+export async function restartApp(input) {
+  const busy = [...sessions.values()].filter((s) =>
+    ["running", "provisioning", "stopping"].includes(s.state),
+  ).length;
+  if (!input?.force && busy > 0) {
+    return {
+      restarting: false,
+      busySessions: busy,
+      error: err("SESSION_BUSY", "有进行中的会话；确认后将停止并重启应用。", true),
+    };
+  }
+  return { restarting: true, error: null };
+}
+
 export async function resolvePermission(input) {
   if (!input?.sessionId || !input?.target || !input?.decision) {
     return { error: err("INVALID_ARGUMENT", "扩权参数不完整（模拟）") };

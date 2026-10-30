@@ -285,6 +285,15 @@ type DesktopAPI interface {
     WritePty(PtyInput) EmptyResponse
     ResizePty(PtyInput) EmptyResponse
     SaveTextFile(SaveTextFileInput) SaveFileResponse // 系统另存为；可 reveal
+    RestartApp(RestartAppInput) RestartAppResponse   // 一键重启：拉起新进程后退出
+}
+type RestartAppInput struct {
+    Force bool `json:"force,omitempty"` // true=有进行中会话也重启
+}
+type RestartAppResponse struct {
+    Restarting bool `json:"restarting"`
+    BusySessions int `json:"busySessions,omitempty"`
+    Error *AppError `json:"error"`
 }
 
 // Event 经 harbor:event；下列载荷恰有一项非 nil。
@@ -484,6 +493,7 @@ type Runtime interface {
 | ResolvePermission | 处理扩权挂起 | decision∈deny\|once\|project；无挂起 → `INVALID_ARGUMENT`；**禁止**全网允许 |
 | PromptPermission | 主动挂起出站扩权（ask） | 仅 running；目标为主机名；异步发 `permission_needed`，等 Resolve；**不依赖**上游 302 |
 | SaveTextFile | 系统另存为写入文本 | 建议名+内容；可选 reveal 在访达显示；取消 → cancelled；**不得**用于密钥 |
+| RestartApp | 拉起同路径新进程后退出本进程 | Force=false 且有 running/provisioning/stopping → `SESSION_BUSY` + busySessions；成功 `restarting=true`；经退出门清理 |
 | GetUIPrefs / SetUIPrefs | 读写本机 UI 偏好 | **不得**存 Key；缺文件返回默认值 |
 
 AgentID 仅允许已验证项；Task 限 1–32768 UTF-8 字节。ConnectInput 的 Name/APIKey 必填；Name≤100 Unicode；APIKey≤16384 字节。固定 profile 路径下 ProfileID 必填。重连创建新账号 ID。活动会话仍引用某账号时 `RemoveAccount` → `SESSION_BUSY`。`ConnectModel`/`ConnectMcp` 经 `WithConnection`：与并发 Connect、以及 `provisioning` 中的 Create 互斥；**已有 running 会话不拦截新增账号**（新账号仅进本机列表，不自动挂到当前会话）。

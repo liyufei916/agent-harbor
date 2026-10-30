@@ -324,6 +324,20 @@ type DesktopAPI interface {
 	WritePty(PtyInput) EmptyResponse
 	ResizePty(PtyInput) EmptyResponse
 	SaveTextFile(SaveTextFileInput) SaveFileResponse
+	// RestartApp 拉起新进程后退出；Force 跳过进行中会话检查。
+	RestartApp(RestartAppInput) RestartAppResponse
+}
+
+// RestartAppInput 一键重启应用（隔离后端切换等）。
+type RestartAppInput struct {
+	Force bool `json:"force,omitempty"`
+}
+
+// RestartAppResponse 重启结果。
+type RestartAppResponse struct {
+	Restarting   bool      `json:"restarting"`
+	BusySessions int       `json:"busySessions,omitempty"`
+	Error        *AppError `json:"error"`
 }
 
 // SwitchModelInput 切换会话当前模型（影响之后出站）。

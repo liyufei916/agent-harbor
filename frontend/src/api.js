@@ -78,6 +78,17 @@ async function call(method, ...args) {
           provisional: true,
         };
       }
+      if (method === "restartApp") {
+        return {
+          restarting: false,
+          error: {
+            code: "UNIMPLEMENTED",
+            message: "当前桌面未绑定 RestartApp，请重新生成绑定并重启应用。",
+            retryable: false,
+          },
+          provisional: true,
+        };
+      }
       if (
         method === "getUIPrefs" ||
         method === "setUIPrefs" ||
@@ -234,6 +245,9 @@ export function ensureContainerEngine() {
 }
 export function stopContainerEngine() {
   return call("stopContainerEngine");
+}
+export function restartApp(input) {
+  return call("restartApp", input || {});
 }
 export function onEngineProgress(callback) {
   if (typeof transport.onEngineProgress === "function") {

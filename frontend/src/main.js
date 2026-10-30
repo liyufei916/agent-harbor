@@ -31,9 +31,11 @@ import {
 } from "./tutorial-progress.js";
 import { normalizeTier } from "./security-tier.js";
 import { healthAllowsStart, healthBlockReason } from "./health-ready.js";
+import { requestAppRestart } from "./restart-app.js";
 
 const badge = document.getElementById("mode-badge");
 const isolationBadge = document.getElementById("isolation-badge");
+const restartAppBtn = document.getElementById("btn-restart-app");
 const usageGuideBtn = document.getElementById("usage-guide-btn");
 const sidebar = document.getElementById("sidebar");
 const healthDot = document.getElementById("health-dot");
@@ -295,6 +297,10 @@ function syncIsolationBadge() {
     isolationBadge.className = `badge isolation-badge ${verified ? "isolation-seatbelt" : "isolation-pending"}`;
   }
 
+  if (restartAppBtn) {
+    restartAppBtn.classList.toggle("hidden", !pendingRestart);
+  }
+
   const bits = [];
   if (fromHealth) {
     bits.push(`当前生效：${label(fromHealth) === "Docker" ? "容器隔离（Docker）" : "Seatbelt"}`);
@@ -306,6 +312,14 @@ function syncIsolationBadge() {
   }
   bits.push("设置 → 隔离后端 可切换");
   isolationBadge.title = bits.join(" · ");
+}
+
+if (restartAppBtn) {
+  restartAppBtn.addEventListener("click", () => {
+    void requestAppRestart({
+      reason: "重启后将按已保存的隔离后端偏好重新装配 Runtime。",
+    });
+  });
 }
 
 if (usageGuideBtn) {

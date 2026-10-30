@@ -39,6 +39,7 @@ const LIVE_SURFACE = [
   "writePty",
   "resizePty",
   "saveTextFile",
+  "restartApp",
   "onEvent",
   "onEngineProgress",
 ];
