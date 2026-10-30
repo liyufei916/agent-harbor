@@ -163,7 +163,7 @@ wails3 task darwin:package
 
 | # | 步骤 | 期望 | 结果 |
 |---|---|---|---|
-| 7.7.1 | 诱导跨主机未授权出站（见 [permission-live-test.md](workspace/permission-live-test.md)） | 回显提示 + **弹窗**；三选一：**拒绝 / 仅本次 / 本项目始终允许**；**无「全网」** | ☐ |
+| 7.7.1 | 工作台「请求扩权」或可选 302（见 [permission-live-test.md](permission-live-test.md)） | 回显提示 + **弹窗**；三选一：**拒绝 / 仅本次 / 本项目始终允许**；**无「全网」** | ☐ |
 | 7.7.2 | 若误选「本项目始终允许」 | 可在权限一览弹窗 / 侧栏已记住 / 最近活动行内 / 设置「已记住的网站」**撤销** | ☐ |
 
 ### 7.8 交互与安全边界抽测
@@ -275,7 +275,7 @@ diff -rq 摘要（脱敏，勿含密钥路径外的隐私）：
 | 文档 | 用途 |
 |---|---|
 | [demos/README.md](README.md) | mock / live 话术与启动 |
-| [workspace/permission-live-test.md](workspace/permission-live-test.md) | 扩权 live 诱导 |
+| [permission-live-test.md](permission-live-test.md) | 扩权主路径（ask/白名单；302 可选） |
 | 本文 §7.9 | clone 与原目录文件对比、导回合并验证 |
 | [evidence-template.md](evidence-template.md) | I 项证据草稿 |
 | [ACCEPTANCE.md](../docs/ACCEPTANCE.md) | 正式 D/I 验收表 |

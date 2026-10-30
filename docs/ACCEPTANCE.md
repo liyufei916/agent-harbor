@@ -85,7 +85,7 @@ D1 的绑定生成已执行；原生 WebView 冒烟通过生成绑定校验 DTO�
 | 编号 | 状态 | 说明 |
 |---|---|---|
 | I1–I11 / B6 | 见下节 **2026-10-30 全量重跑** | |
-| 扩权主路径 | 见下节 / [permission-live-test](../demos/workspace/permission-live-test.md) | 白名单 + `PromptPermission` ask；**302 仅为异常项** |
+| 扩权主路径 | 见下节 / [permission-live-test](../demos/permission-live-test.md) | 白名单 + `PromptPermission` ask；**302 仅为异常项** |
 | Apple 公证 | **阻断（账号）** | 见 `scripts/notarize-prep.md` |
 | D4 | 通过（mock） | 见 §4.1；不计 I |
 

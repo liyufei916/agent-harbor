@@ -9,7 +9,7 @@
 | clone 对比 | 打包走查见 [DESKTOP-PACKAGE-TEST.md §7.9](../DESKTOP-PACKAGE-TEST.md#79-安全副本--原项目文件对比)：先确认 ORIG 不变，再测导回 |
 | 禁止 | 凭据、`.env`、私钥、工作区外路径 |
 | 默认 I2 任务 | 勿主动要扩权（见 demos 话术） |
-| 扩权 live | 专用清单 [`permission-live-test.md`](permission-live-test.md)；mock 演示扩权不算通过 |
+| 扩权 live | 专用清单 [`../permission-live-test.md`](../permission-live-test.md)；主路径 ask/白名单，302 可选 |
 | mock | 浏览器 mock 仍返回固定路径 `/demo/project`，**不会**写本目录 |
 
 ## 本机解析绝对路径
