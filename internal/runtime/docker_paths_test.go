@@ -52,7 +52,7 @@ func TestDockerGuestPathAndGateRewrite(t *testing.T) {
 func TestDockerCreateArgsHostGateway(t *testing.T) {
 	r := NewDocker()
 	mounts := map[string]string{}
-	args := r.createArgs("/private/tmp/h", "/private/tmp/w", []string{"/usr/bin/true"}, mounts)
+	args := r.createArgs("sess-abc", "/private/tmp/h", "/private/tmp/w", []string{"/usr/bin/true"}, mounts)
 	joined := strings.Join(args, " ")
 	if !strings.Contains(joined, dockerGateHost+":host-gateway") {
 		t.Fatal(joined)
@@ -61,6 +61,9 @@ func TestDockerCreateArgsHostGateway(t *testing.T) {
 		t.Fatal(joined)
 	}
 	if !strings.Contains(joined, "--network "+HarborDockerNetwork) {
+		t.Fatal(joined)
+	}
+	if !strings.Contains(joined, "agent-harbor.session=sess-abc") {
 		t.Fatal(joined)
 	}
 	if strings.Contains(joined, "docker.sock") {

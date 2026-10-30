@@ -217,12 +217,12 @@ func (r *Docker) Create(ctx context.Context, spec RuntimeSpec) (Handle, error) {
 			closeProxies(proxies)
 		}
 	}()
-	args := r.createArgs(home, workspace, hostMounts, mounts)
+	args := r.createArgs(spec.SessionID, home, workspace, hostMounts, mounts)
 	createCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
 	containerID, err := r.runner.Run(createCtx, args...)
 	if err != nil || containerID == "" {
-		return Handle{}, runtimeError("ISOLATION_UNAVAILABLE")
+		return Handle{}, isolationUnavailable("无法创建 Harbor Docker 容器，已拒绝启动。")
 	}
 	var id [32]byte
 	if _, err := rand.Read(id[:]); err != nil {
@@ -252,11 +252,16 @@ func (r *Docker) Create(ctx context.Context, spec RuntimeSpec) (Handle, error) {
 	return handle, nil
 }
 
-func (r *Docker) createArgs(home, workspace string, readOnly []string, mounts map[string]string) []string {
+func (r *Docker) createArgs(sessionID, home, workspace string, readOnly []string, mounts map[string]string) []string {
+	sid := strings.TrimSpace(sessionID)
+	if sid == "" {
+		sid = "unknown"
+	}
 	args := []string{
 		"create",
 		"--label", "agent-harbor=1",
 		"--label", "agent-harbor.runtime=docker",
+		"--label", "agent-harbor.session=" + sid,
 		"--user", "65534:65534",
 		"--init", // tini: reap zombies from Agent child tools
 		"--cap-drop", "ALL",

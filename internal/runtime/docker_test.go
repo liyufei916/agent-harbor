@@ -11,12 +11,13 @@ import (
 )
 
 type fakeDockerRunner struct {
-	binOK    bool
-	infoErr  error
-	imageErr error
-	create   func(args []string) (string, error)
-	rmErr    error
-	calls    [][]string
+	binOK      bool
+	infoErr    error
+	imageErr   error
+	networkErr error
+	create     func(args []string) (string, error)
+	rmErr      error
+	calls      [][]string
 }
 
 func (f *fakeDockerRunner) LookPath() (string, error) {
@@ -35,6 +36,9 @@ func (f *fakeDockerRunner) Run(_ context.Context, args ...string) (string, error
 	case "info":
 		return "24.0.0", f.infoErr
 	case "network":
+		if f.networkErr != nil {
+			return "", f.networkErr
+		}
 		// inspect miss → create; tests treat both as ok
 		return "ok", nil
 	case "image":
@@ -101,6 +105,19 @@ func TestDockerHealthFailClosedWhenImageMissing(t *testing.T) {
 	}
 }
 
+func TestDockerHealthFailClosedWhenNetworkUnavailable(t *testing.T) {
+	r := NewDocker()
+	r.runner = &fakeDockerRunner{binOK: true, networkErr: errors.New("network create failed")}
+	err := r.Health(context.Background())
+	if err == nil {
+		t.Fatal("expected ISOLATION_UNAVAILABLE")
+	}
+	app, ok := err.(*contracts.AppError)
+	if !ok || app.Code != "ISOLATION_UNAVAILABLE" || !strings.Contains(app.Message, "网络") {
+		t.Fatalf("got %#v", err)
+	}
+}
+
 func TestDockerCreateRejectsForbiddenWorkspace(t *testing.T) {
 	r := NewDocker()
 	r.runner = &fakeDockerRunner{binOK: true}
@@ -147,6 +164,9 @@ func TestDockerCreateDestroyAndExecUnsupported(t *testing.T) {
 			if !strings.Contains(joined, "--init") {
 				t.Fatal("want --init for zombie reaping")
 			}
+			if !strings.Contains(joined, "agent-harbor.session=s-create") {
+				t.Fatalf("want session label: %s", joined)
+			}
 			return "cid-abc", nil
 		},
 	}
@@ -154,7 +174,7 @@ func TestDockerCreateDestroyAndExecUnsupported(t *testing.T) {
 	r.runner = fake
 	r.image = "harbor-test:fixture"
 	h, err := r.Create(context.Background(), RuntimeSpec{
-		SessionID: "s1", MountMode: "direct", Workspace: ws,
+		SessionID: "s-create", MountMode: "direct", Workspace: ws,
 		AllowedTCP: []string{"127.0.0.1:9"}, ReadOnlyPaths: []string{"/usr/bin/true"},
 	})
 	if err != nil {
