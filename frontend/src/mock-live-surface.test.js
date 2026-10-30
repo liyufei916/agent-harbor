@@ -23,6 +23,7 @@ const LIVE_SURFACE = [
   "getRuntimeHealth",
   "getContainerEngineHealth",
   "ensureContainerEngine",
+  "stopContainerEngine",
   "getPermissionOverview",
   "listRememberedHosts",
   "revokeRememberedHost",

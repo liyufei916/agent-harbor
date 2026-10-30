@@ -57,7 +57,10 @@ func (a *App) setEngineProgress(percent int, label string, installing bool) {
 	payload := contracts.EngineProgressPayload{
 		Percent: percent,
 		Label:   label,
-		Done:    !installing && percent >= 100,
+		Done:    !installing,
+	}
+	if percent >= 100 && !installing {
+		payload.Done = true
 	}
 	if app := application.Get(); app != nil {
 		app.Event.Emit(contracts.EngineProgressEventName, payload)
@@ -68,6 +71,38 @@ func (a *App) engineProgressSnapshot() (installing bool, percent int, label stri
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.engInstalling, a.engProgress, a.engProgressLabel
+}
+
+func (a *App) beginEngineInstall() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Minute)
+	a.mu.Lock()
+	if a.engInstallCancel != nil {
+		a.engInstallCancel()
+	}
+	a.engInstallCancel = cancel
+	a.mu.Unlock()
+	return ctx, cancel
+}
+
+func (a *App) endEngineInstall(cancel context.CancelFunc) {
+	a.mu.Lock()
+	a.engInstallCancel = nil
+	a.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+}
+
+func (a *App) cancelEngineInstall() bool {
+	a.mu.Lock()
+	cancel := a.engInstallCancel
+	a.engInstallCancel = nil
+	a.mu.Unlock()
+	if cancel == nil {
+		return false
+	}
+	cancel()
+	return true
 }
 
 // applyEngineDockerHost 在隔离后端为 docker 且 Harbor Colima 已就绪时，把 DOCKER_HOST 接到本进程（供 Runtime 使用）。
@@ -154,11 +189,11 @@ func (d *DesktopAPI) GetContainerEngineHealth() contracts.ContainerEngineHealthR
 	return enrichEngineHealth(d.app, mapEngineStatus(st))
 }
 
-// EnsureContainerEngine 确保引擎可用：下载/启动，并尽量构建 runtime 镜像；推送安装进度百分比。
+// EnsureContainerEngine 用户显式一键安装：下载/启动，并尽量构建 runtime 镜像；推送进度。
 func (d *DesktopAPI) EnsureContainerEngine() contracts.ContainerEngineHealthResponse {
 	eng := d.app.engineRef()
-	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Minute)
-	defer cancel()
+	ctx, cancel := d.app.beginEngineInstall()
+	defer d.app.endEngineInstall(cancel)
 
 	d.app.setEngineProgress(0, "开始安装 Harbor 容器引擎…", true)
 	defer func() {
@@ -176,16 +211,21 @@ func (d *DesktopAPI) EnsureContainerEngine() contracts.ContainerEngineHealthResp
 
 	fail := func(err error) contracts.ContainerEngineHealthResponse {
 		ae := mapError(err)
-		d.app.setEngineProgress(0, ae.Message, false)
+		msg := ae.Message
+		if ctx.Err() != nil {
+			msg = "安装已取消"
+			ae = contracts.NewAppError(contracts.ErrCancelled, msg, true)
+		}
+		d.app.setEngineProgress(0, msg, false)
 		if app := application.Get(); app != nil {
 			app.Event.Emit(contracts.EngineProgressEventName, contracts.EngineProgressPayload{
-				Percent: 0, Label: ae.Message, Done: true, Error: ae.Message,
+				Percent: 0, Label: msg, Done: true, Error: msg,
 			})
 		}
 		return enrichEngineHealth(d.app, contracts.ContainerEngineHealthResponse{
 			Ready:   false,
 			Source:  normalizeEngineSource(d.app.getPrefs().EngineSource),
-			Message: ae.Message,
+			Message: msg,
 			Error:   ae,
 		})
 	}
@@ -207,6 +247,51 @@ func (d *DesktopAPI) EnsureContainerEngine() contracts.ContainerEngineHealthResp
 	}
 	d.app.setEngineProgress(100, "安装完成", false)
 	return enrichEngineHealth(d.app, mapEngineStatus(st))
+}
+
+// StopContainerEngine 取消进行中的一键安装，并停止 Harbor 托管 Colima（不关本机 Docker Desktop）。
+func (d *DesktopAPI) StopContainerEngine() contracts.ContainerEngineHealthResponse {
+	cancelled := d.app.cancelEngineInstall()
+	if cancelled {
+		d.app.setEngineProgress(0, "正在取消安装…", false)
+	}
+	eng := d.app.engineRef()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	src := normalizeEngineSource(d.app.getPrefs().EngineSource)
+	if src == engine.SourceSystemDocker {
+		msg := "本机 Docker 由系统管理，Harbor 不会关闭 Docker Desktop。"
+		if cancelled {
+			msg = "已取消安装。" + msg
+		}
+		d.app.setEngineProgress(0, msg, false)
+		return enrichEngineHealth(d.app, contracts.ContainerEngineHealthResponse{
+			Ready:   false,
+			Source:  src,
+			Message: msg,
+			Error:   nil,
+		})
+	}
+	if err := eng.Stop(ctx); err != nil {
+		ae := mapError(err)
+		d.app.setEngineProgress(0, ae.Message, false)
+		return enrichEngineHealth(d.app, contracts.ContainerEngineHealthResponse{
+			Ready:   false,
+			Source:  src,
+			Message: ae.Message,
+			Error:   ae,
+		})
+	}
+	msg := "已停止 Harbor Colima。"
+	if cancelled {
+		msg = "已取消安装并停止 Harbor Colima。"
+	}
+	d.app.setEngineProgress(0, msg, false)
+	st, _ := eng.Health(ctx)
+	out := mapEngineStatus(st)
+	out.Message = msg
+	out.Ready = false
+	return enrichEngineHealth(d.app, out)
 }
 
 func resolveDockerfileDir() string {

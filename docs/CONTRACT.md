@@ -252,6 +252,7 @@ type DesktopAPI interface {
     GetRuntimeHealth() RuntimeHealthResponse
     GetContainerEngineHealth() ContainerEngineHealthResponse
     EnsureContainerEngine() ContainerEngineHealthResponse
+    StopContainerEngine() ContainerEngineHealthResponse // 取消安装 + 停 Harbor Colima
     GetPermissionOverview(sessionID string) PermissionOverviewResponse
     ListRememberedHosts(workspace string) RememberedHostsResponse
     RevokeRememberedHost(RevokeHostInput) EmptyResponse
@@ -454,7 +455,8 @@ type Runtime interface {
 | SyncBackWorkspace | 将 clone 副本合并写回 `sourceWorkspace` | 仅 `mountMode=clone`；覆盖同名常规文件，不删原目录多余项；成功后桌面在访达中显示源目录；无副本/direct → `INVALID_ARGUMENT`；未知 → `SESSION_NOT_FOUND` |
 | GetRuntimeHealth | 隔离/Runtime 探测 | available=false 时 reason 必填；可选 `vaultNotice` 提示凭据介质告警；不因此自动放行无隔离启动 |
 | GetContainerEngineHealth | P2 容器引擎探测 | ready=false 时 message 必填；不启停引擎；禁密钥 |
-| EnsureContainerEngine | 启用/下载/启动引擎并尽量建镜像 | 失败 fail-closed；成功可写 `DOCKER_HOST`；不自动改 Seatbelt 默认 |
+| EnsureContainerEngine | 用户一键安装：下载/启动引擎并尽量建镜像 | 失败 fail-closed；成功可写 `DOCKER_HOST`；不因切后端自动触发 |
+| StopContainerEngine | 取消进行中安装；停止 Harbor Colima | 不关闭本机 Docker Desktop；可推送 progress done |
 | GetPermissionOverview | 只读边界摘要 | 无 Key/Sentinel/完整 Gate URL；sessionId 空则返回「默认/全局」允许摘要（无工作区时 workspace=""） |
 | ListRememberedHosts | 已记住主机 | workspace 空=全部；与设置「管理网站」同源 |
 | RevokeRememberedHost | 撤销 project/session 记住项 | 未知 host 成功幂等（error=null） |

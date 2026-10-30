@@ -265,8 +265,11 @@ export async function getContainerEngineHealth() {
   };
 }
 
+let mockEngineStopRequested = false;
+
 export async function ensureContainerEngine() {
   mockEngineInstalling = true;
+  mockEngineStopRequested = false;
   const steps = [
     [8, "下载 colima…"],
     [35, "下载 limactl…"],
@@ -276,6 +279,19 @@ export async function ensureContainerEngine() {
     [100, "安装完成"],
   ];
   for (const [pct, label] of steps) {
+    if (mockEngineStopRequested) {
+      mockEngineInstalling = false;
+      mockEngineReady = false;
+      mockEngineProgress = 0;
+      mockEngineProgressLabel = "安装已取消";
+      emitEngineProgress({
+        percent: 0,
+        label: "安装已取消",
+        done: true,
+        error: "安装已取消",
+      });
+      return getContainerEngineHealth();
+    }
     mockEngineProgress = pct;
     mockEngineProgressLabel = label;
     emitEngineProgress({ percent: pct, label, done: false });
@@ -287,6 +303,24 @@ export async function ensureContainerEngine() {
   mockEngineProgressLabel = "安装完成";
   emitEngineProgress({ percent: 100, label: "安装完成", done: true });
   return getContainerEngineHealth();
+}
+
+export async function stopContainerEngine() {
+  mockEngineStopRequested = true;
+  mockEngineInstalling = false;
+  mockEngineReady = false;
+  mockEngineProgress = 0;
+  mockEngineProgressLabel = "已停止";
+  emitEngineProgress({
+    percent: 0,
+    label: "已取消安装并停止引擎（mock）",
+    done: true,
+  });
+  return {
+    ...(await getContainerEngineHealth()),
+    ready: false,
+    message: "已取消安装并停止引擎（mock）",
+  };
 }
 
 export async function listSessions() {
@@ -1150,6 +1184,7 @@ export function resetMock() {
   scenario = "normal";
   mockEngineReady = false;
   mockEngineInstalling = false;
+  mockEngineStopRequested = false;
   mockEngineProgress = 0;
   mockEngineProgressLabel = "";
   engineProgressListeners.clear();

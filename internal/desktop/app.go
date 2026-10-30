@@ -53,6 +53,7 @@ type App struct {
 	engInstalling    bool
 	engProgress      int
 	engProgressLabel string
+	engInstallCancel context.CancelFunc
 	prefs            contracts.UIPrefs
 	hosts            map[string]contracts.RememberedHost // key: workspace\x00host
 	oauth            map[string]*oauthPending

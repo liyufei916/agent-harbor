@@ -89,7 +89,7 @@ export function mountSettings(root, ctx) {
         </select>
       </label>
       <div id="engine-panel" class="engine-panel" hidden>
-        <p class="meta">容器隔离需要 Docker API 兼容 daemon：默认由 Harbor 托管 Colima（无需 Desktop）；高级用户可改用本机已有 Docker。</p>
+        <p class="meta">先选引擎来源，再点<strong>一键安装并启用</strong>才会下载/启动（切后端本身不下载）。Harbor Colima 可停止；本机 Docker 仅取消安装，不会关 Desktop。</p>
         <label class="field">容器引擎来源
           <select id="set-engine-source">
             <option value="harbor-colima">Harbor 托管 Colima（推荐）</option>
@@ -107,8 +107,9 @@ export function mountSettings(root, ctx) {
         <div class="actions">
           <button type="button" class="btn" id="btn-engine-health">检测引擎</button>
           <button type="button" class="btn primary" id="btn-engine-ensure">一键安装并启用</button>
+          <button type="button" class="btn" id="btn-engine-stop">停止 / 取消</button>
         </div>
-        <p class="meta" id="engine-action-status">未装 Docker Desktop 时可一键安装 Harbor 托管引擎（约数十 MB，显示进度）。</p>
+        <p class="meta" id="engine-action-status">选好 Colima 或本机 Docker 后，点一键安装才开始下载（约数十 MB，显示进度）。</p>
       </div>
     </section>
 
@@ -419,38 +420,15 @@ export function mountSettings(root, ctx) {
     syncEnginePanel(nextBackend);
     paintRunMode(nextBackend);
 
-    // M4：切到容器隔离时自动一键安装（无感路径；失败仍 fail-closed）。
-    if (nextBackend === "docker" && prevBackend !== "docker") {
-      const engSt = root.querySelector("#engine-action-status");
-      if (engSt) engSt.textContent = "正在自动一键安装容器引擎…";
-      paintEngineProgress(1, "开始安装…", true);
-      st.innerHTML = `<span class="warn">已保存 · 正在安装引擎…</span>`;
-      showToast("已切到容器隔离，正在一键安装引擎…", "ok");
-      try {
-        const h = await api.ensureContainerEngine();
-        paintEngineHealth(h);
-        if (h?.ready) {
-          paintEngineProgress(100, "安装完成", false);
-          if (engSt) engSt.innerHTML = `<span class="ok">引擎已就绪 · 请重启应用</span>`;
-          st.innerHTML = `<span class="warn">已保存 · 引擎就绪 · 请重启应用后生效</span>`;
-          showToast("容器引擎已就绪，请重启应用", "ok");
-        } else {
-          const msg = h?.message || h?.error?.message || "引擎未就绪";
-          if (engSt) engSt.innerHTML = `<span class="bad">${msg}</span>`;
-          st.innerHTML = `<span class="warn">已保存 · 引擎未就绪 · 可点「一键安装并启用」重试后重启</span>`;
-          showToast(msg, "bad");
-        }
-      } catch {
-        if (engSt) engSt.innerHTML = `<span class="bad">自动安装失败</span>`;
-        st.innerHTML = `<span class="warn">已保存 · 自动安装失败 · 请手动一键安装后重启</span>`;
-        showToast("自动安装容器引擎失败", "bad");
-      }
-      return;
-    }
-
     if (prevBackend !== nextBackend) {
-      st.innerHTML = `<span class="warn">已保存 · 隔离后端须重启应用后生效</span>`;
-      showToast("隔离后端已保存，请重启应用后生效", "ok");
+      if (nextBackend === "docker") {
+        st.innerHTML = `<span class="warn">已保存 · 请选择引擎并点「一键安装并启用」，然后重启应用</span>`;
+        showToast("已切到容器隔离：请一键安装引擎后再重启", "ok");
+        refreshEngineHealth().catch(() => paintEngineHealth(null));
+      } else {
+        st.innerHTML = `<span class="warn">已保存 · 隔离后端须重启应用后生效</span>`;
+        showToast("隔离后端已保存，请重启应用后生效", "ok");
+      }
     } else {
       st.innerHTML = `<span class="ok">已保存</span>`;
     }
@@ -512,18 +490,20 @@ export function mountSettings(root, ctx) {
     const btn = root.querySelector("#btn-engine-ensure");
     const st = root.querySelector("#engine-action-status");
     const healthBtn = root.querySelector("#btn-engine-health");
+    const stopBtn = root.querySelector("#btn-engine-stop");
     btn.disabled = true;
     if (healthBtn) healthBtn.disabled = true;
+    if (stopBtn) stopBtn.disabled = false;
     paintEngineProgress(1, "开始安装…", true);
-    if (st) st.textContent = "一键安装中（下载 / 启动 Colima）…";
+    if (st) st.textContent = "一键安装中（下载 / 启动）…可点「停止 / 取消」";
     showToast("正在一键安装容器引擎…", "ok");
     try {
       const h = await api.ensureContainerEngine();
       paintEngineHealth(h);
       if (h?.ready) {
         paintEngineProgress(100, "安装完成", false);
-        if (st) st.innerHTML = `<span class="ok">引擎已就绪 · 若已切容器隔离请重启应用</span>`;
-        showToast("容器引擎已就绪", "ok");
+        if (st) st.innerHTML = `<span class="ok">引擎已就绪 · 请重启应用使容器隔离生效</span>`;
+        showToast("容器引擎已就绪，请重启应用", "ok");
       } else {
         if (st)
           st.innerHTML = `<span class="bad">${h?.message || h?.error?.message || "安装失败"}</span>`;
@@ -535,6 +515,25 @@ export function mountSettings(root, ctx) {
     } finally {
       btn.disabled = false;
       if (healthBtn) healthBtn.disabled = false;
+    }
+  });
+  root.querySelector("#btn-engine-stop")?.addEventListener("click", async () => {
+    const btn = root.querySelector("#btn-engine-stop");
+    const st = root.querySelector("#engine-action-status");
+    btn.disabled = true;
+    if (st) st.textContent = "正在停止 / 取消…";
+    showToast("正在停止容器引擎…", "ok");
+    try {
+      const h = await api.stopContainerEngine();
+      paintEngineHealth(h);
+      paintEngineProgress(0, h?.message || "已停止", false);
+      if (st) st.innerHTML = `<span class="ok">${h?.message || "已停止"}</span>`;
+      showToast(h?.message || "已停止", "ok");
+    } catch (e) {
+      if (st) st.innerHTML = `<span class="bad">停止失败</span>`;
+      showToast("停止失败", "bad");
+    } finally {
+      btn.disabled = false;
     }
   });
   loadPrefs();

@@ -3,6 +3,7 @@ package desktop
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,6 +48,22 @@ func TestGetContainerEngineHealthFailClosedWithoutBins(t *testing.T) {
 	_ = got.DockerDesktopInstalled
 	if got.ComponentsInstalled {
 		t.Fatal("expected components missing without bins")
+	}
+}
+
+func TestStopContainerEngineSystemDockerNoOpDesktop(t *testing.T) {
+	app := NewApp()
+	app.setPrefs(contracts.UIPrefs{
+		IsolationBackend: "docker",
+		EngineSource:     engine.SourceSystemDocker,
+	})
+	api := &DesktopAPI{app: app}
+	got := api.StopContainerEngine()
+	if got.Ready {
+		t.Fatalf("%+v", got)
+	}
+	if got.Message == "" || !strings.Contains(got.Message, "Docker Desktop") {
+		t.Fatalf("want desktop notice, got %+v", got)
 	}
 }
 

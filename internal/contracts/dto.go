@@ -281,8 +281,10 @@ type DesktopAPI interface {
 	GetRuntimeHealth() RuntimeHealthResponse
 	// GetContainerEngineHealth 探测 P2 容器引擎（不启停）。
 	GetContainerEngineHealth() ContainerEngineHealthResponse
-	// EnsureContainerEngine 下载/启动托管引擎并尽量构建 runtime 镜像。
+	// EnsureContainerEngine 下载/启动托管引擎并尽量构建 runtime 镜像（仅用户显式一键安装时调用）。
 	EnsureContainerEngine() ContainerEngineHealthResponse
+	// StopContainerEngine 取消进行中的安装，并停止 Harbor 托管 Colima（不关本机 Docker Desktop）。
+	StopContainerEngine() ContainerEngineHealthResponse
 	GetPermissionOverview(sessionID string) PermissionOverviewResponse
 	ListRememberedHosts(workspace string) RememberedHostsResponse
 	RevokeRememberedHost(RevokeHostInput) EmptyResponse

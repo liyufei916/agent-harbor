@@ -42,6 +42,7 @@ export function createLiveTransport() {
     getRuntimeHealth: bind("GetRuntimeHealth"),
     getContainerEngineHealth: bind("GetContainerEngineHealth"),
     ensureContainerEngine: bind("EnsureContainerEngine"),
+    stopContainerEngine: bind("StopContainerEngine"),
     getPermissionOverview: bind("GetPermissionOverview"),
     listRememberedHosts: bind("ListRememberedHosts"),
     revokeRememberedHost: bind("RevokeRememberedHost"),

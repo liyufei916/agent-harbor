@@ -52,7 +52,7 @@ bash scripts/docker-p2-up.sh   # 构建镜像 + 边界冒烟（需已有 docker�
 # 或：export HARBOR_RUNTIME=docker
 ```
 
-产品主路径（M4）：设置显示是否装有 Docker Desktop；无 Desktop 时点 **「一键安装并启用」**（进度条百分比）或切「容器隔离」自动安装 → **重启应用** → Health `isolationLevel=docker`。勾选见 [stranger-first-run-record](../demos/stranger-first-run-record.md) §P2 B。
+产品主路径：设置 → 后端选「容器隔离」→ 选引擎（Colima / 本机 Docker）→ 点 **「一键安装并启用」**（才下载；可「停止 / 取消」）→ **重启应用** → Health `isolationLevel=docker`。勾选见 [stranger-first-run-record](../demos/stranger-first-run-record.md) §P2 B。
 
 ## 环境变量
 

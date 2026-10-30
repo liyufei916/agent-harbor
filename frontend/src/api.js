@@ -35,7 +35,11 @@ async function call(method, ...args) {
           error: null,
         };
       }
-      if (method === "getContainerEngineHealth" || method === "ensureContainerEngine") {
+      if (
+        method === "getContainerEngineHealth" ||
+        method === "ensureContainerEngine" ||
+        method === "stopContainerEngine"
+      ) {
         return {
           ready: false,
           source: "harbor-colima",
@@ -117,7 +121,11 @@ async function call(method, ...args) {
         error: wrapTransportError(e),
       };
     }
-    if (method === "getContainerEngineHealth" || method === "ensureContainerEngine") {
+    if (
+      method === "getContainerEngineHealth" ||
+      method === "ensureContainerEngine" ||
+      method === "stopContainerEngine"
+    ) {
       return {
         ready: false,
         source: "",
@@ -204,6 +212,9 @@ export function getContainerEngineHealth() {
 }
 export function ensureContainerEngine() {
   return call("ensureContainerEngine");
+}
+export function stopContainerEngine() {
+  return call("stopContainerEngine");
 }
 export function onEngineProgress(callback) {
   if (typeof transport.onEngineProgress === "function") {
