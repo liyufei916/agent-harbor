@@ -335,9 +335,11 @@ export function mountSettings(root, ctx) {
   loadPrefs();
   const runMode = root.querySelector("#about-run-mode");
   if (runMode) {
+    const backend = normalizeIsolationBackend(ctx.state.uiPrefs?.isolationBackend);
+    const backendLabel = backend === "docker" ? "隔离后端偏好 Docker（须重启生效）" : "隔离后端偏好 Seatbelt";
     runMode.textContent = api.isMock()
-      ? "运行模式：模拟（浏览器 mock）— 不能当真实验收"
-      : "运行模式：真实绑定（桌面后端）";
+      ? `运行模式：模拟（浏览器 mock）— 不能当真实验收 · ${backendLabel}`
+      : `运行模式：真实绑定（桌面后端）· ${backendLabel}`;
   }
   const sel = root.querySelector("#scenario");
   if (sel) {

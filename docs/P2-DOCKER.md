@@ -29,7 +29,8 @@ Gate / Policy / 页面主契约不变，只换 `Runtime` 实现。
 | 10 | Docker Terminal：宿主 PTY + `docker exec -it`；Resize | **完成** |
 | 11 | 冒烟可选校验 `docker exec -t`（非 TTY CI 跳过） | **完成** |
 | 12 | mock Health 跟随 Docker 偏好；CONTRACT 注记 P2 Terminal | **完成** |
-| 13 | ProbeDockerGuest 先校验镜像；缺失/daemon 文案可辨 | **本提交** |
+| 13 | ProbeDockerGuest 先校验镜像；缺失/daemon 文案可辨 | **完成** |
+| 14 | Health 清理已退出的 Harbor 孤儿容器；设置页显示后端偏好 | **本提交** |
 
 ## 残留风险（Docker Desktop）
 

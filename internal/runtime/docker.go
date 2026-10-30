@@ -123,6 +123,8 @@ func (r *Docker) Health(ctx context.Context) error {
 	if _, err := r.runner.Run(imgCtx, "image", "inspect", "--format", "{{.Id}}", r.image); err != nil {
 		return isolationUnavailable("Harbor 运行时镜像不存在，已拒绝启动。请先构建 agent-harbor/runtime:dev。")
 	}
+	// Crash leftovers: remove exited harbor containers; never fail Health.
+	r.pruneExitedHarborContainers(ctx)
 	return nil
 }
 

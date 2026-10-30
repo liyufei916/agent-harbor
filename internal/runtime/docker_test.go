@@ -15,6 +15,8 @@ type fakeDockerRunner struct {
 	infoErr    error
 	imageErr   error
 	networkErr error
+	psOut      string
+	psErr      error
 	create     func(args []string) (string, error)
 	rmErr      error
 	calls      [][]string
@@ -43,6 +45,8 @@ func (f *fakeDockerRunner) Run(_ context.Context, args ...string) (string, error
 		return "ok", nil
 	case "image":
 		return "sha256:fixture", f.imageErr
+	case "ps":
+		return f.psOut, f.psErr
 	case "create":
 		if f.create != nil {
 			return f.create(args)
@@ -115,6 +119,34 @@ func TestDockerHealthFailClosedWhenNetworkUnavailable(t *testing.T) {
 	app, ok := err.(*contracts.AppError)
 	if !ok || app.Code != "ISOLATION_UNAVAILABLE" || !strings.Contains(app.Message, "网络") {
 		t.Fatalf("got %#v", err)
+	}
+}
+
+func TestDockerHealthPrunesExitedHarborContainers(t *testing.T) {
+	fake := &fakeDockerRunner{binOK: true, psOut: "cid-old\ncid-stale"}
+	r := NewDocker()
+	r.runner = fake
+	if err := r.Health(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	var sawPs, rmOld, rmStale bool
+	for _, c := range fake.calls {
+		if len(c) == 0 {
+			continue
+		}
+		joined := strings.Join(c, " ")
+		if c[0] == "ps" && strings.Contains(joined, "label=agent-harbor=1") && strings.Contains(joined, "status=exited") {
+			sawPs = true
+		}
+		if len(c) >= 3 && c[0] == "rm" && c[1] == "-f" && c[2] == "cid-old" {
+			rmOld = true
+		}
+		if len(c) >= 3 && c[0] == "rm" && c[1] == "-f" && c[2] == "cid-stale" {
+			rmStale = true
+		}
+	}
+	if !sawPs || !rmOld || !rmStale {
+		t.Fatalf("prune calls=%#v sawPs=%v rmOld=%v rmStale=%v", fake.calls, sawPs, rmOld, rmStale)
 	}
 }
 
