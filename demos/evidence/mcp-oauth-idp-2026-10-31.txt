@@ -1,0 +1,15 @@
+# MCP OAuth 真 IdP 端到端证据
+# 日期：2026-10-31
+# 命令：go run ./scripts/cmd/mcp-oauth-evidence
+# IdP：本机受控（http://127.0.0.1 · authorize + /oauth/token + RFC7591 DCR）
+# 说明：证明 StartMcpOAuth → 授权码换票 → Secrets 落库；公网用户仍用 HTTPS IdP。
+
+IDP_ORIGIN=http://127.0.0.1:58826
+clientSource=dcr
+clientId=harbor-dcr-evidence-client
+pendingCleared=yes
+accountId=mcp_e2f84a8f2a384d62
+authMode=oauth
+host=127.0.0.1
+keyHint=…oken
+PASS: MCP OAuth authorization_code + DCR against real IdP endpoints

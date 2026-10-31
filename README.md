@@ -30,7 +30,7 @@
 | **模型自由添加** | 「模型」页自填 Origin + Key（提交后清空）；可勾选多 Agent 共用（须上游协议匹配）；亦支持预置 profile |
 | **多 Agent** | Claude Code / DeepSeek dsh / OpenAI Codex；向导**第一步即检**本机或镜像内 CLI |
 | **MCP 预置 + 双轨** | 工具页勾选预置（时间 / filesystem / Context7）；远程 HTTP（Token / OAuth）或宿主 stdio |
-| **MCP 凭据机制 + 清单** | Key 只在宿主代填；兼容面见 [mcp-compat-matrix](demos/mcp-compat-matrix.md)（非「所有主流开箱」） |
+| **MCP 凭据机制 + 清单** | Key 只在宿主代填；兼容面见 [mcp-compat-matrix](demos/mcp-compat-matrix.md)（非「所有主流开箱」）。**通用远程适配**已用非 Context7 公网 MCP（汇率 / 油价）`tools/call` 验证，见 [evidence](demos/evidence/mcp-generic-external-2026-10-31.txt) |
 | **本机「记录」** | 用量 / 阻拦 / 扩权 / 诊断；Gate 可采 input/output token 粗算费用；参考单价可改可删（CNY/USD 勿混）；导出脱敏 JSON（另存为 + 访达显示） |
 | **可校验分发** | Releases / CI 提供 `AgentHarbor-macos.zip` + **SHA256**；MIT 许可；首次打开需 Gatekeeper 放行（未公证时常见） |
 | **双终端** | 同一套前端：浏览器（mock / 本机 live）+ 桌面 App；开发与演示可浏览器开，交付与 I 验收走桌面 |

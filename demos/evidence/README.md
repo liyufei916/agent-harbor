@@ -7,7 +7,9 @@
 | `delivery-v0.1.0.md` + `AgentHarbor-macos-v0.1.0.sha256` | 正式包校验 |
 | `p2-docker-smoke-*.txt` | Docker Runtime 冒烟 |
 | `p2-colima-ensure-*.txt` / `p2-docker-agents-*.txt` / `p2-docker-gui-*.txt` | P2 引擎 / Agent / GUI 旁证 |
-| `mcp-remote-non-context7-*.txt` | 非 Context7 远程 HTTP `ConnectMcp` |
+| `mcp-remote-non-context7-*.txt` | 非 Context7 远程 HTTP `ConnectMcp`（本机回环） |
+| `mcp-generic-external-*.txt` | 公网通用远程 MCP 适配（非 Context7 · `tools/call`；汇率+油价） |
+| `mcp-oauth-idp-*.txt` | MCP OAuth 真 IdP（授权码换票 + DCR） |
 | `syncback-hash-*.txt` | SyncBack 同名覆盖 + 源独有保留（sha256） |
 | `http-live-gui-*.txt` | 浏览器本机 live（双终端）+ `screenshots/live-browser/` |
 | `go-unit-coverage-2026-10-31.md`（+ sha / svg / summary-tail） | main 绿 CI `go-unit-coverage` artifact 旁证（SHA 对齐） |

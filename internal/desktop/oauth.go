@@ -40,11 +40,22 @@ type oauthPending struct {
 
 func oauthAuthority(origin string) (authority, host, basePath string, err error) {
 	u, perr := url.Parse(origin)
-	if perr != nil || u.Scheme != "https" || u.Host == "" || u.User != nil {
-		return "", "", "", contracts.NewAppError(contracts.ErrInvalidArgument, "OAuth Origin 必须是 https://host[/path]", false)
+	if perr != nil || u.Host == "" || u.User != nil {
+		return "", "", "", contracts.NewAppError(contracts.ErrInvalidArgument, "OAuth Origin 必须是 https://host[/path]（本机回环可用 http://127.0.0.1）", false)
+	}
+	host = strings.ToLower(u.Hostname())
+	switch u.Scheme {
+	case "https":
+		// 公网 IdP 主路径
+	case "http":
+		// 与 ConnectMcp 一致：仅本机回环允许明文，供受控 IdP 证据 / 本地联调
+		if host != "127.0.0.1" && host != "localhost" && host != "::1" {
+			return "", "", "", contracts.NewAppError(contracts.ErrInvalidArgument, "OAuth Origin 必须是 https://host[/path]（本机回环可用 http://127.0.0.1）", false)
+		}
+	default:
+		return "", "", "", contracts.NewAppError(contracts.ErrInvalidArgument, "OAuth Origin 必须是 https://host[/path]（本机回环可用 http://127.0.0.1）", false)
 	}
 	authority = u.Scheme + "://" + u.Host
-	host = strings.ToLower(u.Hostname())
 	basePath = strings.TrimRight(u.Path, "/")
 	if basePath == "/" {
 		basePath = ""
@@ -222,7 +233,7 @@ if (location.hash) {
 		profileID = policy.ProfileCustom
 	}
 	meta := contracts.AccountInfo{
-		Kind: "mcp", Name: p.name, ProfileID: profileID, Host: host, BasePath: p.basePath,
+		Kind: "mcp", Name: p.name, ProfileID: profileID, Host: host, BasePath: p.basePath, AuthMode: "oauth",
 	}
 	id, err := a.secrets.Put(ctx, meta, []byte(token))
 	if err != nil {

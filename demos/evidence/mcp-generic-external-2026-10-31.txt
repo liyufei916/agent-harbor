@@ -1,0 +1,33 @@
+# 通用远程 MCP 适配（非 Context7 · 公网 Streamable HTTP）
+# 日期：2026-10-31
+# 前提：Gate 按挂载 Paths[0] 上游转发（修 mcpcn 长 path 被截成 /mcp）
+# Agent：OpenAI Codex · 桌面会话 · Seatbelt
+# 范围：工具发现 + tools/call 经 Harbor Gate；Key 不进沙箱
+# 不含：Context7 预置（另路径）
+
+## 1) 汇率转换 MCP（www.mcpcn.cc）
+
+accountName=汇率转换MCP
+tools=exchange_rate_convert,currency_convert
+kitServer=harbor-07e02285d23e54b6
+call=exchange_rate_convert
+args=amount=100 from=CNY to=USD
+result=rate=0.150300 camount=15.03
+evidence=Codex rollout McpToolCall status=completed（session-1366909116 · 会话结束后 home 已清）
+PASS: tools/call exchange_rate_convert via Gate
+
+## 2) 油价限行 MCP（www.mcpcn.cc）
+
+accountName=油价限行 MCP
+tools=oil_price_query,vehicle_limit_query
+call=oil_price_query
+args=province=北京（未指定时默认）
+result=p92=8.89 p95=9.46 p98=10.96 p89=8.32 p0=8.65 time=2026-10-31 12:00:01
+evidence=同会话工作台回复字段与上游 schema 一致；会话结束后未保留 rollout
+PASS: tools/call oil_price_query via Gate
+
+## 结论
+
+PASS: 非 Context7 公网远程 HTTP MCP ×2（汇率 + 油价）端到端 tools/call
+口径：证明通用远程 MCP 适配（Connect + list + call），非「市面全部 MCP 开箱」
+对照：本机回环 Connect 见 mcp-remote-non-context7-2026-10-31.txt

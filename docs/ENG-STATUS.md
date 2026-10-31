@@ -54,6 +54,8 @@
 | 2026-10-31j | **扩权默认保留**：StartSession 与 Create 同源回灌落盘 project+档位；Resolve 写当前 Gate；换引擎/重启不清记住表（CONTRACT + 设置/指南文案）。 |
 | 2026-10-31k | **评委 P0**：MCP 服务器名按 accountId 稳定派生；`No such tool available` 中文化+断言；README 标明 Release vs CI Artifact；设置页写明 Agent 能力边界；发 **v0.1.1**。 |
 | 2026-10-31l | **MCP 长 path 转发**：Gate 按挂载 `Paths[0]` 上游（修 mcpcn 等 `…/mcp/…/uuid` 被错打成 `/mcp`，Claude/dsh 均挂不上工具）。 |
+| 2026-10-31m | **通用远程 MCP 适配 live**：非 Context7 公网 mcpcn ×2（汇率 `exchange_rate_convert`、油价 `oil_price_query`）Codex `tools/call` 通过；证据 `demos/evidence/mcp-generic-external-2026-10-31.txt` + 矩阵。 |
+| 2026-10-31n | **MCP OAuth 真 IdP**：回环 http 允许本机 IdP；`mcp-oauth-evidence`（authorize→code→token + DCR）；账号 `authMode=oauth`；证据 `demos/evidence/mcp-oauth-idp-2026-10-31.txt`；发 **v0.1.2**。 |
 
 ## eng-complete（代码已接线）
 
@@ -66,7 +68,7 @@
 | clone / SyncBack | Runtime 副本 + 导回 + Destroy 清理；导回成功 toast 提示路径（不自动开访达） |
 | PTY / Resize | WritePty；Terminal 模式 `pty.Setsize` |
 | SwitchModel | 同 profileId + Host；工作台仅列兼容账号 |
-| OAuth / stdio MCP | 回环 OAuth、宿主 stdio 桥 |
+| OAuth / stdio MCP | 回环 OAuth（含本机 http IdP + DCR 证据）、宿主 stdio 桥 |
 | Keychain | Darwin Keychain fail-closed；`vaultNotice` |
 | 浅色主题 | `UIPrefs.theme` system/light/dark |
 | 安全档位种子 | `UIPrefs.securityTier` → CreateSession / StartSession ExtraHosts |

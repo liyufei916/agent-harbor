@@ -48,4 +48,6 @@
 | 上游 | 状态 | 证据 |
 |---|---|---|
 | 本机受控 Streamable HTTP（`http://127.0.0.1` · `AllowInsecureLoopback`；非 Context7） | **通过（2026-10-31）** | `go run ./scripts/cmd/mcp-remote-evidence` → [`evidence/mcp-remote-non-context7-2026-10-31.txt`](evidence/mcp-remote-non-context7-2026-10-31.txt)（`PASS: ConnectMcp non-context7 remote HTTP`；工具 `harbor_evidence_echo`） |
+| **公网通用远程 MCP**（mcpcn Streamable HTTP · 非 Context7） | **通过（2026-10-31）** | 桌面 Codex 端到端 `tools/call` ×2 → [`evidence/mcp-generic-external-2026-10-31.txt`](evidence/mcp-generic-external-2026-10-31.txt)：汇率 `exchange_rate_convert`（100 CNY→15.03 USD）；油价 `oil_price_query`（北京 92#=8.89）。证明 **通用远程 MCP 适配**（Connect + list + call），非「全部 MCP 开箱」 |
+| **MCP OAuth 真 IdP**（授权码 + RFC7591 DCR） | **通过（2026-10-31）** | `go run ./scripts/cmd/mcp-oauth-evidence` → [`evidence/mcp-oauth-idp-2026-10-31.txt`](evidence/mcp-oauth-idp-2026-10-31.txt)（本机受控 IdP；`clientSource=dcr`；账号 `authMode=oauth`）。公网仍用 HTTPS IdP |
 | Context7 预置 | 另见工具页一键 / I1 账号列表 | 不替代上列「非 context7」项 |

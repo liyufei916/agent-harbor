@@ -118,7 +118,7 @@ $ grep -n harbor-live-i2 demos/workspace/summary.txt
 1:harbor-live-i2: …
 ```
 
-仍开放：**Apple 公证**（账号阻断；未公证路径用 `./scripts/gatekeeper-verify.sh`）；302 异常项按需（backlog）。扩权主路径 + toast 带主机；`harbor_demo_ask` **默认关闭**（设置 `demoExpandAsk` 或 `HARBOR_DEMO_ASK=1` 后配合 `EXPAND-TASK`）。**2026-10-31**：http-live GUI 扩权（project+撤销再弹）与阻拦（`harbor_demo_blocked`→记录·阻拦）通过，见 [permission-live-test](../demos/permission-live-test.md) 用例 4–5；样张 [screenshots/live-browser](../demos/screenshots/live-browser/)。导回 toast 提示源路径；命令级 hash 旁证见 `demos/evidence/syncback-hash-2026-10-31.txt`。口播见 [B6-SUCCESS-DEMO](../demos/B6-SUCCESS-DEMO.md)。非 context7 远程 MCP：`demos/evidence/mcp-remote-non-context7-2026-10-31.txt`。截图：[screenshots](../demos/screenshots/)。
+仍开放：**Apple 公证**（账号阻断；未公证路径用 `./scripts/gatekeeper-verify.sh`）；302 异常项按需（backlog）。扩权主路径 + toast 带主机；`harbor_demo_ask` **默认关闭**（设置 `demoExpandAsk` 或 `HARBOR_DEMO_ASK=1` 后配合 `EXPAND-TASK`）。**2026-10-31**：http-live GUI 扩权（project+撤销再弹）与阻拦（`harbor_demo_blocked`→记录·阻拦）通过，见 [permission-live-test](../demos/permission-live-test.md) 用例 4–5；样张 [screenshots/live-browser](../demos/screenshots/live-browser/)。导回 toast 提示源路径；命令级 hash 旁证见 `demos/evidence/syncback-hash-2026-10-31.txt`。口播见 [B6-SUCCESS-DEMO](../demos/B6-SUCCESS-DEMO.md)。非 context7 远程 MCP：`demos/evidence/mcp-remote-non-context7-2026-10-31.txt`（回环 Connect）；公网通用适配（汇率+油价 `tools/call`）：`demos/evidence/mcp-generic-external-2026-10-31.txt`；OAuth 真 IdP：`demos/evidence/mcp-oauth-idp-2026-10-31.txt` · [mcp-compat-matrix](../demos/mcp-compat-matrix.md)。截图：[screenshots](../demos/screenshots/)。
 
 ## Codex / dsh 真实短任务（固定提交 · 本机 harness）
 

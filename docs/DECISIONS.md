@@ -23,11 +23,13 @@
 | 项 | 约定 |
 |---|---|
 | 回调 | 默认 `127.0.0.1:<ephemeral>/callback`；可设 `HARBOR_MCP_OAUTH_REDIRECT_PORT` 固定端口便于 IdP 预登记 |
+| Origin | 公网须 **HTTPS**；本机回环可用 `http://127.0.0.1`（与 ConnectMcp 同口径，供证据/联调） |
 | 授权 | `GET {origin}/authorize?response_type=code&redirect_uri=…&client_id=…&state=…` |
 | 换票 | `POST {origin}{HARBOR_MCP_OAUTH_TOKEN_PATH||/oauth/token}`，`grant_type=authorization_code`；可选 `HARBOR_MCP_OAUTH_CLIENT_SECRET` |
 | client_id | 显式 `HARBOR_MCP_OAUTH_CLIENT_ID` 优先；否则尝试 RFC 7591 DCR；再回退默认 `agent-harbor` |
 | 响应 | `McpOAuthResponse` 含 `redirectUri` / `clientId` / `clientSource`（`env`\|`dcr`\|`default`）供 UI 自助 |
-| 成功 | `access_token` 写入 Secrets；UI 轮询 `ListAccounts` |
+| 成功 | `access_token` 写入 Secrets（`authMode=oauth`）；UI 轮询 `ListAccounts` |
+| 证据 | `go run ./scripts/cmd/mcp-oauth-evidence`；`HARBOR_MCP_OAUTH_NO_BROWSER=1` 跳过系统浏览器 |
 
 ### 自定义 MCP Token 轨（B，2026-10-26）
 
