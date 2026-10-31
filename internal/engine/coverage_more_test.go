@@ -118,3 +118,13 @@ func TestDefaultRunAndErrorFormatting(t *testing.T) {
 		t.Fatalf("error=%+v", got)
 	}
 }
+
+func TestNewSystemDockerCanBeOverridden(t *testing.T) {
+	s := NewSystemDocker()
+	s.lookPath = func(string) (string, error) { return "/usr/bin/docker", nil }
+	s.run = func(context.Context, string, ...string) (string, error) { return "28.0", nil }
+	st, err := s.Health(context.Background())
+	if err != nil || !st.Ready {
+		t.Fatalf("health=%+v err=%v", st, err)
+	}
+}

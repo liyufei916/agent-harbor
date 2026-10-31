@@ -223,3 +223,26 @@ func TestColimaStartInvokesColima(t *testing.T) {
 		t.Fatal("expected colima start")
 	}
 }
+
+func TestEnsureLimaShareLink(t *testing.T) {
+	root := t.TempDir()
+	c := NewColima()
+	c.Root = root
+	if err := c.ensureLimaShareLink(); err != nil {
+		t.Fatal(err)
+	}
+	share := filepath.Join(root, "lima", "share")
+	if err := os.MkdirAll(share, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.ensureLimaShareLink(); err != nil {
+		t.Fatal(err)
+	}
+	link, err := os.Readlink(filepath.Join(root, "share"))
+	if err != nil || link != share {
+		t.Fatalf("link=%q err=%v", link, err)
+	}
+	if err := c.ensureLimaShareLink(); err != nil {
+		t.Fatal(err)
+	}
+}

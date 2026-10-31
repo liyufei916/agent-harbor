@@ -82,3 +82,37 @@ func TestPrepareContext7(t *testing.T) {
 		t.Fatalf("%+v", launch)
 	}
 }
+
+func TestPrepareUnknownPresetAndWorkspaceFallback(t *testing.T) {
+	if _, err := Prepare("unknown", t.TempDir(), ""); err == nil {
+		t.Fatal("unknown preset accepted")
+	}
+	dest := t.TempDir()
+	launch, err := Prepare("harbor-filesystem", dest, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(launch.Args) != 2 || launch.Args[1] == "" {
+		t.Fatalf("fallback workspace=%v", launch.Args)
+	}
+	if _, err := os.Stat(launch.Args[1]); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureSampleWorkspace(launch.Args[1]); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestEnsureSampleWorkspacePreservesExisting(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "README.txt"), []byte("keep"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureSampleWorkspace(dir); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "README.txt"))
+	if string(data) != "keep" {
+		t.Fatalf("workspace overwritten: %q", data)
+	}
+}

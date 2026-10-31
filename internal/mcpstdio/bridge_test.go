@@ -180,3 +180,15 @@ func TestEncodeDecodeSecret(t *testing.T) {
 		t.Fatalf("%+v %v", spec, err)
 	}
 }
+
+func TestBridgeRejectsInvalidSpecsAndSecret(t *testing.T) {
+	ctx := context.Background()
+	for _, spec := range []Spec{{}, {Command: "relative"}, {Command: "/bin/true", Args: []string{"bad\x00"}}, {Command: "/bin/true", Env: map[string]string{"BAD=KEY": "x"}}} {
+		if _, err := Start(ctx, spec); err == nil {
+			t.Fatalf("invalid spec accepted: %+v", spec)
+		}
+	}
+	if _, err := DecodeSecret([]byte("bad")); err == nil {
+		t.Fatal("invalid secret decoded")
+	}
+}
