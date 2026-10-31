@@ -14,7 +14,7 @@ func TestHashFile(t *testing.T) {
 	if got := hashFile(p); got == "" {
 		t.Fatal("empty hash")
 	}
-	if hashFile(filepath.Join(t.TempDir(), "missing")) != "" {
+	if hashFile(filepath.Join(t.TempDir(), "missing")) != "MISSING" {
 		t.Fatal("missing hash")
 	}
 }

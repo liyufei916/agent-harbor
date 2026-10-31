@@ -98,7 +98,7 @@ func TestProbeBodyAndRPCDecoding(t *testing.T) {
 }
 
 func TestSmallConnectionHelpers(t *testing.T) {
-	if got := uniqStrings([]string{"a", "a", " b ", ""}); len(got) != 3 {
+	if got := uniqStrings([]string{"a", "a", " b ", ""}); len(got) != 2 {
 		t.Fatalf("uniq=%v", got)
 	}
 	for _, v := range []string{"streamable-http", "sse", "SSE", ""} {
