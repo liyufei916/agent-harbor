@@ -32,7 +32,9 @@ import {
  */
 export function mountRecords(root, ctx, opts = {}) {
   const allowed = ["usage", "blocks", "permissions", "diagnose"];
+  const usageAllowed = ["summary", "by-session", "by-tool", "outcomes"];
   let tab = allowed.includes(opts.tab) ? opts.tab : "usage";
+  let usageTab = usageAllowed.includes(opts.usageTab) ? opts.usageTab : "summary";
   /** @type {string} 正在编辑的模型名；空=新建 */
   let editingModel = "";
   /** 近期会话终态分页（每页 10 行） */
@@ -44,16 +46,20 @@ export function mountRecords(root, ctx, opts = {}) {
     const cost = estimateCostStatus();
     const prices = loadModelPrices();
     const lockedCcy = lockedPriceCurrency(prices);
-    const bySession = groupUsageBySession({ limit: 12 });
-    const byTool = groupUsageByTool({ limit: 12 });
-    const failDist = failureReasonDistribution({ limit: 10 });
+    const bySession = groupUsageBySession({ limit: 40 });
+    const byTool = groupUsageByTool({ limit: 40 });
+    const failDist = failureReasonDistribution({ limit: 12 });
+    const blocks = listUsageEvents("blocks", { limit: 120 });
+    const perms = listUsageEvents("permissions", { limit: 120 });
+    const sessions = listUsageEvents("sessions", { limit: 80 });
+
     const top =
       failDist.length === 0
         ? "<li class='meta'>暂无</li>"
         : failDist.map((f) => `<li>${escapeHtml(f.label)} · ${f.count}</li>`).join("");
     const sessionGroups =
       bySession.length === 0
-        ? "<li class='meta'>暂无</li>"
+        ? "<li class='meta'>暂无按会话聚合。</li>"
         : bySession
             .map(
               (r) =>
@@ -62,17 +68,35 @@ export function mountRecords(root, ctx, opts = {}) {
             .join("");
     const toolGroups =
       byTool.length === 0
-        ? "<li class='meta'>暂无</li>"
+        ? "<li class='meta'>暂无按工具聚合。</li>"
         : byTool
             .map(
               (r) =>
                 `<li>${escapeHtml(r.tool)} · ${r.total} 次（允 ${r.allowed}/拒 ${r.denied}/败 ${r.failed}${r.other ? `/其它 ${r.other}` : ""}）</li>`,
             )
             .join("");
-
-    const blocks = listUsageEvents("blocks", { limit: 120 });
-    const perms = listUsageEvents("permissions", { limit: 120 });
-    const sessions = listUsageEvents("sessions", { limit: 80 });
+    let outcomesBlock = `<ul class="audit-list"><li class='meta'>暂无终态记录。</li></ul>`;
+    if (sessions.length > 0) {
+      const pageCount = Math.max(1, Math.ceil(sessions.length / SESSION_PAGE_SIZE));
+      if (sessionPage >= pageCount) sessionPage = pageCount - 1;
+      if (sessionPage < 0) sessionPage = 0;
+      const start = sessionPage * SESSION_PAGE_SIZE;
+      const slice = sessions.slice(start, start + SESSION_PAGE_SIZE);
+      const from = start + 1;
+      const to = start + slice.length;
+      outcomesBlock = `
+        <ul class="audit-list" id="rec-session-list">
+          ${slice.map((e) => `<li>${formatEventRow(e)}</li>`).join("")}
+        </ul>
+        <div class="row" style="justify-content:space-between;align-items:center;margin-top:8px;gap:8px;flex-wrap:wrap">
+          <span class="meta">第 ${from}–${to} 条 · 共 ${sessions.length} 条 · 每页 ${SESSION_PAGE_SIZE}</span>
+          <div class="actions" style="margin:0">
+            <button type="button" class="btn" id="rec-session-prev" ${sessionPage <= 0 ? "disabled" : ""}>上一页</button>
+            <span class="meta">${sessionPage + 1}/${pageCount}</span>
+            <button type="button" class="btn" id="rec-session-next" ${sessionPage >= pageCount - 1 ? "disabled" : ""}>下一页</button>
+          </div>
+        </div>`;
+    }
 
     const health = ctx.state.health;
     const tier = normalizeTier(ctx.state.uiPrefs?.securityTier || "standard");
@@ -146,86 +170,81 @@ export function mountRecords(root, ctx, opts = {}) {
       </div>
 
       <section class="card ${tab === "usage" ? "" : "hidden"}" data-panel="usage">
-        <h3>本机会话用量</h3>
-        <p class="meta">按会话首次终态近似「首任务」；阻拦率来自审计 denied。</p>
-        <div class="meta">
-          <p>会话样本：${s.sessions} · 审计：${s.auditTotal} · 扩权：${s.permissionCount}</p>
-          <p>首任务成功率：${s.firstTaskSuccessRate}</p>
-          <p>阻拦占比：${s.denyRate} · 工具失败：${s.mcpFailRate}</p>
-          <p>费用估算：<strong>${cost.status}</strong> — ${cost.detail}</p>
-          <p>失败原因分布：</p>
-          <ul class="audit-list">${top}</ul>
-          <p>按会话：</p>
+        <h3>用量</h3>
+        <div class="row records-tabs records-usage-tabs" role="tablist" aria-label="用量子页">
+          <button type="button" class="tab ${usageTab === "summary" ? "on" : ""}" data-usage-tab="summary" role="tab" aria-selected="${usageTab === "summary"}">本机汇总</button>
+          <button type="button" class="tab ${usageTab === "by-session" ? "on" : ""}" data-usage-tab="by-session" role="tab" aria-selected="${usageTab === "by-session"}">按会话</button>
+          <button type="button" class="tab ${usageTab === "by-tool" ? "on" : ""}" data-usage-tab="by-tool" role="tab" aria-selected="${usageTab === "by-tool"}">按工具</button>
+          <button type="button" class="tab ${usageTab === "outcomes" ? "on" : ""}" data-usage-tab="outcomes" role="tab" aria-selected="${usageTab === "outcomes"}">近期会话终态</button>
+        </div>
+
+        <div class="${usageTab === "summary" ? "" : "hidden"}" data-usage-panel="summary">
+          <p class="meta">按会话首次终态近似「首任务」；阻拦率来自审计 denied。下方可配参考单价做费用粗算。</p>
+          <div class="meta">
+            <p>会话样本：${s.sessions} · 审计：${s.auditTotal} · 扩权：${s.permissionCount}</p>
+            <p>首任务成功率：${s.firstTaskSuccessRate}</p>
+            <p>阻拦占比：${s.denyRate} · 工具失败：${s.mcpFailRate}</p>
+            <p>费用估算：<strong>${cost.status}</strong> — ${cost.detail}</p>
+            <p>失败原因分布：</p>
+            <ul class="audit-list">${top}</ul>
+          </div>
+          <h4 class="meta" style="margin-top:12px">参考单价（人工填写；同一列表内 CNY/USD 勿混加）</h4>
+          <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">
+            <label class="field">模型
+              <select id="price-model" ${editingModel ? "disabled" : ""}>${modelOpts}</select>
+            </label>
+            <label class="field">输入/1M <input id="price-in" type="number" min="0" step="0.01" placeholder="0" value="${editing ? editing.inputPer1M : ""}" /></label>
+            <label class="field">输出/1M <input id="price-out" type="number" min="0" step="0.01" placeholder="0" value="${editing ? editing.outputPer1M : ""}" /></label>
+            <label class="field">币种
+              <select id="price-ccy" ${ccySelectLocked ? "disabled" : ""}>
+                <option value="CNY" ${formCcy === "CNY" ? "selected" : ""}>CNY</option>
+                <option value="USD" ${formCcy === "USD" ? "selected" : ""}>USD</option>
+              </select>
+            </label>
+            <button type="button" class="btn primary" id="price-add">${editingModel ? "更新单价" : "添加单价"}</button>
+            ${editingModel ? `<button type="button" class="btn" id="price-cancel-edit">取消编辑</button>` : ""}
+          </div>
+          <p class="meta">${
+            lockedCcy === "MIXED"
+              ? "检测到 CNY/USD 混用，请删除一侧后再保存。"
+              : ccySelectLocked
+                ? `当前列表币种已锁定为 ${peerLocked}（可删光后重选）。`
+                : "尚未锁定币种；第一条单价将决定本列表币种。"
+          }</p>
+          <ul class="audit-list" style="margin-top:8px">
+            ${
+              prices.length === 0
+                ? "<li class='meta'>尚无单价快照</li>"
+                : prices
+                    .map(
+                      (p) =>
+                        `<li class="row" style="justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap">
+                          <span>${escapeHtml(p.model)} · in ${p.inputPer1M} / out ${p.outputPer1M} ${escapeHtml(p.currency)} · ${escapeHtml(p.asOf || "")}</span>
+                          <span class="row" style="gap:6px">
+                            <button type="button" class="btn" data-price-edit="${escapeAttr(p.model)}">修改</button>
+                            <button type="button" class="btn" data-price-del="${escapeAttr(p.model)}">删除</button>
+                          </span>
+                        </li>`,
+                    )
+                    .join("")
+            }
+          </ul>
+        </div>
+
+        <div class="${usageTab === "by-session" ? "" : "hidden"}" data-usage-panel="by-session">
+          <p class="meta">按会话聚合审计 / 阻拦 / 失败 / 扩权，便于对照本机迭代。</p>
           <ul class="audit-list">${sessionGroups}</ul>
-          <p>按工具：</p>
+        </div>
+
+        <div class="${usageTab === "by-tool" ? "" : "hidden"}" data-usage-panel="by-tool">
+          <p class="meta">按工具名聚合允许 / 拒绝 / 失败次数。</p>
           <ul class="audit-list">${toolGroups}</ul>
         </div>
-        <h4 class="meta" style="margin-top:12px">参考单价（人工填写；同一列表内 CNY/USD 勿混加）</h4>
-        <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">
-          <label class="field">模型
-            <select id="price-model" ${editingModel ? "disabled" : ""}>${modelOpts}</select>
-          </label>
-          <label class="field">输入/1M <input id="price-in" type="number" min="0" step="0.01" placeholder="0" value="${editing ? editing.inputPer1M : ""}" /></label>
-          <label class="field">输出/1M <input id="price-out" type="number" min="0" step="0.01" placeholder="0" value="${editing ? editing.outputPer1M : ""}" /></label>
-          <label class="field">币种
-            <select id="price-ccy" ${ccySelectLocked ? "disabled" : ""}>
-              <option value="CNY" ${formCcy === "CNY" ? "selected" : ""}>CNY</option>
-              <option value="USD" ${formCcy === "USD" ? "selected" : ""}>USD</option>
-            </select>
-          </label>
-          <button type="button" class="btn primary" id="price-add">${editingModel ? "更新单价" : "添加单价"}</button>
-          ${editingModel ? `<button type="button" class="btn" id="price-cancel-edit">取消编辑</button>` : ""}
+
+        <div class="${usageTab === "outcomes" ? "" : "hidden"}" data-usage-panel="outcomes">
+          <p class="meta">会话进入 stopped / failed 的本机终态流水。</p>
+          ${outcomesBlock}
         </div>
-        <p class="meta">${
-          lockedCcy === "MIXED"
-            ? "检测到 CNY/USD 混用，请删除一侧后再保存。"
-            : ccySelectLocked
-              ? `当前列表币种已锁定为 ${peerLocked}（可删光后重选）。`
-              : "尚未锁定币种；第一条单价将决定本列表币种。"
-        }</p>
-        <ul class="audit-list" style="margin-top:8px">
-          ${
-            prices.length === 0
-              ? "<li class='meta'>尚无单价快照</li>"
-              : prices
-                  .map(
-                    (p) =>
-                      `<li class="row" style="justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap">
-                        <span>${escapeHtml(p.model)} · in ${p.inputPer1M} / out ${p.outputPer1M} ${escapeHtml(p.currency)} · ${escapeHtml(p.asOf || "")}</span>
-                        <span class="row" style="gap:6px">
-                          <button type="button" class="btn" data-price-edit="${escapeAttr(p.model)}">修改</button>
-                          <button type="button" class="btn" data-price-del="${escapeAttr(p.model)}">删除</button>
-                        </span>
-                      </li>`,
-                  )
-                  .join("")
-          }
-        </ul>
-        <h4 class="meta" style="margin-top:12px">近期会话终态</h4>
-        ${(() => {
-          if (sessions.length === 0) {
-            return `<ul class="audit-list"><li class='meta'>暂无终态记录。</li></ul>`;
-          }
-          const pageCount = Math.max(1, Math.ceil(sessions.length / SESSION_PAGE_SIZE));
-          if (sessionPage >= pageCount) sessionPage = pageCount - 1;
-          if (sessionPage < 0) sessionPage = 0;
-          const start = sessionPage * SESSION_PAGE_SIZE;
-          const slice = sessions.slice(start, start + SESSION_PAGE_SIZE);
-          const from = start + 1;
-          const to = start + slice.length;
-          return `
-        <ul class="audit-list" id="rec-session-list">
-          ${slice.map((e) => `<li>${formatEventRow(e)}</li>`).join("")}
-        </ul>
-        <div class="row" style="justify-content:space-between;align-items:center;margin-top:8px;gap:8px;flex-wrap:wrap">
-          <span class="meta">第 ${from}–${to} 条 · 共 ${sessions.length} 条 · 每页 ${SESSION_PAGE_SIZE}</span>
-          <div class="actions" style="margin:0">
-            <button type="button" class="btn" id="rec-session-prev" ${sessionPage <= 0 ? "disabled" : ""}>上一页</button>
-            <span class="meta">${sessionPage + 1}/${pageCount}</span>
-            <button type="button" class="btn" id="rec-session-next" ${sessionPage >= pageCount - 1 ? "disabled" : ""}>下一页</button>
-          </div>
-        </div>`;
-        })()}
       </section>
 
       <section class="card ${tab === "blocks" ? "" : "hidden"}">
@@ -279,6 +298,15 @@ export function mountRecords(root, ctx, opts = {}) {
       btn.addEventListener("click", () => {
         tab = btn.getAttribute("data-tab") || "usage";
         sessionPage = 0;
+        paint();
+      });
+    });
+    root.querySelectorAll("[data-usage-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const next = btn.getAttribute("data-usage-tab") || "summary";
+        if (!usageAllowed.includes(next)) return;
+        usageTab = next;
+        if (usageTab !== "outcomes") sessionPage = 0;
         paint();
       });
     });

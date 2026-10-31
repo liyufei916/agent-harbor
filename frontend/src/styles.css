@@ -253,6 +253,9 @@ body { padding: 0; }
   margin: 12px 0;
   flex-wrap: wrap;
 }
+.records-usage-tabs {
+  margin: 8px 0 14px;
+}
 .wizard-steps {
   display: flex;
   gap: 8px;
