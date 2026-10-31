@@ -59,6 +59,7 @@
 | 2026-10-31o | **Codex CLI 0.165**：去掉已移除的 `plugin_discovery_prefetch`（Unknown feature flag → AGENT_EXIT_FAILED）。 |
 | 2026-10-31p | **记录·用量四子 Tab**：本机汇总（含单价）/ 按会话 / 按工具 / 近期会话终态；PAGE-DESIGN / README / 使用说明同步。 |
 | 2026-10-31q | **用量按模型**：Audit 带 `model`；费用按单价名归集（deepseek-chat 等）；旧事件主机启发；汇总展示按模型 token/粗算。 |
+| 2026-10-31r | **计量 Tab**：用量旁新增计量；数量/价格分 tab + 分模型时序（默认近 1 天）；参考单价迁入并可折叠；按会话每页 10 条。 |
 
 ## eng-complete（代码已接线）
 

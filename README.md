@@ -31,7 +31,7 @@
 | **多 Agent** | Claude Code / DeepSeek dsh / OpenAI Codex；向导**第一步即检**本机或镜像内 CLI |
 | **MCP 预置 + 双轨** | 工具页勾选预置（时间 / filesystem / Context7）；远程 HTTP（Token / OAuth）或宿主 stdio |
 | **MCP 凭据机制 + 清单** | Key 只在宿主代填；兼容面见 [mcp-compat-matrix](demos/mcp-compat-matrix.md)（非「所有主流开箱」）。**通用远程适配**已用非 Context7 公网 MCP（汇率 / 油价）`tools/call` 验证，见 [evidence](demos/evidence/mcp-generic-external-2026-10-31.txt) |
-| **本机「记录」** | 用量（本机汇总 / 按会话 / 按工具 / 近期终态）/ 阻拦 / 扩权 / 诊断；Gate 可采 token 粗算；参考单价可改可删（CNY/USD 勿混）；导出脱敏 JSON |
+| **本机「记录」** | 用量（汇总 / 按会话 / 按工具 / 终态）/ **计量**（数量·价格时序，默认近 1 天；参考单价可折叠）/ 阻拦 / 扩权 / 诊断；导出脱敏 JSON |
 | **可校验分发** | Releases / CI 提供 `AgentHarbor-macos.zip` + **SHA256**；MIT 许可；首次打开需 Gatekeeper 放行（未公证时常见） |
 | **双终端** | 同一套前端：浏览器（mock / 本机 live）+ 桌面 App；开发与演示可浏览器开，交付与 I 验收走桌面 |
 
@@ -220,7 +220,7 @@ HARBOR_NO_COMMIT=1 ./scripts/github-push.sh
 | 工作台 | 边界条 + 「请求扩权」ask + 当前模型切换 + 对话区（过滤协议 JSON）+ 摘要；顶栏切换焦点会话 |
 | 模型 | 自定义 Origin+Key（可多选 Agent），或预置 profile（`demo-model` / `dsh-model` / `codex-model`）；Key 提交后清空 |
 | 工具 | MCP **双轨**：浏览器 OAuth/SSO **或** Token；编辑 / 删除；stdio 标更高信任 |
-| 记录 | 用量（本机汇总含单价 · 按会话 · 按工具 · 近期终态）/ 阻拦 / 扩权 / 诊断；脱敏 JSON **另存为**并访达显示（本机不外传） |
+| 记录 | 用量 · 计量（数量/价格时序 + 参考单价）· 阻拦 · 扩权 · 诊断；脱敏 JSON **另存为**并访达显示（本机不外传） |
 | 设置 | Agent 检测、默认挂载、结束与清理、侧栏偏好、记住的网站、关于（重检时展开逐条，完成后收起） |
 | 顶栏 | 模式徽章；隔离徽章（Seatbelt / `Docker · 托管|本机`；改后端或引擎出重启）；会话切换；**使用教程** |
 | Onboarding | 一屏三句 + **逐条隔离检测**（可「下次启动重新显示引导」再跑） |

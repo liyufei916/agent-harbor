@@ -626,6 +626,144 @@ export function costByModel() {
 }
 
 /**
+ * 计量时序：按模型 × 时间桶汇总入/出 token 与估价（人工单价）。
+ * @param {{ range?: "1d"|"7d"|"all", now?: number }} [opts]
+ */
+export function meteringSeries(opts = {}) {
+  const range = opts.range === "7d" || opts.range === "all" ? opts.range : "1d";
+  const now = Number(opts.now) > 0 ? Number(opts.now) : Date.now();
+  const prices = loadModelPrices();
+  const priceMap = new Map(prices.map((p) => [p.model, p]));
+  const solePrice = prices.length === 1 ? prices[0].model : "";
+  const ccy = lockedPriceCurrency(prices);
+  const currency = ccy === "MIXED" ? prices[0]?.currency || "" : ccy || prices[0]?.currency || "";
+
+  let rangeMs = 24 * 3600 * 1000;
+  let bucketMs = 3600 * 1000;
+  let rangeLabel = "近1天";
+  if (range === "7d") {
+    rangeMs = 7 * 24 * 3600 * 1000;
+    bucketMs = 24 * 3600 * 1000;
+    rangeLabel = "近7天";
+  } else if (range === "all") {
+    rangeMs = 30 * 24 * 3600 * 1000;
+    bucketMs = 24 * 3600 * 1000;
+    rangeLabel = "近30天";
+  }
+  const since = now - rangeMs;
+  const bucketCount = Math.max(1, Math.ceil(rangeMs / bucketMs));
+
+  const bucketLabels = [];
+  for (let i = 0; i < bucketCount; i++) {
+    const t = since + i * bucketMs;
+    const d = new Date(t);
+    if (bucketMs >= 24 * 3600 * 1000) {
+      bucketLabels.push(`${d.getMonth() + 1}/${d.getDate()}`);
+    } else {
+      const hh = String(d.getHours()).padStart(2, "0");
+      bucketLabels.push(`${hh}:00`);
+    }
+  }
+
+  /** @type {Map<string, { inputTokens: number, outputTokens: number, buckets: { inputTokens: number, outputTokens: number }[] }>} */
+  const by = new Map();
+  const ensure = (model) => {
+    if (!by.has(model)) {
+      by.set(model, {
+        inputTokens: 0,
+        outputTokens: 0,
+        buckets: Array.from({ length: bucketCount }, () => ({
+          inputTokens: 0,
+          outputTokens: 0,
+        })),
+      });
+    }
+    return by.get(model);
+  };
+
+  const { events } = load();
+  for (const e of events) {
+    const t = Number(e.t) || 0;
+    if (t < since || t > now) continue;
+    const inTok = Number(e.inputTokens) || 0;
+    const outTok = Number(e.outputTokens) || 0;
+    if (!(inTok > 0 || outTok > 0)) continue;
+    let key = priceKeyForEvent(e, prices);
+    if (!key || (key && !priceMap.has(key) && key !== "(未标注模型)")) {
+      if (solePrice) key = solePrice;
+      else if (!key) key = "(未标注模型)";
+    }
+    const idx = Math.min(bucketCount - 1, Math.max(0, Math.floor((t - since) / bucketMs)));
+    const row = ensure(key);
+    row.inputTokens += inTok;
+    row.outputTokens += outTok;
+    row.buckets[idx].inputTokens += inTok;
+    row.buckets[idx].outputTokens += outTok;
+  }
+
+  const costOf = (model, inTok, outTok) => {
+    const p = priceMap.get(model);
+    if (!p) return { inputCost: 0, outputCost: 0, priced: false };
+    return {
+      inputCost: (inTok / 1e6) * Number(p.inputPer1M || 0),
+      outputCost: (outTok / 1e6) * Number(p.outputPer1M || 0),
+      priced: true,
+    };
+  };
+
+  let totalIn = 0;
+  let totalOut = 0;
+  let totalInCost = 0;
+  let totalOutCost = 0;
+  const models = [];
+  for (const [model, row] of by.entries()) {
+    const c = costOf(model, row.inputTokens, row.outputTokens);
+    totalIn += row.inputTokens;
+    totalOut += row.outputTokens;
+    totalInCost += c.inputCost;
+    totalOutCost += c.outputCost;
+    models.push({
+      model,
+      priced: c.priced,
+      currency: priceMap.get(model)?.currency || currency,
+      inputTokens: row.inputTokens,
+      outputTokens: row.outputTokens,
+      inputCost: c.inputCost,
+      outputCost: c.outputCost,
+      buckets: row.buckets.map((b) => {
+        const bc = costOf(model, b.inputTokens, b.outputTokens);
+        return {
+          inputTokens: b.inputTokens,
+          outputTokens: b.outputTokens,
+          inputCost: bc.inputCost,
+          outputCost: bc.outputCost,
+        };
+      }),
+    });
+  }
+  models.sort(
+    (a, b) => b.inputTokens + b.outputTokens - (a.inputTokens + a.outputTokens),
+  );
+
+  return {
+    range,
+    rangeLabel,
+    since,
+    until: now,
+    bucketMs,
+    bucketLabels,
+    totals: {
+      inputTokens: totalIn,
+      outputTokens: totalOut,
+      inputCost: totalInCost,
+      outputCost: totalOutCost,
+      currency,
+    },
+    models,
+  };
+}
+
+/**
  * 无真实 token 时只展示「未计价」；有人工单价时给出口径说明。
  * @returns {{ status: string, detail: string, byModel: ReturnType<typeof costByModel> }}
  */

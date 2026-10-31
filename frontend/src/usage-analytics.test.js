@@ -11,6 +11,7 @@ import {
   listUsageEvents,
   loadModelPrices,
   lockedPriceCurrency,
+  meteringSeries,
   priceKeyForEvent,
   recordAudit,
   recordPermissionDecision,
@@ -121,6 +122,40 @@ test("estimateCostStatus uses collected tokens when prices exist", () => {
   st = estimateCostStatus();
   assert.equal(st.status, "已估算（参考）");
   assert.match(st.detail, /CNY/);
+  clearUsageAnalytics();
+  saveModelPrices([]);
+});
+
+test("meteringSeries buckets by model for last day", () => {
+  clearUsageAnalytics();
+  saveModelPrices([]);
+  upsertModelPrice([], {
+    model: "deepseek-chat",
+    inputPer1M: 1,
+    outputPer1M: 2,
+    currency: "CNY",
+  });
+  const now = Date.now();
+  recordAudit(
+    {
+      result: "allowed",
+      tool: "model",
+      target: "api.deepseek.com",
+      model: "deepseek-chat",
+      inputTokens: 1000,
+      outputTokens: 200,
+    },
+    "s1",
+  );
+  // stamp last event time roughly "now"
+  const st = meteringSeries({ range: "1d", now });
+  assert.equal(st.range, "1d");
+  assert.ok(st.bucketLabels.length >= 20);
+  assert.equal(st.totals.inputTokens, 1000);
+  assert.equal(st.totals.outputTokens, 200);
+  const ds = st.models.find((m) => m.model === "deepseek-chat");
+  assert.ok(ds);
+  assert.ok(ds.inputCost > 0 || ds.outputCost > 0);
   clearUsageAnalytics();
   saveModelPrices([]);
 });
