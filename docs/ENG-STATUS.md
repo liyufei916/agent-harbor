@@ -58,6 +58,7 @@
 | 2026-10-31n | **MCP OAuth 真 IdP**：回环 http 允许本机 IdP；`mcp-oauth-evidence`（authorize→code→token + DCR）；账号 `authMode=oauth`；证据 `demos/evidence/mcp-oauth-idp-2026-10-31.txt`；发 **v0.1.2**。 |
 | 2026-10-31o | **Codex CLI 0.165**：去掉已移除的 `plugin_discovery_prefetch`（Unknown feature flag → AGENT_EXIT_FAILED）。 |
 | 2026-10-31p | **记录·用量四子 Tab**：本机汇总（含单价）/ 按会话 / 按工具 / 近期会话终态；PAGE-DESIGN / README / 使用说明同步。 |
+| 2026-10-31q | **用量按模型**：Audit 带 `model`；费用按单价名归集（deepseek-chat 等）；旧事件主机启发；汇总展示按模型 token/粗算。 |
 
 ## eng-complete（代码已接线）
 

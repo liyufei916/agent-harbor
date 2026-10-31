@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   clearUsageAnalytics,
+  costByModel,
   estimateCostStatus,
   failureReasonDistribution,
   formatEventRow,
@@ -10,6 +11,7 @@ import {
   listUsageEvents,
   loadModelPrices,
   lockedPriceCurrency,
+  priceKeyForEvent,
   recordAudit,
   recordPermissionDecision,
   recordSessionOutcome,
@@ -119,6 +121,62 @@ test("estimateCostStatus uses collected tokens when prices exist", () => {
   st = estimateCostStatus();
   assert.equal(st.status, "已估算（参考）");
   assert.match(st.detail, /CNY/);
+  clearUsageAnalytics();
+  saveModelPrices([]);
+});
+
+test("cost by model matches deepseek-chat price and host heuristic", () => {
+  clearUsageAnalytics();
+  saveModelPrices([]);
+  upsertModelPrice([], {
+    model: "deepseek-chat",
+    inputPer1M: 1,
+    outputPer1M: 2,
+    currency: "CNY",
+  });
+  upsertModelPrice(loadModelPrices(), {
+    model: "gpt-demo",
+    inputPer1M: 10,
+    outputPer1M: 20,
+    currency: "CNY",
+  });
+  recordAudit(
+    {
+      result: "allowed",
+      tool: "model",
+      target: "api.deepseek.com",
+      model: "deepseek-chat",
+      inputTokens: 1000,
+      outputTokens: 500,
+    },
+    "s1",
+  );
+  // 旧事件：无 model，仅主机
+  recordAudit(
+    {
+      result: "allowed",
+      tool: "model",
+      target: "api.deepseek.com",
+      inputTokens: 100,
+      outputTokens: 50,
+    },
+    "s2",
+  );
+  assert.equal(
+    priceKeyForEvent(
+      { model: "deepseek-chat", target: "api.deepseek.com" },
+      loadModelPrices(),
+    ),
+    "deepseek-chat",
+  );
+  const rows = costByModel();
+  const ds = rows.find((r) => r.model === "deepseek-chat");
+  assert.ok(ds);
+  assert.equal(ds.inputTokens, 1100);
+  assert.equal(ds.priced, true);
+  const st = estimateCostStatus();
+  assert.match(st.detail, /deepseek-chat/);
+  assert.ok(!/按「gpt-demo」/.test(st.detail));
   clearUsageAnalytics();
   saveModelPrices([]);
 });

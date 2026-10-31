@@ -13,6 +13,7 @@ const MAX_EVENTS = 800;
  *   result?: string,
  *   tool?: string,
  *   target?: string,
+ *   model?: string,
  *   sessionId?: string,
  *   state?: string,
  *   code?: string,
@@ -101,12 +102,14 @@ export function recordUsageEvent(ev) {
     result: ev.result || "",
     tool: ev.tool || "",
     target: shortTarget(ev.target),
+    model: String(ev.model || "").trim(),
     sessionId: ev.sessionId || "",
     state: ev.state || "",
     code: ev.code || "",
     decision: ev.decision || "",
     action: ev.action || "",
   };
+  if (!row.model) delete row.model;
   if (Number(ev.inputTokens) > 0) row.inputTokens = Number(ev.inputTokens);
   if (Number(ev.outputTokens) > 0) row.outputTokens = Number(ev.outputTokens);
   state.events.push(row);
@@ -121,6 +124,7 @@ export function recordAudit(audit, sessionId = "") {
     result: audit.result,
     tool: audit.tool,
     target: audit.target,
+    model: audit.model,
     sessionId,
     inputTokens: Number(audit.inputTokens) > 0 ? Number(audit.inputTokens) : undefined,
     outputTokens: Number(audit.outputTokens) > 0 ? Number(audit.outputTokens) : undefined,
@@ -357,7 +361,12 @@ export function formatEventRow(ev) {
   const when = formatEventTime(ev.t);
   const sid = shortSession(ev.sessionId);
   if (ev.kind === "audit") {
-    return `${when} · ${sid} · ${ev.result} · ${ev.tool || "—"} @ ${ev.target || "—"}`;
+    const modelBit = ev.model ? ` · ${ev.model}` : "";
+    const tok =
+      Number(ev.inputTokens) > 0 || Number(ev.outputTokens) > 0
+        ? ` · in ${ev.inputTokens || 0}/out ${ev.outputTokens || 0}`
+        : "";
+    return `${when} · ${sid} · ${ev.result} · ${ev.tool || "—"}${modelBit} @ ${ev.target || "—"}${tok}`;
   }
   if (ev.kind === "permission") {
     const demo = ev.result === "ui_demo" ? "（界面演示）" : "";
@@ -386,11 +395,14 @@ export function exportUsageBundle() {
       result: e.result || "",
       tool: e.tool || "",
       target: e.target || "",
+      model: e.model || "",
       sessionId: e.sessionId ? shortSession(e.sessionId) : "",
       state: e.state || "",
       code: e.code || "",
       decision: e.decision || "",
       action: e.action || "",
+      inputTokens: e.inputTokens || undefined,
+      outputTokens: e.outputTokens || undefined,
     })),
   };
 }
@@ -510,18 +522,122 @@ export function removeModelPrice(prices, model) {
 }
 
 /**
+ * 将审计 token 归到单价模型：优先 event.model；旧事件无 model 时用主机启发（如 deepseek 主机 ↔ 名称含 deepseek 的单价）。
+ * @param {UsageEvent} ev
+ * @param {ModelPrice[]} prices
+ * @returns {string} 归集键；空表示未匹配
+ */
+export function priceKeyForEvent(ev, prices = loadModelPrices()) {
+  const list = prices || [];
+  const model = String(ev?.model || "").trim();
+  if (model) {
+    if (list.some((p) => p.model === model)) return model;
+    return model; // 有模型名但尚未填单价 → 仍按模型归集，费用页提示无单价
+  }
+  const host = String(ev?.target || "").toLowerCase();
+  if (!host) return "";
+  /** @type {string[]} */
+  const hits = [];
+  for (const p of list) {
+    const name = String(p.model || "").toLowerCase();
+    if (!name) continue;
+    if (host.includes("deepseek") && name.includes("deepseek")) hits.push(p.model);
+    else if (
+      host.includes("openai") &&
+      (name.includes("gpt") || name.includes("o1") || name.includes("o3"))
+    ) {
+      hits.push(p.model);
+    } else if (
+      (host.includes("anthropic") || host.includes("claude")) &&
+      name.includes("claude")
+    ) {
+      hits.push(p.model);
+    }
+  }
+  // 旧事件无 model 字段时：主机启发仅在唯一命中时归集，避免多单价误绑
+  return hits.length === 1 ? hits[0] : "";
+}
+
+/**
+ * @returns {{ model: string, inputTokens: number, outputTokens: number, cost: number | null, currency: string, priced: boolean }[]}
+ */
+export function costByModel() {
+  const prices = loadModelPrices();
+  const { events } = load();
+  /** @type {Map<string, { inputTokens: number, outputTokens: number }>} */
+  const by = new Map();
+  const solePrice = prices.length === 1 ? prices[0].model : "";
+  for (const e of events) {
+    const inTok = Number(e.inputTokens) || 0;
+    const outTok = Number(e.outputTokens) || 0;
+    if (!(inTok > 0 || outTok > 0)) continue;
+    let key = priceKeyForEvent(e, prices);
+    // 仅一条单价时：未标注/未匹配的 token 归到该单价（兼容旧事件）
+    if (!key || (key && !prices.some((p) => p.model === key))) {
+      if (solePrice) key = solePrice;
+      else if (!key) key = "(未标注模型)";
+    }
+    const row = by.get(key) || { inputTokens: 0, outputTokens: 0 };
+    row.inputTokens += inTok;
+    row.outputTokens += outTok;
+    by.set(key, row);
+  }
+  const priceMap = new Map(prices.map((p) => [p.model, p]));
+  const out = [];
+  for (const [model, tok] of by.entries()) {
+    const p = priceMap.get(model);
+    if (p) {
+      const cost =
+        (tok.inputTokens / 1e6) * Number(p.inputPer1M || 0) +
+        (tok.outputTokens / 1e6) * Number(p.outputPer1M || 0);
+      out.push({
+        model,
+        inputTokens: tok.inputTokens,
+        outputTokens: tok.outputTokens,
+        cost,
+        currency: p.currency || "",
+        priced: true,
+      });
+    } else {
+      out.push({
+        model,
+        inputTokens: tok.inputTokens,
+        outputTokens: tok.outputTokens,
+        cost: null,
+        currency: "",
+        priced: false,
+      });
+    }
+  }
+  // 已填单价但尚无 token 的也列出，避免「加了价却像没记录」
+  for (const p of prices) {
+    if (!by.has(p.model)) {
+      out.push({
+        model: p.model,
+        inputTokens: 0,
+        outputTokens: 0,
+        cost: 0,
+        currency: p.currency || "",
+        priced: true,
+      });
+    }
+  }
+  return out.sort((a, b) => b.inputTokens + b.outputTokens - (a.inputTokens + a.outputTokens));
+}
+
+/**
  * 无真实 token 时只展示「未计价」；有人工单价时给出口径说明。
- * @returns {{ status: string, detail: string }}
+ * @returns {{ status: string, detail: string, byModel: ReturnType<typeof costByModel> }}
  */
 export function estimateCostStatus() {
   const prices = loadModelPrices();
   const s = summarizeUsage();
-  const { events } = load();
+  const byModel = costByModel();
   let inputTokens = 0;
   let outputTokens = 0;
-  for (const e of events) {
-    if (Number(e.inputTokens) > 0) inputTokens += Number(e.inputTokens);
-    if (Number(e.outputTokens) > 0) outputTokens += Number(e.outputTokens);
+  for (const row of byModel) {
+    inputTokens += row.inputTokens;
+    outputTokens += row.outputTokens;
   }
   if (prices.length === 0) {
     return {
@@ -529,23 +645,37 @@ export function estimateCostStatus() {
       detail: inputTokens || outputTokens
         ? `已采集 in ${inputTokens} / out ${outputTokens}；下方填参考单价即可粗算。`
         : "下方填模型参考单价（CNY/USD 勿混）；跑一轮经 Gate 出站后才会有 token。",
+      byModel,
     };
   }
   if (!(inputTokens > 0 || outputTokens > 0)) {
     return {
       status: "有单价 · 先跑一轮",
-      detail: `已存 ${prices.length} 条单价；尚无 token。新会话经 Gate 出站写入 usage 后即可估算。会话样本 ${s.sessions}。`,
+      detail: `已存 ${prices.length} 条单价；尚无 token。新会话经 Gate 出站写入 usage 后即可按模型估算。会话样本 ${s.sessions}。`,
+      byModel,
     };
   }
+  const priced = byModel.filter((r) => r.priced && (r.inputTokens > 0 || r.outputTokens > 0));
+  const unmatched = byModel.filter((r) => !r.priced && (r.inputTokens > 0 || r.outputTokens > 0));
+  let totalCost = 0;
+  const bits = [];
+  for (const row of priced) {
+    totalCost += Number(row.cost) || 0;
+    bits.push(
+      `${row.model} in ${row.inputTokens}/out ${row.outputTokens} ≈ ${(Number(row.cost) || 0).toFixed(4)} ${row.currency}`,
+    );
+  }
+  for (const row of unmatched) {
+    bits.push(`${row.model} in ${row.inputTokens}/out ${row.outputTokens}（无匹配单价）`);
+  }
   const ccy = lockedPriceCurrency(prices);
-  // 用列表首条单价做粗算（人工快照；非账单）
-  const p0 = prices[0];
-  const cost =
-    (inputTokens / 1e6) * Number(p0.inputPer1M || 0) +
-    (outputTokens / 1e6) * Number(p0.outputPer1M || 0);
-  const ccyLabel = ccy === "MIXED" ? p0.currency || "" : ccy || p0.currency || "";
+  const ccyLabel = ccy === "MIXED" ? "" : ccy;
   return {
     status: "已估算（参考）",
-    detail: `in ${inputTokens} / out ${outputTokens} token ≈ ${cost.toFixed(4)} ${ccyLabel}（按「${p0.model}」单价粗算，非官方账单）。`,
+    detail:
+      bits.length === 1
+        ? `${bits[0]}（非官方账单）`
+        : `合计 ≈ ${totalCost.toFixed(4)} ${ccyLabel}；${bits.join("；")}（按模型匹配单价，非官方账单）`,
+    byModel,
   };
 }

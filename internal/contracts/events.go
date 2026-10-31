@@ -59,6 +59,7 @@ type AuditData struct {
 	Target       string `json:"target"` // 主机名，不包含 URL 查询串
 	Tool         string `json:"tool"`
 	Result       string `json:"result"` // allowed、denied 或 failed
+	Model        string `json:"model,omitempty"` // 模型出站时的账号模型名（便于本机用量按模型归集）
 	InputTokens  int64  `json:"inputTokens,omitempty"`
 	OutputTokens int64  `json:"outputTokens,omitempty"`
 }

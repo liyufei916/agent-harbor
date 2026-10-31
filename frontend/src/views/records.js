@@ -5,6 +5,7 @@ import * as api from "../api.js";
 import { showToast } from "../toast.js";
 import {
   clearUsageAnalytics,
+  costByModel,
   estimateCostStatus,
   exportUsageBundle,
   failureReasonDistribution,
@@ -44,8 +45,24 @@ export function mountRecords(root, ctx, opts = {}) {
   async function paint() {
     const s = summarizeUsage();
     const cost = estimateCostStatus();
+    const modelCosts = cost.byModel || costByModel();
     const prices = loadModelPrices();
     const lockedCcy = lockedPriceCurrency(prices);
+    const modelCostList =
+      modelCosts.length === 0
+        ? `<p class="meta">尚无按模型 token。</p>`
+        : `<ul class="rec-fail-list">${modelCosts
+            .map((r) => {
+              const tok = `in ${r.inputTokens} / out ${r.outputTokens}`;
+              const money =
+                r.priced && (r.inputTokens > 0 || r.outputTokens > 0)
+                  ? ` ≈ ${(Number(r.cost) || 0).toFixed(4)} ${escapeHtml(r.currency)}`
+                  : r.priced && r.inputTokens === 0 && r.outputTokens === 0
+                    ? " · 已设单价，尚无出站 token（请新开会话再跑一轮）"
+                    : " · 无匹配单价";
+              return `<li><span class="rec-fail-label">${escapeHtml(r.model)}</span><span class="rec-fail-count">${tok}${money}</span></li>`;
+            })
+            .join("")}</ul>`;
     const bySession = groupUsageBySession({ limit: 40 });
     const byTool = groupUsageByTool({ limit: 40 });
     const failDist = failureReasonDistribution({ limit: 12 });
@@ -208,6 +225,9 @@ export function mountRecords(root, ctx, opts = {}) {
             <span class="rec-cost-status">${escapeHtml(cost.status)}</span>
             <span class="meta">${escapeHtml(cost.detail)}</span>
           </div>
+          <h4 class="rec-section-title">按模型 token / 粗算</h4>
+          <p class="meta">单价名须与账号「模型名」一致（如 deepseek-chat）。旧会话可能只有主机、无模型字段——请再跑一轮新会话后归集。</p>
+          ${modelCostList}
           <h4 class="rec-section-title">失败原因分布</h4>
           ${top}
           <h4 class="rec-section-title">参考单价（人工填写；同一列表内 CNY/USD 勿混加）</h4>

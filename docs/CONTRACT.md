@@ -318,6 +318,7 @@ type AuditData struct {
     Target string `json:"target"`
     Tool string `json:"tool"`
     Result string `json:"result"` // allowed、denied 或 failed
+    Model string `json:"model,omitempty"` // 模型出站时的账号模型名（本机用量按模型归集）；可无
     InputTokens int64 `json:"inputTokens,omitempty"`   // Gate 模型流旁路扫描；可无
     OutputTokens int64 `json:"outputTokens,omitempty"`
 }

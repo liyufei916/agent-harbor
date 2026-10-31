@@ -92,9 +92,16 @@ func (p *modelProxy) handle(w http.ResponseWriter, r *http.Request) {
 	body := io.Reader(r.Body)
 	// 账号配置了模型名时，改写出站 JSON 的 model，避免 Claude 默认 claude-sonnet-* 打到只允许 GPT 的 Key。
 	wantModel := strings.TrimSpace(rt.spec.Policy.Model.Model)
-	if wantModel == "" {
-		if acc, err := p.h.secrets.Lookup(r.Context(), modelAccountID); err == nil {
+	auditModel := wantModel
+	if acc, err := p.h.secrets.Lookup(r.Context(), modelAccountID); err == nil {
+		if wantModel == "" {
 			wantModel = strings.TrimSpace(acc.Model)
+		}
+		if auditModel == "" {
+			auditModel = strings.TrimSpace(acc.Model)
+		}
+		if auditModel == "" {
+			auditModel = strings.TrimSpace(acc.Name)
 		}
 	}
 	if r.Method == http.MethodPost && wantModel != "" && r.Body != nil {
@@ -148,7 +155,7 @@ func (p *modelProxy) handle(w http.ResponseWriter, r *http.Request) {
 		host = locHost
 		// 不向重定向目标注入凭据，但响应脱敏仍覆盖原账号和 Sentinel。
 	}
-	p.h.emitAudit(rt, contracts.AuditData{Target: host, Tool: auditToolModel, Result: "allowed"})
+	p.h.emitAudit(rt, contracts.AuditData{Target: host, Tool: auditToolModel, Result: "allowed", Model: auditModel})
 	idle, total := p.h.streamTimeouts()
 	secretsToRedact := []string{rt.sentinel}
 	if len(key) > 0 {
@@ -157,13 +164,13 @@ func (p *modelProxy) handle(w http.ResponseWriter, r *http.Request) {
 	scan := &usageScanner{}
 	if err := writeRelayScan(w, resp, secretsToRedact, idle, total, scan); err != nil {
 		if streamTimeoutStatus(err) == http.StatusGatewayTimeout {
-			p.h.emitAudit(rt, contracts.AuditData{Target: host, Tool: auditToolModel, Result: "failed"})
+			p.h.emitAudit(rt, contracts.AuditData{Target: host, Tool: auditToolModel, Result: "failed", Model: auditModel})
 		}
 		return
 	}
 	if in, out := scan.Totals(); in > 0 || out > 0 {
 		p.h.emitAudit(rt, contracts.AuditData{
-			Target: host, Tool: auditToolModel, Result: "allowed",
+			Target: host, Tool: auditToolModel, Result: "allowed", Model: auditModel,
 			InputTokens: in, OutputTokens: out,
 		})
 	}
