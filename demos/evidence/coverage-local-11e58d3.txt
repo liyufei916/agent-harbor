@@ -1,0 +1,7 @@
+date: 2026-10-31T16:17:05Z
+head: 11e58d3a4bf133d5e188f2035906c5990c6052ad
+source: local Darwin go test -coverprofile (Actions macOS Go job 被秒取消、无 runner)
+ci_format_frontend: ubuntu green on run 41218795223
+ci_go_macos: cancelled (runner_name empty, 0 steps)
+total_statements: total:											(statements)			63.2%
+note: local desktop TestEnsureEngineForDockerRuntimeNoDownloadOnAttach 因本机已有 colima sock 失败；与本轮改动无关，CI 历史绿。

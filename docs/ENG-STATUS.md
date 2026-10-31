@@ -63,6 +63,7 @@
 | 2026-10-31s | **记录样张重截**：`06`/`06b`/`06c` + live `04`/`04b`；`records-sample-shots.sh`；`?shotSeed=1` + `tab`/`usageTab`/`meterTab` 深链。 |
 | 2026-10-31t | **计量/单价 UX**：参考单价一模型一套（已配的不进下拉）；币种改按钮（修桌面 WebView select）；分模型时序悬停明细；无 token 不出该模型时序；发 **v0.1.3**。 |
 | 2026-11-01 | **评审闭环**：`gofmt` 修 `events.go` Result 对齐；计量 UX 抽 `records-price.js` + 单测（隐藏已配模型/币种锁/悬停 tip）；`release.yml` 增 gofmt + `go test -race` + `npm test` 发版门禁；CI `go-unit` needs `format`。视频顶栏「…UNIMPLEMENTED」= api fail-closed 占位码拼文案（`frontend/src/api.js`），非字面隔离功能名。 |
+| 2026-11-01c | **覆盖率本机旁证**：Actions macOS `Go checks` 持续秒取消（无 runner）；ubuntu format/frontend 已绿（`41218795223`）。本机 `coverage-summary` 63.2% @ `11e58d3`，见 `demos/evidence/coverage-local-11e58d3.txt`。 |
 | 2026-11-01b | **CI 分流**：format/frontend 改 ubuntu；Go race/覆盖率/打包仍 macOS（Darwin API）。ubuntu 全量 `go test` 会因 `NewMacOS`/`ProbeInstallation` 编不过，不可替代。 |
 
 ## eng-complete（代码已接线）
