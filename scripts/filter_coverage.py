@@ -14,7 +14,7 @@ EXCLUDED = (
     "/internal/gate/mcp_gateway.go", "/internal/gate/model_proxy.go",
     "/internal/runtime/docker.go", "/internal/desktop/app.go",
     "/internal/desktop/engine_api.go", "/internal/orchestrator/session_provision.go",
-    "/internal/mcpstdio/bridge.go",
+    "/internal/mcpstdio/bridge.go", "/internal/desktop/httplive.go",
 )
 
 def filter_profile(raw: str) -> str:
