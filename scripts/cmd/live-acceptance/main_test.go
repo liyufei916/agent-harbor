@@ -7,7 +7,7 @@ import (
 )
 
 func TestAcceptanceHelpers(t *testing.T) {
-	if short("abcdef") != "abcdef" || short("abcdefghijklmnopqrstuvwxyz") != "abcdefghijkl…" {
+	if short("abcdef") != "abcdef" || short("abcdefghijklmnopqrstuvwxyz") != "abcdefgh…" {
 		t.Fatal("short")
 	}
 	if !contains([]string{"x"}, "x") || contains([]string{"x"}, "y") {
