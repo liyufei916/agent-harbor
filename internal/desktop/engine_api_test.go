@@ -33,6 +33,11 @@ func TestGetContainerEngineHealthFailClosedWithoutBins(t *testing.T) {
 	t.Setenv("HARBOR_ENGINE_AUTO_DOWNLOAD", "0")
 	app := NewApp()
 	app.setPrefs(contracts.UIPrefs{EngineSource: engine.SourceHarborColima})
+	// 空 Root + 禁用 PATH 查找，避免本机已装 Harbor/系统 CLI 时假绿。
+	c := engine.NewColima()
+	c.Root = t.TempDir()
+	c.SetLookPath(func(string) (string, error) { return "", os.ErrNotExist })
+	app.eng = c
 	api := &DesktopAPI{app: app}
 	got := api.GetContainerEngineHealth()
 	if got.Ready {

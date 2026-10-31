@@ -109,6 +109,8 @@ func (d *DesktopAPI) CreateSession(spec contracts.SessionSpec) contracts.Session
 		spec.RememberedHosts = d.app.listRemembered(spec.Workspace)
 	}
 	spec.RememberedHosts = mergeRememberedWithTier(spec.RememberedHosts, spec.Workspace, d.app.prefs.SecurityTier)
+	prefs := d.app.getPrefs()
+	spec.DemoExpandAsk = prefs.DemoExpandAsk || envDemoExpandAsk()
 	snap, err := d.app.sessionRef().Create(ctx, spec)
 	if err != nil {
 		return contracts.SessionResponse{Error: mapError(err)}
@@ -315,7 +317,7 @@ func (d *DesktopAPI) GetPermissionOverview(sessionID string) contracts.Permissio
 	return contracts.PermissionOverviewResponse{Overview: overview}
 }
 
-// ListRememberedHosts 返回本机记住的出站主机（进程内；重启清空，钥匙串另见 P1-B-01）。
+// ListRememberedHosts 返回本工作区记住的出站主机（落盘 ui-state.json；跨会话/跨重启回灌）。
 func (d *DesktopAPI) ListRememberedHosts(workspace string) contracts.RememberedHostsResponse {
 	hosts := d.app.listRemembered(workspace)
 	if hosts == nil {
@@ -392,7 +394,7 @@ func (d *DesktopAPI) ResolvePermission(in contracts.ResolvePermissionInput) cont
 	return contracts.EmptyResponse{}
 }
 
-// GetUIPrefs 读取本机 UI 偏好（进程内默认；钥匙串/落盘见后续）。
+// GetUIPrefs 读取本机 UI 偏好（落盘 ui-state.json；跨重启保留）。
 func (d *DesktopAPI) GetUIPrefs() contracts.UIPrefsResponse {
 	prefs := d.app.getPrefs()
 	return contracts.UIPrefsResponse{Prefs: &prefs}
@@ -517,6 +519,11 @@ func finishSaveTextFile(path string, err error, content string, reveal bool, rev
 		revealFn(path)
 	}
 	return contracts.SaveFileResponse{Path: path}
+}
+
+func envDemoExpandAsk() bool {
+	v := strings.TrimSpace(os.Getenv("HARBOR_DEMO_ASK"))
+	return v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 }
 
 // revealInFileManager 在系统文件管理器中显示文件（失败静默）。

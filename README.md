@@ -29,7 +29,7 @@
 | **工作台对话** | 边界条 + 过滤协议 JSON 的可读输出 + 下方输入发下一轮；Claude / Codex / dsh 同会话多轮；可**切换同 profile 模型** |
 | **模型自由添加** | 「模型」页自填 Origin + Key（提交后清空）；可勾选多 Agent 共用（须上游协议匹配）；亦支持预置 profile |
 | **多 Agent** | Claude Code / DeepSeek dsh / OpenAI Codex；向导**第一步即检**本机或镜像内 CLI |
-| **MCP 预置 + 双轨** | 工具页勾选预置（时间 / filesystem / Context7）；远程 HTTP（Token / OAuth）或宿主 stdio；白名单见 [mcp-compat-matrix](demos/mcp-compat-matrix.md) |
+| **MCP 凭据机制 + 清单** | Key 只在宿主代填；兼容面见 [mcp-compat-matrix](demos/mcp-compat-matrix.md)（非「所有主流开箱」）；预置 + 远程 HTTP / 宿主 stdio |
 | **本机「记录」** | 用量 / 阻拦 / 扩权 / 诊断；Gate 可采 input/output token 粗算费用；参考单价可改可删（CNY/USD 勿混）；导出脱敏 JSON（另存为 + 访达显示） |
 | **可校验分发** | Releases / CI 提供 `AgentHarbor-macos.zip` + **SHA256**；MIT 许可；首次打开需 Gatekeeper 放行（未公证时常见） |
 
@@ -165,7 +165,7 @@ agent-harbor/
 
 产品范围以 [PAGE-DESIGN](docs/PAGE-DESIGN.md) 为准（历史上在 `feat/page-design-full` 落地，**已合入 `main`**）。与 [MVP-2D3P](docs/archive/MVP-2D3P.md)「两天裁剪」冲突时以 PAGE-DESIGN 为准。
 
-当前基线：macOS Darwin 25 · arm64；Claude / Codex / dsh（须本机 CLI，向导第一步检测）；Gate 反代与 usage 旁路；远程 HTTP MCP（协议可接受邻近版本）与宿主 stdio 桥；工作台多轮、clone 导回、主动扩权 ask 与双会话；侧栏「记录」含用量（token 粗算）/阻拦/扩权/诊断与另存为导出。产品内「使用说明」与 [MCP 矩阵](demos/mcp-compat-matrix.md) 标明能力边界。可安装包见 Releases（含 SHA256）/ CI Artifacts。
+当前基线：macOS Darwin 25 · arm64；Claude / Codex / dsh（须本机 CLI，向导第一步检测）；Gate 反代与 usage 旁路；远程 HTTP MCP 与宿主 stdio 桥（**机制：凭据免进沙箱**；**清单**：见 [MCP 矩阵](demos/mcp-compat-matrix.md)）；工作台多轮、clone 导回、主动扩权 ask 与双会话；侧栏「记录」含用量（token 粗算）/阻拦/扩权/诊断与另存为导出。可安装包见 Releases（含 SHA256）/ CI Artifacts。
 
 ## GitHub 推送 / 拉取
 

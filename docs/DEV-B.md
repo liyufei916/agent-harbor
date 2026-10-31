@@ -141,9 +141,9 @@ wails3 task package # macOS 上得到 bin/AgentHarbor.app，可双击打开
 | `GetRuntimeHealth` | `AttachOrchestrator` 注入的 `runtime.MacOS.Health`；成功 `isolationLevel=seatbelt` |
 | `ListSessions` / `DestroySession` | 转发 `orchestrator.List` / `Destroy` |
 | `ListAccounts` / `RemoveAccount` | `secrets.Store.List` / `Delete`（仍仅内存） |
-| `GetUIPrefs` / `SetUIPrefs` | 进程内偏好（重启丢失；钥匙串见 P1-B-01） |
+| `GetUIPrefs` / `SetUIPrefs` | 落盘 `ui-state.json`（跨重启）；含 `demoExpandAsk` 等 |
 | `GetPermissionOverview` | 会话工作区 + 账号主机 + 记住主机；禁止路径类别文案 |
-| `ListRememberedHosts` / `RevokeRememberedHost` | 进程内表；`ResolvePermission(decision=project)` 成功后写入 |
+| `ListRememberedHosts` / `RevokeRememberedHost` | 按工作区落盘并跨重启回灌；`ResolvePermission(decision=project)` 写入 `rememberHost` |
 
 验证：
 

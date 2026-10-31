@@ -101,6 +101,59 @@ func TestParseDemoAskAndValidHost(t *testing.T) {
 	}
 }
 
+func TestDemoAskDisabledForbidden(t *testing.T) {
+	up := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Fatal("demo ask must not hit upstream")
+	}))
+	t.Cleanup(up.Close)
+	ctx := context.Background()
+	store := secrets.NewStore()
+	modelID := putMountAccount(t, store, "model", "mk")
+	mcpID := putMountAccount(t, store, "mcp", "tok")
+	h := New(store, policy.NewBuilder(nil))
+	bind, err := h.Start(ctx, GateSpec{
+		SessionID:      "demo-ask-off",
+		ModelAccountID: modelID,
+		EnableDemoAsk:  false,
+		Policy: policy.PolicySnapshot{
+			Model: policy.EndpointRule{Origin: up.URL, Paths: []string{"/"}},
+			MCPMounts: []policy.MCPMount{{
+				AccountID: mcpID,
+				Endpoint:  policy.EndpointRule{Origin: up.URL, Paths: []string{"/mcp"}},
+				Tools:     []string{"other_only"},
+			}},
+		},
+		RequestPermission: func(context.Context, contracts.PermissionNeeded) (string, error) {
+			t.Fatal("RequestPermission must not run when demo ask disabled")
+			return "deny", nil
+		},
+	}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { h.Revoke(ctx, "demo-ask-off") })
+	mcpURL := bind.MCPURL
+	if mcpURL == "" && len(bind.MCPURLs) > 0 {
+		mcpURL = bind.MCPURLs[0]
+	}
+	body := []byte(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"harbor_demo_ask","arguments":{"host":"demo-ask.example"}}}`)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, mcpURL, bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+bind.Sentinel)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		raw, _ := io.ReadAll(resp.Body)
+		t.Fatalf("status=%d body=%s", resp.StatusCode, raw)
+	}
+}
+
 func TestDemoAskBypassesToolAllowlist(t *testing.T) {
 	// 白名单没有 harbor_demo_ask 时，仍须走扩权回调，而不是 403 tool not allowed。
 	asked := make(chan string, 1)
@@ -116,6 +169,7 @@ func TestDemoAskBypassesToolAllowlist(t *testing.T) {
 	bind, err := h.Start(ctx, GateSpec{
 		SessionID:      "demo-ask-allowlist",
 		ModelAccountID: modelID,
+		EnableDemoAsk:  true,
 		Policy: policy.PolicySnapshot{
 			Model: policy.EndpointRule{Origin: up.URL, Paths: []string{"/"}},
 			MCPMounts: []policy.MCPMount{{

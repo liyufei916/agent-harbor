@@ -37,6 +37,9 @@ type GateSpec struct {
 	MCPAccountID   string
 	// ExtraHosts 会话启动时注入的记住主机（通常为 project）；key 小写主机名 → once|project。
 	ExtraHosts map[string]string
+	// EnableDemoAsk：为 true 时才向 tools/list 注入 harbor_demo_ask 并拦截其 tools/call。
+	// 默认关闭；由桌面 UIPrefs.demoExpandAsk 或环境变量 HARBOR_DEMO_ASK=1 打开。
+	EnableDemoAsk bool
 	// 可选的宿主机扩权决策回调；nil 时必须拒绝，不能自动放行。
 	// 返回决策后 Gate/Policy 仍须重新求值授权，不得直接绕过固定规则。
 	RequestPermission func(context.Context, contracts.PermissionNeeded) (string, error)

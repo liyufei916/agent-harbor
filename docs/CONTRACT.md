@@ -228,6 +228,7 @@ type UIPrefs struct {
     SecurityTier string `json:"securityTier,omitempty"` // strict | standard | relaxed
     IsolationBackend string `json:"isolationBackend,omitempty"` // seatbelt | docker；改后需重启；HARBOR_RUNTIME 优先
     EngineSource string `json:"engineSource,omitempty"` // harbor-colima | system-docker；空=harbor-colima
+    DemoExpandAsk bool `json:"demoExpandAsk,omitempty"` // 默认 false；为 true 时 Gate 注入 harbor_demo_ask（亦可用 HARBOR_DEMO_ASK=1）
 }
 type UIPrefsResponse struct {
     Prefs *UIPrefs `json:"prefs"`

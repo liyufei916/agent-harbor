@@ -77,7 +77,6 @@ func (o *Service) ResizePty(ctx context.Context, input contracts.PtyInput) error
 	return nil
 }
 
-
 func (o *Service) audit(s *session, data contracts.AuditData) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
@@ -145,4 +144,3 @@ func (o *Service) drainEarlyLocked(s *session) {
 	}
 	s.early, s.earlyBytes, s.earlyTruncated = nil, 0, false
 }
-

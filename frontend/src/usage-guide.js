@@ -13,7 +13,7 @@ const GUIDE_HTML = `
     <li>隔离后端二选一（设置）：默认 <strong>Seatbelt</strong>；可选 <strong>Docker</strong>（一会话一容器、镜像内 CLI）。改后端后须<strong>重启应用</strong>才生效（设置/标题栏有「重启应用」）。</li>
     <li>Docker 引擎：无 Docker Desktop 时用「Harbor 托管 Colima」并一键安装；本机已有 Docker 可选「本机 Docker」。引擎与「隔离后端」是两件事——选 Seatbelt 时不必装引擎。</li>
     <li>Agent 须本机预装 CLI（Seatbelt），或使用 Docker 镜像内 Claude / Codex / dsh。</li>
-    <li>MCP：远程 HTTP（Token / OAuth）、宿主 stdio，或工具页<strong>预置一键添加</strong>（本机时间 / 演示 filesystem / Context7）。</li>
+    <li>MCP：凭据只在宿主代填（机制保证）；兼容面以仓库 <code>demos/mcp-compat-matrix.md</code> 已验证清单为准（非「所有主流开箱」）。远程 HTTP / 宿主 stdio / 预置一键添加。</li>
     <li>凭据默认进 macOS Keychain；钥匙串不可用时<strong>拒绝</strong>静默改存明文文件，须修复钥匙串后重启。</li>
   </ul>
 
@@ -60,7 +60,7 @@ const GUIDE_HTML = `
   <h3>工作台与扩权</h3>
   <ul>
     <li>对话区展示可读回复；下方输入 Enter 发下一轮（Claude / Codex / dsh 均支持同会话多轮）。</li>
-    <li>扩权：工作台「请求扩权」，或粘贴工作区 <code>EXPAND-TASK.txt</code>（Agent 调 <code>harbor_demo_ask</code>）。三选一：拒绝 / 仅本次 / 本项目；<strong>没有「全网放行」</strong>。</li>
+    <li>扩权：工作台「请求扩权」；演示工具须在设置勾选「启用扩权演示工具」或 <code>HARBOR_DEMO_ASK=1</code> 后，再用 <code>EXPAND-TASK.txt</code>。三选一：拒绝 / 仅本次 / 本项目；<strong>没有「全网放行」</strong>。「本项目」会记住并落盘，可在设置撤销。</li>
     <li>「本项目始终允许」可在权限一览或设置「已记住的网站」中撤销。阻拦演示见 <code>BLOCK-TASK.txt</code>（无弹窗，记入「记录→阻拦」）。</li>
   </ul>
 

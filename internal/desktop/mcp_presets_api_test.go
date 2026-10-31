@@ -7,7 +7,7 @@ import (
 )
 
 func TestListMcpPresets(t *testing.T) {
-	app := NewAppWithDataDir(t.TempDir())
+	app := NewApp()
 	api := NewDesktopAPI(app)
 	res := api.ListMcpPresets()
 	if res.Error != nil || len(res.Presets) < 3 {
@@ -16,12 +16,13 @@ func TestListMcpPresets(t *testing.T) {
 }
 
 func TestAddMcpPresetTime(t *testing.T) {
-	app := NewAppWithDataDir(t.TempDir())
+	// 内存凭据库：避免本机 Keychain 不可用时 NewAppWithDataDir 持久化 Put 失败。
+	app := NewApp()
 	app.SetSessionService(&recordingSession{})
 	api := NewDesktopAPI(app)
 	res := api.AddMcpPreset(contracts.AddMcpPresetInput{PresetID: "harbor-time"})
 	if res.Error != nil {
-		t.Fatalf("%+v", res.Error)
+		t.Fatalf("code=%s msg=%s", res.Error.Code, res.Error.Message)
 	}
 	if res.Account == nil || res.Account.Transport != "stdio" {
 		t.Fatalf("%+v", res.Account)
@@ -29,7 +30,7 @@ func TestAddMcpPresetTime(t *testing.T) {
 }
 
 func TestAddMcpPresetContext7NeedsKey(t *testing.T) {
-	app := NewAppWithDataDir(t.TempDir())
+	app := NewApp()
 	api := NewDesktopAPI(app)
 	res := api.AddMcpPreset(contracts.AddMcpPresetInput{PresetID: "context7"})
 	if res.Error == nil || res.Error.Code != contracts.ErrInvalidArgument {

@@ -24,6 +24,13 @@ type Colima struct {
 	fetch    fetchFunc
 }
 
+// SetLookPath 覆盖 PATH 查找（单测隔离本机已装 CLI）。
+func (c *Colima) SetLookPath(fn func(string) (string, error)) {
+	if c != nil {
+		c.lookPath = fn
+	}
+}
+
 func (c *Colima) report(percent int, label string) {
 	if c == nil || c.OnProgress == nil {
 		return

@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -33,28 +34,53 @@ func TestRestartAppBusyWithoutForce(t *testing.T) {
 
 func TestRestartAppForceRelaunches(t *testing.T) {
 	prevR, prevQ := relaunchFn, quitFn
-	t.Cleanup(func() {
-		relaunchFn, quitFn = prevR, prevQ
-	})
+	var mu sync.Mutex
 	var launched, quit bool
 	relaunchFn = func() error {
+		mu.Lock()
 		launched = true
+		mu.Unlock()
 		return nil
 	}
-	quitFn = func() { quit = true }
+	quitFn = func() {
+		mu.Lock()
+		quit = true
+		mu.Unlock()
+	}
+	// 须等异步 quitFn 跑完再还原钩子，否则与 RestartApp 内 goroutine 竞态。
+	t.Cleanup(func() {
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			mu.Lock()
+			done := quit
+			mu.Unlock()
+			if done {
+				break
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+		relaunchFn, quitFn = prevR, prevQ
+	})
 
 	app := NewAppWithDataDir(t.TempDir())
 	app.SetSessionService(&busyListSession{})
 	api := NewDesktopAPI(app)
 	res := api.RestartApp(contracts.RestartAppInput{Force: true})
-	if res.Error != nil || !res.Restarting || !launched {
-		t.Fatalf("%+v launched=%v", res, launched)
+	mu.Lock()
+	gotLaunch := launched
+	mu.Unlock()
+	if res.Error != nil || !res.Restarting || !gotLaunch {
+		t.Fatalf("%+v launched=%v", res, gotLaunch)
 	}
 	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) && !quit {
+	for time.Now().Before(deadline) {
+		mu.Lock()
+		done := quit
+		mu.Unlock()
+		if done {
+			return
+		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	if !quit {
-		t.Fatal("expected quitFn")
-	}
+	t.Fatal("expected quitFn")
 }
