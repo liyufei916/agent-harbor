@@ -86,7 +86,7 @@ go test ./internal/orchestrator -run 'Permission' -count=1
 
 ```text
 日期：2026-10-31
-操作人：产品复验（研发代填勾选）
+操作人：本机 http-live 复验（非独立陌生机）
 表面：本机 live（浏览器）http-live · 顶栏「本机 live（浏览器）」· Docker 隔离就绪
 工作区：…/docs/agent-harbor/demos/workspace
 commit：见本合入提交（http-live + 扩权/阻拦 GUI 修复）

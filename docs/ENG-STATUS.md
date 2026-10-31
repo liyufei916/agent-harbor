@@ -50,6 +50,7 @@
 | 2026-10-31f | **评测 P0**：文档/README 会话上限统一 5；mock 用 `MAX_ACTIVE_SESSIONS`；`harbor_demo_blocked` 并入演示开关；http-live 仅 Authorization + `/v1/dev-token`；`connectStdioMCP` 单测。 |
 | 2026-10-31g | **评测 P1 材料**：main 绿 CI `41187174465`（`3d0ded4`）`go-unit-coverage` 旁证入 demos/evidence；UIPrefs 引擎/演示开关测；工具页预置渲染测；http-live token 剥离单测。 |
 | 2026-10-31h | **CI 拆分**：`Frontend tests` 独立 job（npm test 失败直达）；`go` needs frontend 再打包；format 比对 Go/JS 会话上限；coverage-badge 强制存在 `coverage-source-sha.txt`。 |
+| 2026-10-31i | **首跑口径**：`stranger-first-run-record` 勾选保留为**本机/harness**；显式「独立陌生机未做·不声称」；FIRST-RUN/ACCEPTANCE/README 同步；dsh Seatbelt 短任务证据入库。 |
 
 ## eng-complete（代码已接线）
 

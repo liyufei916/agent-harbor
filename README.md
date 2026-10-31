@@ -35,7 +35,7 @@
 | **可校验分发** | Releases / CI 提供 `AgentHarbor-macos.zip` + **SHA256**；MIT 许可；首次打开需 Gatekeeper 放行（未公证时常见） |
 | **双终端** | 同一套前端：浏览器（mock / 本机 live）+ 桌面 App；开发与演示可浏览器开，交付与 I 验收走桌面 |
 
-叙事用语：「隔离运行」「密钥留在本机」「经安全闸口」。交付形态是 **桌面 App**；浏览器可跑 mock（只看 UI）或本机 live 桥（与桌面同后端，便于复验/截图）。I1–I11 主证据仍以桌面 + harness 为准。陌生用户路径见 [FIRST-RUN](demos/FIRST-RUN.md)。
+叙事用语：「隔离运行」「密钥留在本机」「经安全闸口」。交付形态是 **桌面 App**；浏览器可跑 mock（只看 UI）或本机 live 桥（与桌面同后端，便于复验/截图）。I1–I11 主证据仍以桌面 + harness 为准。上手说明见 [FIRST-RUN](demos/FIRST-RUN.md)（**不声称**独立陌生机已验证）。
 
 ---
 

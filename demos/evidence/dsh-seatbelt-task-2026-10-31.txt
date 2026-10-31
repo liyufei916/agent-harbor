@@ -1,0 +1,11 @@
+# dsh · 默认 Seatbelt 短任务（本机 harness）
+# 日期：2026-10-31
+# 命令：HARBOR_RUNTIME=seatbelt go run ./scripts/cmd/agent-task-evidence -agents=dsh -timeout=120s
+# 口径：作者本机；非独立陌生机
+
+health available=true isolation="seatbelt"
+agent claude available=true
+agent codex available=true
+agent dsh available=true
+===== AGENT TASK EVIDENCE =====
+dsh: 通过: session=4848e529… model=model_10… marker=harbor-agent-dsh-38245 srcSummary=true SyncBack=ok

@@ -11,5 +11,6 @@
 | `syncback-hash-*.txt` | SyncBack 同名覆盖 + 源独有保留（sha256） |
 | `http-live-gui-*.txt` | 浏览器本机 live（双终端）+ `screenshots/live-browser/` |
 | `go-unit-coverage-2026-10-31.md`（+ sha / svg / summary-tail） | main 绿 CI `go-unit-coverage` artifact 旁证（SHA 对齐） |
+| `dsh-seatbelt-task-2026-10-31.txt` | dsh 在 **Seatbelt** 短任务 + SyncBack（本机 harness） |
 
 填空模板见 [`../evidence-template.md`](../evidence-template.md)。新证据用日期后缀；勿提交 `_` 开头临时目录或 Docker Desktop 家目录拷贝。

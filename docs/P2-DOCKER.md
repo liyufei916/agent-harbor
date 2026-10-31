@@ -34,7 +34,7 @@ Gate / Policy / 页面主契约不变，只换 `Runtime` 实现；引擎由 Harb
 | **M2b** | Colima Start/Stop/Health（PATH 或 `engine/bin`）；`EnsureImage`；不抢全局 docker context | **完成** |
 | **M2c** | 钉扎下载 colima + lima + docker CLI（SHA256）；`HARBOR_ENGINE_AUTO_DOWNLOAD` | **完成** |
 | **M3** | 设置：引擎来源 / Health / 启用；`DOCKER_HOST` 接入 Runtime | **完成** |
-| **M4** | 切 Docker 后端自动 Ensure；启动时拉起；陌生机无 Desktop 勾选表 | **完成** |
+| **M4** | 切 Docker 后端自动 Ensure；启动时拉起；无 Desktop 时走托管 Colima（另机 GUI 不声称） | **完成** |
 
 开发期若本机已有 Docker，仍可用外置 daemon 验证 Runtime（`bash scripts/docker-p2-up.sh`），与 B→C 产品主路径不冲突。
 
@@ -52,7 +52,7 @@ bash scripts/docker-p2-up.sh   # 构建镜像 + 边界冒烟（需已有 docker�
 # 或：export HARBOR_RUNTIME=docker
 ```
 
-产品主路径：设置 → 隔离后端选 **Docker（P2）** → 选引擎（Colima / 本机 Docker）→ 点 **「一键安装并启用」**（才下载；可「停止 / 取消」）→ **重启应用** → Health `isolationLevel=docker`。勾选见 [stranger-first-run-record](../demos/stranger-first-run-record.md) §P2 B。
+产品主路径：设置 → 隔离后端选 **Docker（P2）** → 选引擎（Colima / 本机 Docker）→ 点 **「一键安装并启用」**（才下载；可「停止 / 取消」）→ **重启应用** → Health `isolationLevel=docker`。本机旁证见 [stranger-first-run-record](../demos/stranger-first-run-record.md) §P2 B。
 
 **网络注意**：会话网 `agent-harbor-p2` **不得**使用 Docker `--internal`（Desktop 上会阻断 `harbor.gate` / host-gateway）。遗留 internal 网会在 Health/Ensure 时尝试迁移。
 

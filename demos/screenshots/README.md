@@ -44,4 +44,4 @@
 | 扩权 Modal 话术与三选一；http-live 旁证 | I1–I11 整表验收通过 |
 
 产品演示视频（既有）：[agent-harbor-demo.mov](https://winterbd251225.qbox.net/agent-harbor-demo.mov)。  
-桌面 live 录屏仍需本机 `./scripts/dev-desktop.sh` 或打包 `.app`。P2 冒烟证据见 [evidence/p2-docker-smoke-2026-10-30.txt](../evidence/p2-docker-smoke-2026-10-30.txt)；勾选表 [stranger-first-run-record](../stranger-first-run-record.md) §P2。
+桌面 live 录屏仍需本机 `./scripts/dev-desktop.sh` 或打包 `.app`。P2 冒烟证据见 [evidence/p2-docker-smoke-2026-10-30.txt](../evidence/p2-docker-smoke-2026-10-30.txt)；本机 P2 旁证见 [stranger-first-run-record](../stranger-first-run-record.md) §P2。

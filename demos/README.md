@@ -23,7 +23,7 @@
 
 **浏览器 live 截图**：[screenshots/live-browser/](screenshots/live-browser/)（顶栏「本机 live（浏览器）」；`./scripts/http-live-sample-shots.sh`）。适合 Health、模型/工具列表、会话、记录、设置、扩权 Modal。
 
-eng 已 **code-complete**；I1–I11 live 见 [ACCEPTANCE](../docs/ACCEPTANCE.md)。陌生用户：[FIRST-RUN.md](FIRST-RUN.md) · 填空记录 [stranger-first-run-record.md](stranger-first-run-record.md)。
+eng 已 **code-complete**；I1–I11 live 见 [ACCEPTANCE](../docs/ACCEPTANCE.md)。上手说明：[FIRST-RUN.md](FIRST-RUN.md)；复验表 [stranger-first-run-record.md](stranger-first-run-record.md)（本机 / harness；独立陌生机不声称）。
 
 Codex / dsh 真实短任务（命令级，脱敏报告行）：
 

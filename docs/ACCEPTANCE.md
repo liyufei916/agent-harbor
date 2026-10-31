@@ -123,12 +123,12 @@ $ grep -n harbor-live-i2 demos/workspace/summary.txt
 ## Codex / dsh 真实短任务（固定提交 · 本机 harness）
 
 命令：`go run ./scripts/cmd/agent-task-evidence -agents=codex,dsh`  
-填空与陌生用户路径：[stranger-first-run-record.md](../demos/stranger-first-run-record.md)。**通过项须含本机跑出的报告行**（勿用 Claude 项顶替）。
+首跑复验表：[stranger-first-run-record.md](../demos/stranger-first-run-record.md)（**本机 / harness**；独立陌生机未做 · 不声称）。**通过项须含本机跑出的报告行**（勿用 Claude 项顶替）。
 
 | Agent | 状态 | 证据（脱敏） |
 |---|---|---|
 | codex | **通过（2026-10-30 Seatbelt + Docker）** | Seatbelt：`session=9921bdbe… marker=harbor-agent-codex-42901`。Docker：`HARBOR_RUNTIME=docker` → `session=d5fe2a1c… marker=harbor-agent-codex-64778 srcSummary=true SyncBack=ok`（见 `demos/evidence/p2-docker-agents-2026-10-30.txt`；合入本段 commit 回填 SHA） |
-| dsh | **通过（2026-10-30 Docker）** | `HARBOR_RUNTIME=docker` → `session=3efa2c5d… marker=harbor-agent-dsh-64815 srcSummary=true SyncBack=ok`（同证据文件）。Seatbelt 路径可另补。 |
+| dsh | **通过（2026-10-30 Docker + 2026-10-31 Seatbelt）** | Docker：`session=3efa2c5d… marker=harbor-agent-dsh-64815`。Seatbelt：`HARBOR_RUNTIME=seatbelt` → `session=4848e529… marker=harbor-agent-dsh-38245 srcSummary=true SyncBack=ok`（`demos/evidence/dsh-seatbelt-task-2026-10-31.txt`）。 |
 | claude | **通过（2026-10-30 Docker）** | `HARBOR_RUNTIME=docker` → `session=ea1a6c34… marker=harbor-agent-claude-64773 srcSummary=true SyncBack=ok` |
 
 ### P2 Docker / Colima（已合入 `main` · `1a5db77`）
@@ -140,6 +140,6 @@ $ grep -n harbor-live-i2 demos/workspace/summary.txt
 | 三 Agent Docker 短任务 | **通过** | `demos/evidence/p2-docker-agents-2026-10-30.txt` EXIT:0 |
 | Harbor Colima Ensure/Health | **通过（§B · Desktop 已安装但未用）** | `demos/evidence/p2-colima-ensure-2026-10-30.txt`：`DOCKER_HOST=…/Caches/AgentHarbor/colima/agent-harbor/docker.sock` · Name=`colima-agent-harbor`（对照 Desktop Name=`docker-desktop`） |
 | 桌面 GUI Docker 切换 | **通过** | `demos/evidence/p2-docker-gui-2026-10-30.txt` + `screenshots/17-desktop-docker-health.png`（UIPrefs=`docker`，无 `HARBOR_RUNTIME`） |
-| 陌生机无 Desktop GUI | **待（另机）** | 本机 Colima §B 已证「Desktop 已装未用」；真无 Desktop 端到端不冒充 |
+| 真无 Desktop 另机 GUI | **未做 · 不声称** | 本机 Colima §B 已证「Desktop 已装未用」；不冒充陌生机 |
 
-陌生用户获取→首配→首任务：预发布 [v0.0.0-ci.8efc0d9](https://github.com/liyufei916/agent-harbor/releases/tag/v0.0.0-ci.8efc0d9)；正式 [v0.1.0](https://github.com/liyufei916/agent-harbor/releases/tag/v0.1.0)。勾选表已按证据**代填**（非独立陌生机）：[stranger-first-run-record.md](../demos/stranger-first-run-record.md)；**真无 Desktop 另机 GUI**仍待。
+获取产物：预发布 [v0.0.0-ci.8efc0d9](https://github.com/liyufei916/agent-harbor/releases/tag/v0.0.0-ci.8efc0d9)；正式 [v0.1.0](https://github.com/liyufei916/agent-harbor/releases/tag/v0.1.0)。首跑表口径见 [stranger-first-run-record.md](../demos/stranger-first-run-record.md)（本机已测；**独立陌生机 / 他人可用：不声称**）。操作说明：[FIRST-RUN.md](../demos/FIRST-RUN.md)。
