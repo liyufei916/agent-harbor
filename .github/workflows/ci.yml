@@ -11,9 +11,10 @@ permissions:
 
 jobs:
   # 格式独立：失败不跳过 race/覆盖率/打包（E1）。仍须合入前修绿。
+  # format/frontend/go-unit 用 ubuntu：不依赖 macOS runner；macOS 秒取消时仍可刷覆盖率。
   format:
     name: Go format
-    runs-on: macos-14
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Checkout
@@ -49,7 +50,7 @@ jobs:
   # 前端测独立 job：失败直达，不埋在 Wails 打包步里。
   frontend:
     name: Frontend tests
-    runs-on: macos-14
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -72,11 +73,11 @@ jobs:
         shell: bash
         run: npm audit --prefix frontend --audit-level=moderate
 
-  go:
-    name: Go checks (macOS)
-    # format 红则不跑覆盖率/打包，避免徽章落到「format 红但 go 绿」的错位 SHA。
+  go-unit:
+    name: Go unit + coverage
+    # format 红则不发覆盖率，避免徽章落到「format 红但 go 绿」的错位 SHA。
     needs: [frontend, format]
-    runs-on: macos-14
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -87,13 +88,6 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
 
       - name: Run tests with race detector
         shell: bash
@@ -108,11 +102,6 @@ jobs:
             echo "gotest.json missing; skip report unavailable"
             exit 1
           fi
-
-      - name: Assert portable Seatbelt profile contracts
-        run: >
-          go test -race ./internal/runtime
-          -run 'TestReadOnly|TestCodexProfile|TestSeatbeltProfile|TestDSH|TestEndpoint|TestCanonical|TestWithin'
 
       - name: Generate unit coverage
         run: |
@@ -136,6 +125,33 @@ jobs:
 
       - name: Run vet
         run: go vet ./...
+
+  go-macos:
+    name: Go checks (macOS package)
+    needs: [go-unit]
+    runs-on: macos-14
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Assert portable Seatbelt profile contracts
+        run: >
+          go test -race ./internal/runtime
+          -run 'TestReadOnly|TestCodexProfile|TestSeatbeltProfile|TestDSH|TestEndpoint|TestCanonical|TestWithin'
 
       - name: Validate Wails v3 desktop build
         shell: bash
@@ -197,7 +213,8 @@ jobs:
 
   coverage-badge:
     name: Publish main coverage badge
-    needs: [go, python]
+    # 覆盖率只依赖 ubuntu go-unit，不堵在 macOS 打包上。
+    needs: [go-unit, python]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
