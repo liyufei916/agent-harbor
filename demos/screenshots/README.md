@@ -7,7 +7,7 @@
 | [01-home-sessions.png](01-home-sessions.png) | 会话中心 ≤5；密钥留在本机叙事；隔离就绪灯 |
 | [02-models-empty.png](02-models-empty.png) / [03-models-add-key-local.png](03-models-add-key-local.png) / [04-models-saved.png](04-models-saved.png) | Key 本机录入、多 Agent 勾选、提交后清空 |
 | [05-tools-mcp.png](05-tools-mcp.png) | MCP：远程 HTTP / 宿主 stdio |
-| [06-records-usage.png](06-records-usage.png) | 记录：用量 / 单价 CNY·USD / 导出脱敏 |
+| [06-records-usage.png](06-records-usage.png) | 记录：用量（现为汇总/按会话/按工具/终态子 Tab；样张可能偏旧）/ 单价 CNY·USD / 导出脱敏 |
 | [07-settings-clone-agents.png](07-settings-clone-agents.png) | 安全副本默认；Agent CLI 检测；无「关闭隔离」 |
 | [08-isolation-blocked.png](08-isolation-blocked.png) / [09-isolation-detail-checks.png](09-isolation-detail-checks.png) | 隔离不可用阻断；逐条检测；无「仍要继续」 |
 | [10-wizard-cli-clone.png](10-wizard-cli-clone.png) | 向导 CLI 先检 + 安全副本挂载 |
@@ -28,7 +28,7 @@
 | [live-browser/01-home-sessions.png](live-browser/01-home-sessions.png) | HOME 会话卡；隔离就绪；Docker 徽章 |
 | [live-browser/02-models.png](live-browser/02-models.png) | 真实账号列表（无 Key） |
 | [live-browser/03-tools.png](live-browser/03-tools.png) | MCP 已连接 / 预置 |
-| [live-browser/04-records.png](live-browser/04-records.png) | 记录·用量 |
+| [live-browser/04-records.png](live-browser/04-records.png) | 记录·用量（子 Tab 布局更新后宜重截） |
 | [live-browser/05-settings.png](live-browser/05-settings.png) | Agent 检测 / 会话默认 |
 | [live-browser/06-workbench.png](live-browser/06-workbench.png) | 工作台对话入口 |
 | [live-browser/07-wizard-workspace-picked.png](live-browser/07-wizard-workspace-picked.png) | 向导选工作区（路径表单/快捷项） |

@@ -54,7 +54,7 @@ agent-harbor/
 ├── frontend/                    # C：配置与工作台；B 配合绑定生成/构建
 │   ├── src/
 │   │   ├── main.js · api.js · mock-api.js · usage-guide.js
-│   │   ├── usage-analytics.js   # 本机记录（用量/阻拦/扩权，不外传）
+│   │   ├── usage-analytics.js   # 本机记录（用量汇总/按会话/按工具/终态 + 阻拦/扩权，不外传）
 │   │   ├── views/records.js     # 侧栏「记录」三 Tab
 │   │   ├── views/permission-overview-modal.js  # 权限一览弹窗
 │   │   ├── agent-install.js     # 复制安装命令
