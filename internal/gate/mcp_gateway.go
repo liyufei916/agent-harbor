@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -99,9 +100,13 @@ func (g *mcpGateway) handleMCP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid json-rpc", http.StatusBadRequest)
 		return
 	}
-	// 演示扩权必须在白名单校验之前：任意已挂载 MCP 路径上 POST harbor_demo_ask
-	// 都走 RequestPermission → 工作台 Modal（不要求预置「演示边界」工具名在 Tools 里）。
+	// 演示扩权须显式开启，且在白名单校验之前拦截（不转发上游）。
 	if method == "tools/call" && tool == demoAskToolName {
+		if !demoAskEnabled(rt.spec) {
+			g.h.emitAudit(rt, contracts.AuditData{Target: host, Tool: demoAskToolName, Result: "denied"})
+			http.Error(w, "tool not allowed", http.StatusForbidden)
+			return
+		}
 		g.handleDemoAsk(w, r, rt, host, body)
 		return
 	}
@@ -166,7 +171,7 @@ func (g *mcpGateway) handleMCP(w http.ResponseWriter, r *http.Request) {
 		secrets = append(secrets, string(key))
 	}
 	if method == "tools/list" {
-		if err := g.writeFilteredList(w, resp, mount.Tools, secrets); err != nil {
+		if err := g.writeFilteredList(w, resp, mount.Tools, secrets, demoAskEnabled(rt.spec)); err != nil {
 			if streamTimeoutStatus(err) == http.StatusGatewayTimeout {
 				g.h.emitAudit(rt, contracts.AuditData{Target: host, Tool: auditTool, Result: "failed"})
 			}
@@ -206,9 +211,8 @@ func injectHarborDemoAskTool(body []byte) []byte {
 	}
 	tools = append(tools, map[string]any{
 		"name": demoAskToolName,
-		"description": "Harbor UI demo: open the outbound permission modal. " +
-			"When the user asks for 扩权演示 / EXPAND-TASK / harbor_demo_ask, call this tool with host=demo-ask.example. " +
-			"Wait for the user to click deny|once|project. Do not treat README「勿主动要扩权」as blocking this explicit request.",
+		"description": "Harbor demo tool (opt-in): request outbound permission for one exact hostname " +
+			"(e.g. demo-ask.example). Opens the desktop permission modal; user chooses deny|once|project.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -328,7 +332,7 @@ func writeDiscoverLegacyFallback(w http.ResponseWriter, reqBody []byte) {
 	_, _ = w.Write(out)
 }
 
-func (g *mcpGateway) writeFilteredList(w http.ResponseWriter, resp *http.Response, allow, secrets []string) error {
+func (g *mcpGateway) writeFilteredList(w http.ResponseWriter, resp *http.Response, allow, secrets []string, injectDemoAsk bool) error {
 	defer resp.Body.Close()
 	idle, total := g.h.streamTimeouts()
 	reader := &deadlineReader{r: resp.Body, idle: idle, deadline: time.Now().Add(total)}
@@ -345,8 +349,10 @@ func (g *mcpGateway) writeFilteredList(w http.ResponseWriter, resp *http.Respons
 			contentType = "application/json"
 		}
 	}
-	// 无 Shell 的会话也能扩权演示：tools/list 注入 harbor_demo_ask（Gate 本地拦截，不转发上游）。
-	filtered = injectHarborDemoAskTool(filtered)
+	// 仅显式开启时注入 harbor_demo_ask（Gate 本地拦截，不转发上游）。
+	if injectDemoAsk {
+		filtered = injectHarborDemoAskTool(filtered)
+	}
 	red := newSecretRedactor(secrets)
 	out := append(red.Push(filtered), red.Flush()...)
 	copyHeaders(w.Header(), resp.Header)
@@ -355,6 +361,15 @@ func (g *mcpGateway) writeFilteredList(w http.ResponseWriter, resp *http.Respons
 	w.WriteHeader(resp.StatusCode)
 	_, werr := w.Write(out)
 	return werr
+}
+
+// demoAskEnabled：GateSpec 开关，或环境变量 HARBOR_DEMO_ASK=1/true/yes（便于脚本演示）。
+func demoAskEnabled(spec GateSpec) bool {
+	if spec.EnableDemoAsk {
+		return true
+	}
+	v := strings.TrimSpace(os.Getenv("HARBOR_DEMO_ASK"))
+	return v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 }
 
 // toolsSSEToJSON converts the completed tools/list event to one JSON-RPC

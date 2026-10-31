@@ -72,6 +72,8 @@ type SessionSpec struct {
 	MountMode      string   `json:"mountMode,omitempty"` // direct 或 clone；缺省=direct
 	// RememberedHosts 由桌面在 Create 前注入本项目记住主机；不入前端 JSON。
 	RememberedHosts []RememberedHost `json:"-"`
+	// DemoExpandAsk 由桌面在 Create 前注入（UIPrefs / HARBOR_DEMO_ASK）；不入前端 JSON。
+	DemoExpandAsk bool `json:"-"`
 }
 
 // SessionSnapshot 是会话对外快照。
@@ -231,6 +233,8 @@ type UIPrefs struct {
 	IsolationBackend string `json:"isolationBackend,omitempty"`
 	// EngineSource：harbor-colima | system-docker；仅 isolationBackend=docker 时有意义；空=harbor-colima。
 	EngineSource string `json:"engineSource,omitempty"`
+	// DemoExpandAsk：为 true 时会话 Gate 注入扩权演示工具 harbor_demo_ask；默认 false。
+	DemoExpandAsk bool `json:"demoExpandAsk,omitempty"`
 }
 
 // ContainerEngineHealthResponse 是 P2 容器引擎（Colima/本机 Docker）探测结果。

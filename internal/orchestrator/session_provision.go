@@ -125,7 +125,7 @@ func (o *Service) provision(s *session) error {
 		}
 		extraHosts[name] = scope
 	}
-	binding, err := o.deps.Gate.Start(ctx, gate.GateSpec{SessionID: s.snapshot.SessionID, Policy: p, ModelAccountID: model.ID, ExtraHosts: extraHosts, RequestPermission: func(call context.Context, request contracts.PermissionNeeded) (string, error) {
+	binding, err := o.deps.Gate.Start(ctx, gate.GateSpec{SessionID: s.snapshot.SessionID, Policy: p, ModelAccountID: model.ID, ExtraHosts: extraHosts, EnableDemoAsk: s.spec.DemoExpandAsk, RequestPermission: func(call context.Context, request contracts.PermissionNeeded) (string, error) {
 		return o.RequestPermission(call, s.snapshot.SessionID, request)
 	}},
 		func(data contracts.AuditData) { o.audit(s, data) }, func(err error) { o.fail(s, err, "INTERNAL_ERROR") })
@@ -232,7 +232,6 @@ func validBinding(b gate.GateBinding) bool {
 	}
 	return true
 }
-
 
 func (o *Service) cleanup(s *session) bool {
 	o.mu.Lock()

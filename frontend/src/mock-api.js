@@ -44,6 +44,7 @@ let uiPrefs = {
   securityTier: "standard",
   isolationBackend: "seatbelt",
   engineSource: "harbor-colima",
+  demoExpandAsk: false,
 };
 
 function hostKey(host, workspace) {
@@ -600,6 +601,9 @@ export async function setUIPrefs(prefs) {
     const t = prefs.securityTier;
     next.securityTier =
       t === "strict" || t === "relaxed" || t === "standard" ? t : "standard";
+  }
+  if (prefs?.demoExpandAsk !== undefined) {
+    next.demoExpandAsk = !!prefs.demoExpandAsk;
   }
   uiPrefs = next;
   try {
@@ -1266,6 +1270,7 @@ export function resetMock() {
     securityTier: "standard",
     isolationBackend: "seatbelt",
     engineSource: "harbor-colima",
+    demoExpandAsk: false,
   };
 }
 

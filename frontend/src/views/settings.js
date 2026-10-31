@@ -89,6 +89,11 @@ export function mountSettings(root, ctx, opts = {}) {
           <option value="relaxed">宽松 — +GitHub 等开发站</option>
         </select>
       </label>
+      <label class="check-row" style="margin-top:10px">
+        <input type="checkbox" id="set-demo-expand-ask" />
+        启用扩权演示工具（<code>harbor_demo_ask</code>）
+      </label>
+      <p class="meta">默认关闭。开启后新建会话才向 MCP <code>tools/list</code> 注入演示工具；亦可用环境变量 <code>HARBOR_DEMO_ASK=1</code>。工作区「本项目」记住的主机会落盘，可在下方撤销。</p>
     </section>
 
     <section class="card ${focusIsolation ? "settings-focus-isolation" : ""}" style="margin-top:12px" id="settings-isolation">
@@ -130,7 +135,8 @@ export function mountSettings(root, ctx, opts = {}) {
     </section>
 
     <section class="card" style="margin-top:12px">
-      <h3>网络安全 · 已记住的网站</h3>
+      <h3>网络安全 · 本工作区已记住 · 可撤销</h3>
+      <p class="meta">「本项目」扩权会落盘并跨重启回灌到同工作区新会话；可逐项撤销。</p>
       <div id="set-hosts" class="meta">加载中…</div>
       <button type="button" class="btn" id="btn-reload-hosts">刷新</button>
     </section>
@@ -462,6 +468,8 @@ export function mountSettings(root, ctx, opts = {}) {
     });
     const tierEl = root.querySelector("#set-security-tier");
     if (tierEl) tierEl.value = normalizeTierPref(prefs.securityTier);
+    const demoAskEl = root.querySelector("#set-demo-expand-ask");
+    if (demoAskEl) demoAskEl.checked = !!prefs.demoExpandAsk;
     const isoEl = root.querySelector("#set-isolation-backend");
     const backend = normalizeIsolationBackend(prefs.isolationBackend);
     if (isoEl) isoEl.value = backend;
@@ -514,6 +522,7 @@ export function mountSettings(root, ctx, opts = {}) {
       securityTier: normalizeTierPref(
         root.querySelector("#set-security-tier")?.value,
       ),
+      demoExpandAsk: !!root.querySelector("#set-demo-expand-ask")?.checked,
       isolationBackend: nextBackend,
       engineSource: nextEngine,
     };
