@@ -49,16 +49,16 @@ func main() {
 
 	q := url.Values{}
 	q.Set("transport", "http-live")
-	q.Set("token", live.Token())
 	q.Set("bridge", live.URL())
 	fmt.Printf("http-live bridge: %s\n", live.URL())
-	fmt.Printf("token: %s\n", live.Token())
+	fmt.Println("auth: Authorization Bearer only（RPC/SSE 不接受 ?token=）")
 	if uiDir != "" {
 		fmt.Printf("open: %s/?%s\n", live.URL(), q.Encode())
-		fmt.Println("(已挂载 frontend/dist，无需 Vite)")
+		fmt.Println("(已挂载 frontend/dist；页面经 /v1/dev-token 领取 token，不写入 URL)")
 	} else {
 		fmt.Printf("open: http://127.0.0.1:5173/?%s\n", q.Encode())
 		fmt.Println("(需另开: cd frontend && npm run dev)")
+		fmt.Printf("跨源 Vite：在控制台执行 sessionStorage.setItem('harbor-http-live-token', %q)\n", live.Token())
 	}
 	fmt.Println("health:", live.URL()+"/v1/health")
 	fmt.Println("(Ctrl-C 退出；勿与另一编排实例同时开会话)")

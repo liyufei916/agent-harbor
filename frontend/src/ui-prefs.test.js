@@ -47,3 +47,28 @@ test("mock Get/SetUIPrefs theme 往返 light/dark/system", async () => {
     mock.resetMock();
   }
 });
+
+test("mock UIPrefs：演示开关默认关；引擎底座可切换", async () => {
+  mock.resetMock();
+  try {
+    const first = await mock.getUIPrefs();
+    assert.equal(first.prefs.demoExpandAsk, false);
+    assert.equal(first.prefs.engineSource, "harbor-colima");
+    assert.equal(first.prefs.isolationBackend, "seatbelt");
+    const eng = await mock.setUIPrefs({
+      isolationBackend: "docker",
+      engineSource: "system-docker",
+      demoExpandAsk: true,
+    });
+    assert.equal(eng.prefs.isolationBackend, "docker");
+    assert.equal(eng.prefs.engineSource, "system-docker");
+    assert.equal(eng.prefs.demoExpandAsk, true);
+    const again = await mock.getUIPrefs();
+    assert.equal(again.prefs.engineSource, "system-docker");
+    assert.equal(again.prefs.demoExpandAsk, true);
+    const off = await mock.setUIPrefs({ demoExpandAsk: false });
+    assert.equal(off.prefs.demoExpandAsk, false);
+  } finally {
+    mock.resetMock();
+  }
+});

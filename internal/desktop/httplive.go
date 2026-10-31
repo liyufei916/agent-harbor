@@ -26,7 +26,7 @@ const (
 	httpLiveTokenFile   = "http-live.token"
 )
 
-// loadOrCreateHTTPLiveToken 持久化 token，保证 RestartApp 后浏览器 URL 仍可用。
+// loadOrCreateHTTPLiveToken 持久化 token，保证 RestartApp 后同机 /v1/dev-token 仍可领取。
 func loadOrCreateHTTPLiveToken(app *App) string {
 	dir := ""
 	if app != nil {
@@ -123,6 +123,7 @@ func StartHTTPLive(api *DesktopAPI, cfg HTTPLiveConfig) (*HTTPLiveServer, error)
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/health", s.withCORS(s.handleHealth))
+	mux.HandleFunc("/v1/dev-token", s.withCORS(s.handleDevToken))
 	mux.HandleFunc("/v1/rpc", s.withCORS(s.requireAuth(s.handleRPC)))
 	mux.HandleFunc("/v1/events", s.withCORS(s.requireAuth(s.handleEvents)))
 	mux.HandleFunc("/v1/engine-progress", s.withCORS(s.requireAuth(s.handleEngineProgress)))
@@ -158,12 +159,12 @@ func (s *HTTPLiveServer) handleRootHint(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	q := url.Values{}
 	q.Set("transport", "http-live")
-	q.Set("token", s.token)
 	q.Set("bridge", "http://"+s.addr)
 	vite := "http://127.0.0.1:5173/?" + q.Encode()
 	_, _ = fmt.Fprintf(w, `<!doctype html><meta charset="utf-8"><title>http-live</title>
 <p>这是 API 桥（无页面）。请打开前端：</p>
 <p><a href="%s">%s</a></p>
+<p>Token <strong>不</strong>写入 URL；同端口 UI 会经 <code>/v1/dev-token</code> 领取；Vite 跨源时见终端说明写入 <code>sessionStorage</code>。</p>
 <p>或：<code>cd frontend && npm run dev</code> 后再点链接。<br/>
 也可让 <code>http-live-serve</code> 带上 <code>frontend/dist</code> 同端口出 UI。</p>
 <p>健康检查：<a href="/v1/health">/v1/health</a></p>`, vite, vite)
@@ -173,11 +174,10 @@ func (s *HTTPLiveServer) mountUI(mux *http.ServeMux, uiDir string) {
 	fileServer := http.FileServer(http.Dir(uiDir))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
-			// 无 transport 时补齐查询，避免误开成 mock
+			// 无 transport 时补齐查询，避免误开成 mock；token 不进 URL。
 			if r.URL.Query().Get("transport") == "" {
 				q := r.URL.Query()
 				q.Set("transport", "http-live")
-				q.Set("token", s.token)
 				if q.Get("bridge") == "" {
 					q.Set("bridge", "http://"+s.addr)
 				}
@@ -272,13 +272,8 @@ func originOK(origin string) bool {
 
 func (s *HTTPLiveServer) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// 仅 Authorization；拒绝 ?token=（避免进访问日志 / Referer）。
 		got := strings.TrimSpace(r.Header.Get("Authorization"))
-		if got == "" {
-			got = strings.TrimSpace(r.URL.Query().Get("token"))
-			if got != "" {
-				got = "Bearer " + got
-			}
-		}
 		want := "Bearer " + s.token
 		if got != want {
 			http.Error(w, `{"error":{"code":"UNAUTHORIZED","message":"invalid token"}}`, http.StatusUnauthorized)
@@ -288,12 +283,38 @@ func (s *HTTPLiveServer) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func loopbackRemote(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+// handleDevToken 仅 loopback 可领取桥 token，供同端口 UI 写入 sessionStorage（不进页面明文 URL）。
+func (s *HTTPLiveServer) handleDevToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !loopbackRemote(r) {
+		http.Error(w, `{"error":{"code":"UNAUTHORIZED","message":"dev-token loopback only"}}`, http.StatusUnauthorized)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"token":   s.token,
+		"surface": "http-live",
+	})
+}
+
 func (s *HTTPLiveServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":            true,
 		"surface":       "http-live",
 		"addr":          s.addr,
 		"tokenRequired": true,
+		"auth":          "Authorization Bearer only",
 	})
 }
 

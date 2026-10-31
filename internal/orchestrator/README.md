@@ -8,7 +8,7 @@
 
 `permission.go` 提供会话级 `RequestPermission` 等待和 `ResolvePermission` 决策：保持 running、按目标去重、最多 8 个挂起请求，停止和请求取消解除等待。回调随 GateSpec 注入；Gate 触发、Policy 应用决策与重新求值由 B 接入，当前不自动新增出站授权。
 
-- `session.go`：会话状态、最多两个并发会话、规范化工作区冲突、Create/Get/List/Stop/Destroy、同会话多轮输入和 Shutdown。
+- `session.go`：会话状态、最多五个并发会话（`MaxActiveSessions`）、规范化工作区冲突、Create/Get/List/Stop/Destroy、同会话多轮输入和 Shutdown。
 - `events.go`：串行事件分发、输出限额、UTF-8 分块与 Sentinel 流式过滤。
 - `ports.go`：注入消费接口；`errors.go`：固定公开错误模板。
 - `session_test.go` / `events_test.go`：同契约替身测试。
@@ -17,7 +17,7 @@
 
 ## 启动与停止
 
-1. 校验任务、账号引用和工作区；最多同时准备/运行两个会话，同一规范化工作区互斥，准备和清理阶段同样占槽位。
+1. 校验任务、账号引用和工作区；最多同时准备/运行五个会话（`MaxActiveSessions`），同一规范化工作区互斥，准备和清理阶段同样占槽位。
 2. 通过注入的只读 AccountCatalog 检查账号元信息，检测 Runtime/Kit，构造 Policy 快照，再启动 Gate。
 3. 将 GateBinding.AllowedTCP 与只读运行路径交给 Runtime.Create，取得 PrivateHome，再映射 KitInput 生成 LaunchSpec，由 Runtime.Exec 校验、落盘并隔离执行。
 4. Agent 成功启动后进入 running；正常退出、用户停止和致命故障均进入清理。

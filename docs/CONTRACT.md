@@ -513,7 +513,7 @@ type Runtime interface {
 | ResolvePermission | 处理扩权挂起 | decision∈deny\|once\|project；无挂起 → `INVALID_ARGUMENT`；**禁止**全网允许 |
 | PromptPermission | 主动挂起出站扩权（ask） | 仅 running；目标为主机名；异步发 `permission_needed`，等 Resolve；**不依赖**上游 302 |
 
-扩权演示（live）：工作台「请求扩权」，或粘贴 `demos/workspace/EXPAND-TASK.txt` 让 Agent 调 MCP **`harbor_demo_ask`**（Gate 在任意挂载的 `tools/list` **仅显式开启时**注入该工具名，并对 `tools/call` **先于白名单**拦截 → `RequestPermission`）。阻拦演示：`BLOCK-TASK.txt` → **`harbor_demo_blocked`**（Gate **始终**注入 `tools/list`；`tools/call` 一律 audit denied，**无**三选一弹窗；勿依赖「未列入表仍硬调」——现代 Agent 常拒调未登记工具）。
+扩权/阻拦演示（live）：须显式开启 `UIPrefs.demoExpandAsk` 或 `HARBOR_DEMO_ASK=1` 后**新建会话**。工作台「请求扩权」，或粘贴 `EXPAND-TASK.txt` 调 **`harbor_demo_ask`**（`tools/list` 注入；`tools/call` 先于白名单拦截 → `RequestPermission`）。阻拦：`BLOCK-TASK.txt` → **`harbor_demo_blocked`**（同开关注入；`tools/call` 一律 audit denied，**无**三选一弹窗）。默认不注入，以免污染真实工具清单。
 | SaveTextFile | 系统另存为写入文本 | 建议名+内容；可选 reveal 在访达显示；取消 → cancelled；**不得**用于密钥 |
 | RestartApp | 拉起同路径新进程后退出本进程 | Force=false 且有 running/provisioning/stopping → `SESSION_BUSY` + busySessions；成功 `restarting=true`；经退出门清理 |
 | GetUIPrefs / SetUIPrefs | 读写本机 UI 偏好 | **不得**存 Key；缺文件返回默认值 |

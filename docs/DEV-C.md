@@ -143,7 +143,7 @@ python3 -m http.server 5173
 
 | 项 | 状态 |
 |---|---|
-| mock 多会话 ≤2 / WORKSPACE_BUSY / SESSION_LIMIT | **已做**（`mock-api.js`） |
+| mock 多会话 ≤5 / WORKSPACE_BUSY / SESSION_LIMIT | **已做**（`mock-api.js` · `MAX_ACTIVE_SESSIONS`） |
 | 向导默认 clone；演示路径 B（**仅 mock**；live 已隐藏） | **已做** |
 | OAuth pending 轮询 + 取消 /「我已完成」 | **已做**（`tools.js`） |
 | PTY mock 回显 | 已有；随多会话按 sessionId |

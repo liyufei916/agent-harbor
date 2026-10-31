@@ -19,6 +19,7 @@ import (
 )
 
 // MaxActiveSessions 同时非终态会话上限（含 provisioning / running / stopping）。
+// 须与 frontend/src/session-limits.js 的 MAX_ACTIVE_SESSIONS 同值（CI 比对）。
 const MaxActiveSessions = 5
 
 type Service struct {

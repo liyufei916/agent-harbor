@@ -63,7 +63,7 @@
 | **contracts** | `internal/contracts` | A 主笔 / B 复核 | 可序列化 DTO、错误码、事件形状 | 纯数据 | IO、状态机 |
 | **desktop** | `internal/desktop` + `main` | B | Wails 生命周期、绑定、目录面板、事件桥、偏好落盘 | `DesktopAPI` | 再造会话状态机 |
 | **frontend** | `frontend/src` | C | 壳与各页、api/mock、演示文案 | 仅调 `api.js` | 手改 bindings、改 `internal/` |
-| **orchestrator** | `internal/orchestrator` | A | 会话表、上限=2、同工作区冲突、Stop/Destroy、扩权挂起、**clone 挂载**、**PTY 会话**、事件 seq | `SessionService`（扩展见 CONTRACT） | 存 Key、解析 MCP 协议、OAuth 浏览器流 |
+| **orchestrator** | `internal/orchestrator` | A | 会话表、上限=5、同工作区冲突、Stop/Destroy、扩权挂起、**clone 挂载**、**PTY 会话**、事件 seq | `SessionService`（扩展见 CONTRACT） | 存 Key、解析 MCP 协议、OAuth 浏览器流 |
 | **runtime** | `internal/runtime` | A | 隔离探测 Health、私有 HOME、进程树、**PTY 底层** | `Runtime` | 账号、UI |
 | **kits** | `internal/kits` | A | Detect / Build LaunchSpec | `Kit` | 读 Secrets |
 | **policy** | `internal/policy` | B | 工作区、host 白名单、记住主机、mount 校验 | `PolicyBuilder` + 记住主机读写 | 网络转发 |
@@ -117,7 +117,7 @@ flowchart LR
 |---|---|---|
 | 壳导航 HOME/模型/工具/设置；工作台不强占主入口 | **做** | 有 running 时顶栏会话切换 + 可进工作台 |
 | Onboarding / 阻断 | **做** | 失败不可跳过 |
-| HOME 多会话 | **做** | running≤2；同工作区禁双开；销毁确认；再次开始 |
+| HOME 多会话 | **做** | running≤5；同工作区禁双开；销毁确认；再次开始 |
 | Wizard 真四步 | **做** | 工作区(含 clone/direct)→Agent→模型→工具(可跳过) |
 | 模型自由 OpenAPI | **做** | 名+地址+Key；列表无未配置占位；编辑/删除 |
 | 工具双轨 | **做** | OAuth/SSO **或** Token |

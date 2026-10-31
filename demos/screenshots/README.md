@@ -4,7 +4,7 @@
 
 | 文件 | 亮点 |
 |---|---|
-| [01-home-sessions.png](01-home-sessions.png) | 会话中心 ≤2；密钥留在本机叙事；隔离就绪灯 |
+| [01-home-sessions.png](01-home-sessions.png) | 会话中心 ≤5；密钥留在本机叙事；隔离就绪灯 |
 | [02-models-empty.png](02-models-empty.png) / [03-models-add-key-local.png](03-models-add-key-local.png) / [04-models-saved.png](04-models-saved.png) | Key 本机录入、多 Agent 勾选、提交后清空 |
 | [05-tools-mcp.png](05-tools-mcp.png) | MCP：远程 HTTP / 宿主 stdio |
 | [06-records-usage.png](06-records-usage.png) | 记录：用量 / 单价 CNY·USD / 导出脱敏 |

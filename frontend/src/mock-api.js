@@ -2,8 +2,10 @@
  * 浏览器独立 mock transport（CONTRACT.md v1.2）
  * 固定数据：claude / mock-model+demo-model / mock-mcp+demo-mcp / /demo/project
  * 场景：normal | auth | busy | isolation | cleanup
- * 多会话：running+preparing ≤5；同工作区禁双开；PTY/OAuth 可演示
+ * 多会话：running+preparing ≤ MAX_ACTIVE_SESSIONS；同工作区禁双开；PTY/OAuth 可演示
  */
+
+import { MAX_ACTIVE_SESSIONS } from "./session-limits.js";
 
 const FIXED = {
   agent: {
@@ -994,12 +996,12 @@ export async function createSession(spec) {
   }
 
   const active = activeSessions();
-  if (active.length >= 5) {
+  if (active.length >= MAX_ACTIVE_SESSIONS) {
     return {
       session: null,
       error: err(
         "SESSION_LIMIT",
-        "已有 5 个会话在运行，请先停止其中一个（模拟）",
+        `已有 ${MAX_ACTIVE_SESSIONS} 个会话在运行，请先停止其中一个（模拟）`,
       ),
     };
   }
@@ -1181,7 +1183,7 @@ export async function startSession(sessionId) {
       };
     }
   }
-  if (active >= 5) {
+  if (active >= MAX_ACTIVE_SESSIONS) {
     return {
       session: null,
       error: err("SESSION_LIMIT", "已达到同时运行的会话上限"),

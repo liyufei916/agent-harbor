@@ -60,7 +60,7 @@ flowchart TB
 | contracts / A 首次合入、B 复核、C 核对 | 可序列化 DTO、公开错误与事件 | Go 定义 → 生成前端模型 | 业务状态机、IO、内部服务句柄 | JSON 示例与字段校验 |
 | main.go/internal/desktop / B | Wails 生命周期、白名单绑定、错误转换与事件桥接 | 固定 DTO → Response / harbor:event | 再造状态机、任意命令/文件接口 | 注入假 SessionService/Connections |
 | frontend / C | 表单、输出、状态展示、提示与用户操作 | api.js 方法/事件 → 视图 | Gate/上游调用、密钥持久化、Go 逻辑 | 浏览器独立 mock transport |
-| orchestrator / A | 会话锁（本分支目标≤2）、生命周期、clone、PTY、扩权、取消回滚与终态 | SessionSpec + 注入服务 → Snapshot / Event | 存真凭据、解析 MCP/OAuth、编写系统隔离规则 | 注入假 Gate/Policy/Runtime/Kit/Catalog |
+| orchestrator / A | 会话锁（同时非终态 ≤5）、生命周期、clone、PTY、扩权、取消回滚与终态 | SessionSpec + 注入服务 → Snapshot / Event | 存真凭据、解析 MCP/OAuth、编写系统隔离规则 | 注入假 Gate/Policy/Runtime/Kit/Catalog |
 | runtime / A | 私有 HOME、配置落盘、OS 约束、进程树及临时数据 | RuntimeSpec + LaunchSpec → Handle / Process / 输出 | 账号、MCP 授权、UI、模型协议 | 真实 profile + 无敏感受限探测程序 |
 | kits / A | CLI 检测、版本能力、启动配置生成 | KitInput → LaunchSpec | 宿主机直接执行任务、读 Secrets、创建 Gate | 固定输入快照与受限实际 Agent |
 | policy / B | 规范化工作区、固定 profile、目标/工具白名单快照 | PolicyRequest → PolicySnapshot | 网络转发、启动进程、持久授权库 | 临时目录、符号链接、未授权目标 |

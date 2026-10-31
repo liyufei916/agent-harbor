@@ -47,6 +47,9 @@
 | 2026-10-31c | **双终端 + http-live**：浏览器与桌面同前端；loopback 桥默认同端口挂 dist；UI 不挂旁证恐吓横幅。 |
 | 2026-10-31d | **http-live 复验闭环**：`harbor_demo_blocked` 始终注入；撤销清 Gate extraHosts + 三处记住表同步；向导 `WORKSPACE_BUSY` 早检；live-browser 样张 + EXPAND/BLOCK GUI 通过（permission-live-test 用例 4–5）。 |
 | 2026-10-31e | **口径+记录**：CONTRACT/注释厘清「本项目」= 落盘跨会话 vs Gate `extraHosts` 会话热路径；记录页补按会话/工具分组与失败原因分布；前端测对齐 Docker 落点与 SESSION_LIMIT=5。 |
+| 2026-10-31f | **评测 P0**：文档/README 会话上限统一 5；mock 用 `MAX_ACTIVE_SESSIONS`；`harbor_demo_blocked` 并入演示开关；http-live 仅 Authorization + `/v1/dev-token`；`connectStdioMCP` 单测。 |
+| 2026-10-31g | **评测 P1 材料**：main 绿 CI `41187174465`（`3d0ded4`）`go-unit-coverage` 旁证入 demos/evidence；UIPrefs 引擎/演示开关测；工具页预置渲染测；http-live token 剥离单测。 |
+| 2026-10-31h | **CI 拆分**：`Frontend tests` 独立 job（npm test 失败直达）；`go` needs frontend 再打包；format 比对 Go/JS 会话上限；coverage-badge 强制存在 `coverage-source-sha.txt`。 |
 
 ## eng-complete（代码已接线）
 

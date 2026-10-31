@@ -5,7 +5,7 @@
 | 模块 | 负责人 | 职责 |
 |---|---|---|
 | [contracts](contracts/README.md) | A 首次落地、B 复核、C 核对 | 前端 DTO、事件和错误码 |
-| [orchestrator](orchestrator/README.md) | A | 会话生命周期（本分支目标：多会话≤2、扩权、**clone**、**PTY**）；回滚清理 |
+| [orchestrator](orchestrator/README.md) | A | 会话生命周期（多会话≤5、扩权、**clone**、**PTY**）；回滚清理 |
 | [runtime](runtime/README.md) | A | 操作系统隔离、受限进程、**PTY 底层**与清理（P1 Seatbelt / P2 Docker） |
 | [engine](engine/README.md) | A | P2 **托管容器引擎**（Colima B→C）；为 Runtime 提供 daemon |
 | [kits](kits/README.md) | A | Agent 无真实凭据启动适配 |

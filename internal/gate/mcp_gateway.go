@@ -100,8 +100,13 @@ func (g *mcpGateway) handleMCP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid json-rpc", http.StatusBadRequest)
 		return
 	}
-	// 阻拦演示：tools/list 会注入 harbor_demo_blocked；调用一律 denied，无扩权弹窗。
+	// 阻拦演示：仅显式开启时注入；调用一律 denied，无扩权弹窗。
 	if method == "tools/call" && tool == demoBlockedToolName {
+		if !demoAskEnabled(rt.spec) {
+			g.h.emitAudit(rt, contracts.AuditData{Target: host, Tool: demoBlockedToolName, Result: "denied"})
+			http.Error(w, "tool not allowed", http.StatusForbidden)
+			return
+		}
 		g.handleDemoBlocked(w, body, rt, host)
 		return
 	}
@@ -404,10 +409,9 @@ func (g *mcpGateway) writeFilteredList(w http.ResponseWriter, resp *http.Respons
 			contentType = "application/json"
 		}
 	}
-	// 阻拦演示工具始终注入（Agent 必须看见才会发起 tools/call；未列入表时模型常拒调）。
-	filtered = injectHarborDemoBlockedTool(filtered)
-	// 仅显式开启时注入 harbor_demo_ask（Gate 本地拦截，不转发上游）。
+	// 演示工具仅显式开启时注入（Gate 本地拦截，不转发上游；默认不污染真实清单）。
 	if injectDemoAsk {
+		filtered = injectHarborDemoBlockedTool(filtered)
 		filtered = injectHarborDemoAskTool(filtered)
 	}
 	red := newSecretRedactor(secrets)

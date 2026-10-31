@@ -1,7 +1,10 @@
 /**
  * 本机 http-live transport：浏览器 → loopback DesktopAPI（双终端之一）。
  * 非托管 SaaS；SelectWorkspace 为绝对路径；SaveTextFile 本地下载；RestartApp 不可用。
+ * Token 只走 Authorization；不在 EventSource URL 带 ?token=。
  */
+
+export const HTTP_LIVE_TOKEN_KEY = "harbor-http-live-token";
 
 function bridgeBase() {
   const params = new URLSearchParams(location.search);
@@ -11,16 +14,83 @@ function bridgeBase() {
   return location.origin.replace(/\/+$/, "");
 }
 
+/**
+ * URL ?token= → 存储并剥离查询串（避免进 Referer/日志）。
+ * @returns {{ token: string, search: string, stripped: boolean }}
+ */
+export function ingestHttpLiveTokenFromSearch(search, storedToken, setStored) {
+  if (storedToken) {
+    return { token: storedToken, search, stripped: false };
+  }
+  const raw = search.startsWith("?") ? search.slice(1) : search;
+  const params = new URLSearchParams(raw);
+  const fromQuery = params.get("token") || "";
+  if (!fromQuery) return { token: "", search, stripped: false };
+  if (typeof setStored === "function") setStored(fromQuery);
+  params.delete("token");
+  const q = params.toString();
+  return {
+    token: fromQuery,
+    search: q ? `?${q}` : "",
+    stripped: true,
+  };
+}
+
+/** 读 token：sessionStorage 优先；兼容一次性 URL 手递后立刻剥掉查询串。 */
 function bridgeToken() {
-  const params = new URLSearchParams(location.search);
-  return params.get("token") || "";
+  let stored = "";
+  try {
+    stored = sessionStorage.getItem(HTTP_LIVE_TOKEN_KEY) || "";
+  } catch {
+    /* ignore */
+  }
+  const got = ingestHttpLiveTokenFromSearch(location.search, stored, (tok) => {
+    try {
+      sessionStorage.setItem(HTTP_LIVE_TOKEN_KEY, tok);
+    } catch {
+      /* ignore */
+    }
+  });
+  if (got.stripped) {
+    try {
+      history.replaceState(null, "", `${location.pathname}${got.search}${location.hash}`);
+    } catch {
+      /* ignore */
+    }
+  }
+  return got.token;
+}
+
+/** 同端口 UI：向 loopback 桥领取 token（仅 127.0.0.1）。 */
+async function claimDevToken() {
+  if (bridgeToken()) return true;
+  try {
+    const res = await fetch(`${bridgeBase()}/v1/dev-token`, { method: "GET" });
+    if (!res.ok) return false;
+    const j = await res.json();
+    const tok = String(j?.token || "").trim();
+    if (!tok) return false;
+    try {
+      sessionStorage.setItem(HTTP_LIVE_TOKEN_KEY, tok);
+    } catch {
+      /* ignore */
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function ensureToken() {
+  if (bridgeToken()) return true;
+  return claimDevToken();
 }
 
 async function rpc(method, params) {
-  const token = bridgeToken();
-  if (!token) {
-    throw new Error("http-live 缺少 token（URL ?token=）");
+  if (!(await ensureToken())) {
+    throw new Error("http-live 缺少 token（请用同端口 UI 或终端说明写入 sessionStorage）");
   }
+  const token = bridgeToken();
   const res = await fetch(`${bridgeBase()}/v1/rpc`, {
     method: "POST",
     headers: {
@@ -45,23 +115,57 @@ function respUnauthorized(res) {
   return res.status === 401;
 }
 
+/** fetch + Authorization 订阅 SSE（避免 EventSource 只能走 ?token=）。 */
 function openSSE(path, onData) {
-  const token = encodeURIComponent(bridgeToken());
-  const url = `${bridgeBase()}${path}?token=${token}`;
-  const es = new EventSource(url);
-  es.onmessage = (ev) => {
+  const ac = new AbortController();
+  let buf = "";
+  (async () => {
+    if (!(await ensureToken())) return;
+    const token = bridgeToken();
+    let res;
     try {
-      onData(JSON.parse(ev.data));
+      res = await fetch(`${bridgeBase()}${path}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "text/event-stream",
+        },
+        signal: ac.signal,
+      });
     } catch {
-      /* ignore */
+      return;
     }
-  };
+    if (!res.ok || !res.body) return;
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    while (!ac.signal.aborted) {
+      let chunk;
+      try {
+        chunk = await reader.read();
+      } catch {
+        break;
+      }
+      if (chunk.done) break;
+      buf += dec.decode(chunk.value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) >= 0) {
+        const block = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        for (const line of block.split("\n")) {
+          if (!line.startsWith("data:")) continue;
+          const raw = line.slice(5).trim();
+          if (!raw) continue;
+          try {
+            onData(JSON.parse(raw));
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+    }
+  })();
   return () => {
-    try {
-      es.close();
-    } catch {
-      /* ignore */
-    }
+    ac.abort();
   };
 }
 

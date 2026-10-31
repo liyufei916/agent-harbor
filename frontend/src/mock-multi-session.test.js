@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as mock from "./mock-api.js";
+import { MAX_ACTIVE_SESSIONS } from "./session-limits.js";
+
+test("mock 会话上限与 session-limits 同源且为 5", () => {
+  assert.equal(MAX_ACTIVE_SESSIONS, 5);
+});
 
 async function connectBasics() {
   mock.setScenario("normal");

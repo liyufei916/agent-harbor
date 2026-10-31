@@ -1,0 +1,5 @@
+github.com/liyufei916/agent-harbor/scripts/cmd/syncback-checksum/main.go:14:		hashFile			0.0%
+github.com/liyufei916/agent-harbor/scripts/cmd/syncback-checksum/main.go:23:		main				0.0%
+github.com/liyufei916/agent-harbor/shutdown.go:17:					newExitGate			100.0%
+github.com/liyufei916/agent-harbor/shutdown.go:20:					request				90.5%
+total:											(statements)			61.6%

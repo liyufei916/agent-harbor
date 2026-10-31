@@ -81,6 +81,33 @@ func TestHTTPLiveRPCHealthAndAuth(t *testing.T) {
 		t.Fatalf("want 401 got %d", bad.StatusCode)
 	}
 
+	// ?token= 不再放行
+	qtok, err := http.Post(base+"/v1/rpc?token=test-token", "application/json", bytes.NewReader([]byte(`{"method":"ListAgents"}`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	qtok.Body.Close()
+	if qtok.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("query token must 401 got %d", qtok.StatusCode)
+	}
+
+	// loopback 可领取 dev-token
+	dev, err := http.Get(base + "/v1/dev-token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dev.Body.Close()
+	if dev.StatusCode != 200 {
+		t.Fatalf("dev-token status %d", dev.StatusCode)
+	}
+	var tokBody map[string]any
+	if err := json.NewDecoder(dev.Body).Decode(&tokBody); err != nil {
+		t.Fatal(err)
+	}
+	if tokBody["token"] != "test-token" {
+		t.Fatalf("dev-token body %+v", tokBody)
+	}
+
 	req, _ := http.NewRequest(http.MethodPost, base+"/v1/rpc", bytes.NewReader([]byte(`{"method":"GetRuntimeHealth"}`)))
 	req.Header.Set("Authorization", "Bearer test-token")
 	req.Header.Set("Content-Type", "application/json")

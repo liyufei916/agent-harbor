@@ -113,7 +113,7 @@ func TestDemoBlockedCallAuditsDeniedNoModal(t *testing.T) {
 	bind, err := h.Start(ctx, GateSpec{
 		SessionID:      "demo-blocked",
 		ModelAccountID: modelID,
-		EnableDemoAsk:  false,
+		EnableDemoAsk:  true,
 		Policy: policy.PolicySnapshot{
 			Model: policy.EndpointRule{Origin: up.URL, Paths: []string{"/"}},
 			MCPMounts: []policy.MCPMount{{

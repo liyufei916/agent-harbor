@@ -61,7 +61,7 @@ const GUIDE_HTML = `
   <h3>工作台与扩权</h3>
   <ul>
     <li>对话区展示可读回复；下方输入 Enter 发下一轮（Claude / Codex / dsh 均支持同会话多轮）。</li>
-    <li>扩权：工作台「请求扩权」；演示工具须在设置勾选「启用扩权演示工具」或 <code>HARBOR_DEMO_ASK=1</code> 后，再用 <code>EXPAND-TASK.txt</code>。三选一：拒绝 / 仅本次 / 本项目；<strong>没有「全网放行」</strong>。「本项目」会记住并落盘，可在设置撤销。</li>
+    <li>扩权：工作台「请求扩权」；演示工具（ask/blocked）须在设置勾选启用或 <code>HARBOR_DEMO_ASK=1</code> 后<strong>新会话</strong>再用 <code>EXPAND-TASK</code>/<code>BLOCK-TASK</code>。三选一：拒绝 / 仅本次 / 本项目；<strong>没有「全网放行」</strong>。「本项目」会记住并落盘，可在设置撤销。</li>
     <li>「本项目始终允许」：落盘按工作区记住 + 新会话回灌；Gate <code>extraHosts</code> 只是当前会话热路径。工作台 / 权限一览 / 设置共用记住表；任一处撤销两层同清。阻拦见 <code>BLOCK-TASK.txt</code>。</li>
   </ul>
 

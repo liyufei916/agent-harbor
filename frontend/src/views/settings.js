@@ -101,9 +101,9 @@ export function mountSettings(root, ctx, opts = {}) {
       </label>
       <label class="check-row" style="margin-top:10px">
         <input type="checkbox" id="set-demo-expand-ask" />
-        启用扩权演示工具（<code>harbor_demo_ask</code>）
+        启用扩权/阻拦演示工具（<code>harbor_demo_ask</code> / <code>harbor_demo_blocked</code>）
       </label>
-      <p class="meta">默认关闭。开启后新建会话才向 MCP <code>tools/list</code> 注入演示工具；亦可用环境变量 <code>HARBOR_DEMO_ASK=1</code>。工作区「本项目」记住的主机会落盘，可在下方撤销。</p>
+      <p class="meta">默认关闭。开启后新建会话才向 MCP <code>tools/list</code> 注入上述演示工具；亦可用 <code>HARBOR_DEMO_ASK=1</code>。工作区「本项目」记住的主机会落盘，可在下方撤销。</p>
     </section>
 
     <section class="card ${focusIsolation ? "settings-focus-isolation" : ""}" style="margin-top:12px" id="settings-isolation">

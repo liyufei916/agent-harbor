@@ -38,8 +38,43 @@ jobs:
       - name: Check repository diff
         run: git diff --check
 
+      - name: Session limit mock ↔ Go 同源
+        shell: bash
+        run: |
+          go_n="$(sed -n 's/^const MaxActiveSessions = \([0-9][0-9]*\).*/\1/p' internal/orchestrator/session.go | head -1)"
+          js_n="$(sed -n 's/^export const MAX_ACTIVE_SESSIONS = \([0-9][0-9]*\).*/\1/p' frontend/src/session-limits.js | head -1)"
+          echo "Go MaxActiveSessions=$go_n  frontend MAX_ACTIVE_SESSIONS=$js_n"
+          test -n "$go_n" && test -n "$js_n" && test "$go_n" = "$js_n"
+
+  # 前端测独立 job：失败直达，不埋在 Wails 打包步里。
+  frontend:
+    name: Frontend tests
+    runs-on: macos-14
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install and test
+        shell: bash
+        run: |
+          npm ci --prefix frontend
+          npm test --prefix frontend
+
+      - name: npm audit
+        shell: bash
+        run: npm audit --prefix frontend --audit-level=moderate
+
   go:
     name: Go checks (macOS)
+    needs: [frontend]
     runs-on: macos-14
     timeout-minutes: 20
     steps:
@@ -110,8 +145,6 @@ jobs:
           echo "$GOBIN" >> "$GITHUB_PATH"
           go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.34
           npm ci --prefix frontend
-          npm test --prefix frontend
-          npm audit --prefix frontend --audit-level=moderate
           wails3 generate bindings ./...
           wails3 build
 
@@ -199,6 +232,9 @@ jobs:
           else
             git switch --orphan coverage-badge
           fi
+          test -f "$REPORT_DIR/coverage.svg"
+          test -f "$REPORT_DIR/coverage-summary.txt"
+          test -f "$REPORT_DIR/coverage-source-sha.txt"
           cp "$REPORT_DIR/coverage.svg" coverage.svg
           cp "$REPORT_DIR/coverage-summary.txt" coverage-summary.txt
           cp "$REPORT_DIR/coverage-source-sha.txt" coverage-source-sha.txt
