@@ -233,7 +233,6 @@ func validBinding(b gate.GateBinding) bool {
 	return true
 }
 
-
 func (o *Service) cleanup(s *session) bool {
 	o.mu.Lock()
 	if s.snapshot.State != contracts.StateStopping {

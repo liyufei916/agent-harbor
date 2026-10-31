@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -36,25 +37,25 @@ func TestRestartAppForceRelaunches(t *testing.T) {
 	t.Cleanup(func() {
 		relaunchFn, quitFn = prevR, prevQ
 	})
-	var launched, quit bool
+	var launched, quit atomic.Bool
 	relaunchFn = func() error {
-		launched = true
+		launched.Store(true)
 		return nil
 	}
-	quitFn = func() { quit = true }
+	quitFn = func() { quit.Store(true) }
 
 	app := NewAppWithDataDir(t.TempDir())
 	app.SetSessionService(&busyListSession{})
 	api := NewDesktopAPI(app)
 	res := api.RestartApp(contracts.RestartAppInput{Force: true})
-	if res.Error != nil || !res.Restarting || !launched {
-		t.Fatalf("%+v launched=%v", res, launched)
+	if res.Error != nil || !res.Restarting || !launched.Load() {
+		t.Fatalf("%+v launched=%v", res, launched.Load())
 	}
 	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) && !quit {
+	for time.Now().Before(deadline) && !quit.Load() {
 		time.Sleep(20 * time.Millisecond)
 	}
-	if !quit {
+	if !quit.Load() {
 		t.Fatal("expected quitFn")
 	}
 }

@@ -39,10 +39,12 @@ func (d *DesktopAPI) RestartApp(in contracts.RestartAppInput) contracts.RestartA
 			Error: contracts.NewAppError(contracts.ErrInternal, "无法拉起新进程，请手动重启应用。", true),
 		}
 	}
+	// 在启动 goroutine 前捕获函数，避免测试替身或运行时重绑定与异步读取竞争。
+	quit := quitFn
 	// 异步触发退出，先让本响应回到前端。
 	go func() {
 		time.Sleep(250 * time.Millisecond)
-		quitFn()
+		quit()
 	}()
 	return contracts.RestartAppResponse{Restarting: true}
 }
