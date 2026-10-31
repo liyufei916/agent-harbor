@@ -5,15 +5,16 @@
 const GUIDE_HTML = `
   <h3>这是什么</h3>
   <p>Agent Harbor 是桌面 Agent <strong>安全沙箱</strong>：API Key 只在本机录入；Agent 在隔离环境中跑；模型与 MCP 出站都经 Harbor Gate（安全闸口）。</p>
-  <p class="meta">浏览器打开时顶栏会标「模拟模式」（不能当作真实验收）；桌面 App 为真实后端，不单独显示「真实绑定」。上手步骤在顶栏「使用教程」。</p>
+  <p class="meta">双终端：浏览器（mock 或本机 live）+ 桌面 App 共用同一套前端；桌面为真连主路径，浏览器 live 方便复验与截图。上手步骤在顶栏「使用教程」。</p>
 
   <h3>能力边界（请先读）</h3>
   <ul>
     <li>隔离运行目标机：<strong>macOS Darwin 25 · arm64 · 非 root</strong>；不满足则阻断开跑（无「仍要继续」）。</li>
     <li>隔离后端二选一（设置）：默认 <strong>Seatbelt</strong>；可选 <strong>Docker</strong>（一会话一容器、镜像内 CLI）。改后端后须<strong>重启应用</strong>才生效（设置/标题栏有「重启应用」）。</li>
-    <li>Docker 引擎：无 Docker Desktop 时用「Harbor 托管 Colima」并一键安装；本机已有 Docker 可选「本机 Docker」。引擎与「隔离后端」是两件事——选 Seatbelt 时不必装引擎。</li>
+    <li>Docker 引擎：无 Docker Desktop 时用「Harbor 托管 Colima」并一键安装；本机已有 Docker 可选「本机 Docker」。引擎与「隔离后端」是两件事——选 Seatbelt 时不必装引擎。标题栏 Docker 会标 <strong>托管</strong> / <strong>本机</strong>；换引擎底座同样须重启。</li>
     <li>Agent 须本机预装 CLI（Seatbelt），或使用 Docker 镜像内 Claude / Codex / dsh。</li>
-    <li>MCP：凭据只在宿主代填（机制保证）；兼容面以仓库 <code>demos/mcp-compat-matrix.md</code> 已验证清单为准（非「所有主流开箱」）。远程 HTTP / 宿主 stdio / 预置一键添加。</li>
+    <li>MCP 预置 + 双轨：工具页勾选预置（本机时间 / filesystem / Context7）；远程 HTTP（Token / OAuth）或宿主 stdio。</li>
+    <li>MCP 凭据机制 + 清单：Key 只在宿主代填；兼容面以仓库 <code>demos/mcp-compat-matrix.md</code> 已验证清单为准（非「所有主流开箱」）。</li>
     <li>凭据默认进 macOS Keychain；钥匙串不可用时<strong>拒绝</strong>静默改存明文文件，须修复钥匙串后重启。</li>
   </ul>
 
@@ -52,7 +53,7 @@ const GUIDE_HTML = `
   <h3>会话与工作区</h3>
   <ul>
     <li>同时 running（含准备中）≤ 5；达上限会报 <code>SESSION_LIMIT</code>。</li>
-    <li>同一工作区不能双开 → <code>WORKSPACE_BUSY</code>；请换目录或打开已有会话。</li>
+    <li>同一工作区不能双开 → 向导选完工作区点「下一步」即提示 <code>WORKSPACE_BUSY</code>（不进入 Agent 步）；请打开已有会话或换目录。</li>
     <li>默认 <strong>clone</strong>：在副本里改文件；工作台可<strong>一键导回</strong>合并写回原目录。也可选直接编辑（会改原文件，有警告）。</li>
     <li>销毁会清隔离运行数据；本机已保存的密钥保留。</li>
   </ul>
@@ -61,7 +62,7 @@ const GUIDE_HTML = `
   <ul>
     <li>对话区展示可读回复；下方输入 Enter 发下一轮（Claude / Codex / dsh 均支持同会话多轮）。</li>
     <li>扩权：工作台「请求扩权」；演示工具须在设置勾选「启用扩权演示工具」或 <code>HARBOR_DEMO_ASK=1</code> 后，再用 <code>EXPAND-TASK.txt</code>。三选一：拒绝 / 仅本次 / 本项目；<strong>没有「全网放行」</strong>。「本项目」会记住并落盘，可在设置撤销。</li>
-    <li>「本项目始终允许」可在权限一览或设置「已记住的网站」中撤销。阻拦演示见 <code>BLOCK-TASK.txt</code>（无弹窗，记入「记录→阻拦」）。</li>
+    <li>「本项目始终允许」：工作台活动 / 权限一览 / 设置·网络安全共用记住表；任一处撤销会同步（并清当前会话 Gate）。阻拦见 <code>BLOCK-TASK.txt</code>。</li>
   </ul>
 
   <h3>Agent 简要</h3>

@@ -41,7 +41,15 @@ npm ci --prefix frontend
 ./scripts/dev-desktop.sh
 ```
 
-浏览器 `npm run dev` 仅为 **mock**，顶栏「模拟模式」，**不能**记 I1–I11。
+**双终端**（亮点）：同一套 UI 可跑浏览器或桌面。
+
+| 方式 | 命令 | 说明 |
+|---|---|---|
+| 浏览器 mock | `cd frontend && npm run dev` → http://127.0.0.1:5173/ | 顶栏「模拟模式」；不计 I |
+| 浏览器本机 live | 仓库根 `go run ./scripts/cmd/http-live-serve` → 日志 `open: http://127.0.0.1:18765/?…` | 挂 `frontend/dist`，**无需 Vite**；顶栏「本机 live（浏览器）」；与桌面同后端，便于复验/截图 |
+| 桌面 App | `./scripts/dev-desktop.sh` 或 Release `.app` | I1–I11 / 陌生机主路径；系统选目录与重启 |
+
+热更新 UI 时用 Vite；只复验后端时用 `http-live-serve` 单进程即可。
 
 ## MCP 边界（避免「所有主流 MCP」落差）
 

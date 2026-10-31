@@ -13,7 +13,7 @@ function subscribeTransport() {
 }
 
 let transport = mock;
-let mode = "mock"; // mock | live
+let mode = "mock"; // mock | live | http-live
 
 function wrapTransportError() {
   return {
@@ -203,6 +203,11 @@ export async function createLiveTransport() {
   return create();
 }
 
+export async function createHttpLiveTransport() {
+  const { createHttpLiveTransport: create } = await import("./http-live-api.js");
+  return create();
+}
+
 export function useMock() {
   transport = mock;
   mode = "mock";
@@ -215,12 +220,22 @@ export async function useLive() {
   subscribeTransport();
 }
 
+export async function useHttpLive() {
+  transport = await createHttpLiveTransport();
+  mode = "http-live";
+  subscribeTransport();
+}
+
 export function getMode() {
   return mode;
 }
 
 export function isMock() {
   return mode === "mock";
+}
+
+export function isHttpLive() {
+  return mode === "http-live";
 }
 
 export function setMockScenario(name) {

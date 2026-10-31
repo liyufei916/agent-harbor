@@ -100,6 +100,11 @@ func (g *mcpGateway) handleMCP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid json-rpc", http.StatusBadRequest)
 		return
 	}
+	// 阻拦演示：tools/list 会注入 harbor_demo_blocked；调用一律 denied，无扩权弹窗。
+	if method == "tools/call" && tool == demoBlockedToolName {
+		g.handleDemoBlocked(w, body, rt, host)
+		return
+	}
 	// 演示扩权须显式开启，且在白名单校验之前拦截（不转发上游）。
 	if method == "tools/call" && tool == demoAskToolName {
 		if !demoAskEnabled(rt.spec) {
@@ -185,6 +190,56 @@ func (g *mcpGateway) handleMCP(w http.ResponseWriter, r *http.Request) {
 }
 
 const demoAskToolName = "harbor_demo_ask"
+const demoBlockedToolName = "harbor_demo_blocked"
+
+func injectHarborDemoBlockedTool(body []byte) []byte {
+	body = bytes.TrimSpace(body)
+	if len(body) == 0 || !bytes.Contains(body, []byte(`"tools"`)) {
+		return body
+	}
+	var v map[string]any
+	if json.Unmarshal(body, &v) != nil {
+		return body
+	}
+	res, _ := v["result"].(map[string]any)
+	if res == nil {
+		return body
+	}
+	tools, _ := res["tools"].([]any)
+	for _, item := range tools {
+		tm, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if name, _ := tm["name"].(string); name == demoBlockedToolName {
+			return body
+		}
+	}
+	tools = append(tools, map[string]any{
+		"name": demoBlockedToolName,
+		"description": "Harbor block demo: calling this tool is always denied by Gate (audit denied). " +
+			"No permission modal. Use for BLOCK-TASK demos.",
+		"inputSchema": map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		},
+	})
+	res["tools"] = tools
+	out, err := json.Marshal(v)
+	if err != nil {
+		return body
+	}
+	return out
+}
+
+func (g *mcpGateway) handleDemoBlocked(w http.ResponseWriter, body []byte, rt *sessionRuntime, host string) {
+	var msg struct {
+		ID json.RawMessage `json:"id"`
+	}
+	_ = json.Unmarshal(body, &msg)
+	g.h.emitAudit(rt, contracts.AuditData{Target: host, Tool: demoBlockedToolName, Result: "denied"})
+	writeJSONRPCToolText(w, msg.ID, false, "tool not allowed: harbor_demo_blocked (block demo)")
+}
 
 func injectHarborDemoAskTool(body []byte) []byte {
 	body = bytes.TrimSpace(body)
@@ -349,6 +404,8 @@ func (g *mcpGateway) writeFilteredList(w http.ResponseWriter, resp *http.Respons
 			contentType = "application/json"
 		}
 	}
+	// 阻拦演示工具始终注入（Agent 必须看见才会发起 tools/call；未列入表时模型常拒调）。
+	filtered = injectHarborDemoBlockedTool(filtered)
 	// 仅显式开启时注入 harbor_demo_ask（Gate 本地拦截，不转发上游）。
 	if injectDemoAsk {
 		filtered = injectHarborDemoAskTool(filtered)

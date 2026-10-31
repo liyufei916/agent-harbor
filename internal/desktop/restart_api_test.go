@@ -33,9 +33,9 @@ func TestRestartAppBusyWithoutForce(t *testing.T) {
 }
 
 func TestRestartAppForceRelaunches(t *testing.T) {
-	prevR, prevQ := relaunchFn, quitFn
+	prevR, prevQ, prevE := relaunchFn, quitFn, exitFn
 	var mu sync.Mutex
-	var launched, quit bool
+	var launched, quit, exited bool
 	relaunchFn = func() error {
 		mu.Lock()
 		launched = true
@@ -47,19 +47,24 @@ func TestRestartAppForceRelaunches(t *testing.T) {
 		quit = true
 		mu.Unlock()
 	}
-	// 须等异步 quitFn 跑完再还原钩子，否则与 RestartApp 内 goroutine 竞态。
+	exitFn = func() {
+		mu.Lock()
+		exited = true
+		mu.Unlock()
+	}
+	// 须等异步 quit/exit 跑完再还原钩子，否则与 RestartApp 内 goroutine 竞态。
 	t.Cleanup(func() {
 		deadline := time.Now().Add(2 * time.Second)
 		for time.Now().Before(deadline) {
 			mu.Lock()
-			done := quit
+			done := quit || exited
 			mu.Unlock()
 			if done {
 				break
 			}
 			time.Sleep(20 * time.Millisecond)
 		}
-		relaunchFn, quitFn = prevR, prevQ
+		relaunchFn, quitFn, exitFn = prevR, prevQ, prevE
 	})
 
 	app := NewAppWithDataDir(t.TempDir())
@@ -75,12 +80,12 @@ func TestRestartAppForceRelaunches(t *testing.T) {
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		mu.Lock()
-		done := quit
+		done := quit || exited
 		mu.Unlock()
 		if done {
 			return
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	t.Fatal("expected quitFn")
+	t.Fatal("expected quitFn or exitFn")
 }

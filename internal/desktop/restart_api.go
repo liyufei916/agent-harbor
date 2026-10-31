@@ -10,7 +10,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-// 测试可替换，避免 go test 把自身可执行文件再拉起一份。
+// 测试可替换，避免 go test 把自身可执行文件再拉起一份 / os.Exit。
 var (
 	relaunchFn = spawnRelaunch
 	quitFn     = func() {
@@ -18,6 +18,7 @@ var (
 			app.Quit()
 		}
 	}
+	exitFn = func() { os.Exit(0) }
 )
 
 // RestartApp 拉起同路径新进程后退出本进程（经退出门清理会话）。
@@ -34,6 +35,12 @@ func (d *DesktopAPI) RestartApp(in contracts.RestartAppInput) contracts.RestartA
 			),
 		}
 	}
+	// http-live：先放端口再拉起子进程，避免子进程 bind 失败。
+	if d.app != nil {
+		if hub := d.app.httpLiveRef(); hub != nil {
+			_ = hub.Close()
+		}
+	}
 	if err := relaunchFn(); err != nil {
 		return contracts.RestartAppResponse{
 			Error: contracts.NewAppError(contracts.ErrInternal, "无法拉起新进程，请手动重启应用。", true),
@@ -42,7 +49,12 @@ func (d *DesktopAPI) RestartApp(in contracts.RestartAppInput) contracts.RestartA
 	// 异步触发退出，先让本响应回到前端。
 	go func() {
 		time.Sleep(250 * time.Millisecond)
-		quitFn()
+		if application.Get() != nil {
+			quitFn()
+			return
+		}
+		// 无 Wails 壳（http-live-serve）：退出本进程。
+		exitFn()
 	}()
 	return contracts.RestartAppResponse{Restarting: true}
 }

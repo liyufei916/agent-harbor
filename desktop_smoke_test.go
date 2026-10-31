@@ -56,7 +56,7 @@ func runDesktopSmoke() {
 	if err := host.AttachOrchestrator(ctx); err != nil {
 		panic(err)
 	}
-	options := desktopOptions(host, cancel)
+	options := desktopOptions(host, desktop.NewDesktopAPI(host), cancel)
 	base := options.Assets.Handler
 	var passed atomic.Bool
 	var win *application.WebviewWindow

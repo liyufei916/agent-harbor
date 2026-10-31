@@ -10,6 +10,8 @@ import { ingressFindings } from "../ingress-check.js";
 import { markTutorialStep } from "../tutorial-progress.js";
 import { envHintHTML } from "../agent-env-hints.js";
 import { healthAllowsStart, healthBlockReason } from "../health-ready.js";
+import { findBusyWorkspaceSession } from "../workspace-busy.js";
+import { shortPath } from "../session-state.js";
 
 const STEPS = ["workspace", "agent", "model", "tools"];
 
@@ -149,7 +151,13 @@ export function mountWizard(root, ctx, opts = {}) {
           <button type="button" class="btn" id="wz-redetect-early">重新检测</button>
         </div>
         <div class="card drop-zone">
-          <button type="button" class="btn primary" id="wz-pick">${api.isMock() ? "选择文件夹（mock）" : "选择文件夹"}</button>
+          <button type="button" class="btn primary" id="wz-pick">${
+            api.isMock()
+              ? "选择文件夹（mock）"
+              : api.isHttpLive()
+                ? "选择工作区"
+                : "选择文件夹"
+          }</button>
           ${api.isMock() ? `<button type="button" class="btn" id="wz-pick-b" title="第二条演示路径，用于双会话">演示路径 B</button>` : ""}
           <p class="meta" id="wz-path">${draft.workspace || "未选择"}</p>
         </div>
@@ -157,11 +165,16 @@ export function mountWizard(root, ctx, opts = {}) {
           <h3>进舱预检</h3>
           <ul class="audit-list">${findLis}</ul>
         </div>
-        <p class="meta">浏览器 mock 无系统选目录；桌面 live 才弹面板。SSH 密钥等敏感目录不会进入隔离环境。</p>
+        <p class="meta">${
+          api.isHttpLive()
+            ? "浏览器无法打开系统选目录（网页读不到绝对路径）；弹层里填路径或点「演示工作区」。桌面 App 才有访达面板。SSH 密钥等敏感目录不会进入隔离环境。"
+            : "浏览器 mock 无系统选目录；桌面 App 才弹面板。SSH 密钥等敏感目录不会进入隔离环境。"
+        }</p>
         <h3>文件怎么进隔离环境？</h3>
         <label class="radio"><input type="radio" name="mount" value="clone" ${draft.mountMode === "clone" ? "checked" : ""}/> 安全副本（推荐）— 在副本里改，导回前做出舱审查</label>
         <label class="radio"><input type="radio" name="mount" value="direct" ${draft.mountMode === "direct" ? "checked" : ""}/> 直接编辑 — 改动立刻写回该文件夹</label>
         ${draft.mountMode === "direct" ? `<p class="meta warn">直接编辑会修改所选文件夹中的文件。</p>` : ""}
+        <p class="meta" id="wz-ws-status" role="status"></p>
       `;
     } else if (step === 1) {
       const agents = ctx.state.agents || [];
@@ -291,11 +304,81 @@ export function mountWizard(root, ctx, opts = {}) {
         await refreshAgents();
         await paint();
       });
-      wrap.querySelector("#wz-next").onclick = () => {
+
+      const paintWorkspaceBusy = (busy) => {
+        const status = wrap.querySelector("#wz-ws-status");
+        if (!status) return;
+        if (!busy) {
+          status.innerHTML = "";
+          return;
+        }
+        const label = shortPath(
+          busy.projectWorkspace || busy.sourceWorkspace || busy.workspace || draft.workspace,
+        );
+        status.innerHTML = `<span class="bad">WORKSPACE_BUSY：该文件夹已有会话在跑（${busy.agentId || "—"} · ${busy.state || "占用中"} · ${label}）。请回 HOME 打开已有工作台，或另选文件夹。同工作区不能双开。</span>
+          <div class="actions" style="margin-top:8px">
+            <button type="button" class="btn primary" id="wz-busy-home">回 HOME 打开会话</button>
+          </div>`;
+        status.querySelector("#wz-busy-home")?.addEventListener("click", () => {
+          ctx.state.wizardResume = null;
+          if (busy.sessionId && ctx.openSession) {
+            ctx.openSession(busy.sessionId);
+          } else {
+            ctx.navigate("home");
+          }
+        });
+      };
+
+      const refreshWorkspaceBusy = async () => {
+        if (!draft.workspace) {
+          paintWorkspaceBusy(null);
+          return null;
+        }
+        let sessions = ctx.state.sessionHistory || [];
+        try {
+          const res = await api.listSessions();
+          if (!res.error && Array.isArray(res.sessions)) {
+            sessions = res.sessions;
+            // 同步 HOME 历史，便于打开已有会话
+            for (const s of res.sessions) {
+              const prev = (ctx.state.sessionHistory || []).find(
+                (h) => h.sessionId === s.sessionId,
+              );
+              if (prev) Object.assign(prev, s);
+              else {
+                ctx.state.sessionHistory = [...(ctx.state.sessionHistory || []), s];
+              }
+            }
+          }
+        } catch (_) {
+          /* 用本地历史 */
+        }
+        const busy = findBusyWorkspaceSession(sessions, draft.workspace);
+        paintWorkspaceBusy(busy);
+        return busy;
+      };
+
+      void refreshWorkspaceBusy();
+
+      wrap.querySelector("#wz-next").onclick = async () => {
         if (!draft.workspace) return;
         const anyAgent = (ctx.state.agents || []).some((a) => a.available);
         if (!anyAgent) {
           showToast("请先安装并检测到至少一台 Agent CLI", "bad");
+          return;
+        }
+        const nextBtn = wrap.querySelector("#wz-next");
+        if (nextBtn) {
+          nextBtn.disabled = true;
+          nextBtn.textContent = "检查中…";
+        }
+        const busy = await refreshWorkspaceBusy();
+        if (busy) {
+          showToast("该工作区已有会话在跑，请打开已有工作台或另选文件夹", "bad");
+          if (nextBtn) {
+            nextBtn.disabled = false;
+            nextBtn.textContent = "下一步";
+          }
           return;
         }
         step = 1;

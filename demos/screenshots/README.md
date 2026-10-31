@@ -19,13 +19,29 @@
 | [16-tools-mcp-presets.png](16-tools-mcp-presets.png) | 预置 MCP：本机时间 / filesystem / Context7 勾选 |
 | [17-desktop-docker-health.png](17-desktop-docker-health.png) | **桌面 live**（非 mock）：顶栏 Docker 徽章 + 侧栏「隔离就绪」；见 [p2-docker-gui-2026-10-30.txt](../evidence/p2-docker-gui-2026-10-30.txt) |
 
+## 浏览器本机 live（http-live · 2026-10-31）
+
+顶栏「本机 live（浏览器）」；`go run ./scripts/cmd/http-live-serve` 或 `./scripts/http-live-sample-shots.sh`。**可补 GUI，≠ 整表 I。**
+
+| 文件 | 亮点 |
+|---|---|
+| [live-browser/01-home-sessions.png](live-browser/01-home-sessions.png) | HOME 会话卡；隔离就绪；Docker 徽章 |
+| [live-browser/02-models.png](live-browser/02-models.png) | 真实账号列表（无 Key） |
+| [live-browser/03-tools.png](live-browser/03-tools.png) | MCP 已连接 / 预置 |
+| [live-browser/04-records.png](live-browser/04-records.png) | 记录·用量 |
+| [live-browser/05-settings.png](live-browser/05-settings.png) | Agent 检测 / 会话默认 |
+| [live-browser/06-workbench.png](live-browser/06-workbench.png) | 工作台对话入口 |
+| [live-browser/07-wizard-workspace-picked.png](live-browser/07-wizard-workspace-picked.png) | 向导选工作区（路径表单/快捷项） |
+
+证据旁证：[evidence/http-live-gui-2026-10-31.txt](../evidence/http-live-gui-2026-10-31.txt)。扩权/阻拦 GUI 见 [permission-live-test.md](../permission-live-test.md)。
+
 ## 边界
 
 
 | 能展示 | 不能用这些图声称 |
 |---|---|
-| 全量 PAGE / 契约 UI（含 P2 设置与预置） | 真实 Seatbelt·Docker / Gate 出站 / CLI 闭环（须桌面 live） |
-| 扩权 Modal 话术与三选一 | I1–I11 验收通过 |
+| 全量 PAGE / 契约 UI（含 P2 设置与预置） | 真实 Seatbelt·Docker / Gate 出站 / CLI 闭环（须桌面 live 或 http-live + 证据） |
+| 扩权 Modal 话术与三选一；http-live 旁证 | I1–I11 整表验收通过 |
 
 产品演示视频（既有）：[agent-harbor-demo.mov](https://winterbd251225.qbox.net/agent-harbor-demo.mov)。  
 桌面 live 录屏仍需本机 `./scripts/dev-desktop.sh` 或打包 `.app`。P2 冒烟证据见 [evidence/p2-docker-smoke-2026-10-30.txt](../evidence/p2-docker-smoke-2026-10-30.txt)；勾选表 [stranger-first-run-record](../stranger-first-run-record.md) §P2。

@@ -54,8 +54,9 @@ func TestDesktopAccountsHostsAndPermissionOverview(t *testing.T) {
 	if got := api.RevokeRememberedHost(contracts.RevokeHostInput{}); got.Error == nil || got.Error.Code != contracts.ErrInvalidArgument {
 		t.Fatalf("empty host: %#v", got)
 	}
-	if got := api.RevokeRememberedHost(contracts.RevokeHostInput{Workspace: "/ws", Host: "api.example"}); got.Error == nil {
-		t.Fatalf("unknown host: %#v", got)
+	// 未知 host 成功幂等（CONTRACT）；同时清 Gate 会话扩权
+	if got := api.RevokeRememberedHost(contracts.RevokeHostInput{Workspace: "/ws", Host: "api.example"}); got.Error != nil {
+		t.Fatalf("unknown host should be idempotent: %#v", got)
 	}
 	app.rememberHost(contracts.RememberedHost{Workspace: "/ws", Host: "API.EXAMPLE", Scope: "project"})
 	if got := api.ListRememberedHosts("/ws"); len(got.Hosts) != 1 {
@@ -63,6 +64,9 @@ func TestDesktopAccountsHostsAndPermissionOverview(t *testing.T) {
 	}
 	if got := api.RevokeRememberedHost(contracts.RevokeHostInput{Workspace: "/ws", Host: "api.example"}); got.Error != nil {
 		t.Fatalf("revoke host: %#v", got)
+	}
+	if got := api.ListRememberedHosts("/ws"); len(got.Hosts) != 0 {
+		t.Fatalf("after revoke: %#v", got)
 	}
 	if got := api.GetPermissionOverview(""); got.Error != nil || got.Overview == nil || len(got.Overview.DeniedPathCategories) == 0 {
 		t.Fatalf("permission overview: %#v", got)

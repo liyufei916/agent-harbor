@@ -89,7 +89,7 @@ D1 的绑定生成已执行；原生 WebView 冒烟通过生成绑定校验 DTO�
 | Apple 公证 | **阻断（账号）** | 见 `scripts/notarize-prep.md` |
 | D4 | 通过（mock） | 见 §4.1；不计 I |
 
-**口径**：mock ≠ I 通过。
+**口径**：mock ≠ I 通过。**双终端**：浏览器（mock / http-live）与桌面 App 共用前端；**http-live** 可补 GUI 截图（`demos/screenshots/live-browser/`），**≠** 整表 I1–I11；主证据仍以 harness + 桌面为准。
 
 ## 2026-10-30 全量重跑（DesktopAPI harness + 平台探针 + 打包 .app）
 
@@ -118,7 +118,7 @@ $ grep -n harbor-live-i2 demos/workspace/summary.txt
 1:harbor-live-i2: …
 ```
 
-仍开放：**Apple 公证**（账号阻断；未公证路径用 `./scripts/gatekeeper-verify.sh`）；302 异常项按需（backlog）。扩权主路径 + toast 带主机；`harbor_demo_ask` **默认关闭**（设置 `demoExpandAsk` 或 `HARBOR_DEMO_ASK=1` 后配合 `EXPAND-TASK`）。导回 toast 提示源路径；命令级 hash 旁证见 `demos/evidence/syncback-hash-2026-10-31.txt`。口播见 [B6-SUCCESS-DEMO](../demos/B6-SUCCESS-DEMO.md)。非 context7 远程 MCP：`demos/evidence/mcp-remote-non-context7-2026-10-31.txt`。截图：[screenshots](../demos/screenshots/)。
+仍开放：**Apple 公证**（账号阻断；未公证路径用 `./scripts/gatekeeper-verify.sh`）；302 异常项按需（backlog）。扩权主路径 + toast 带主机；`harbor_demo_ask` **默认关闭**（设置 `demoExpandAsk` 或 `HARBOR_DEMO_ASK=1` 后配合 `EXPAND-TASK`）。**2026-10-31**：http-live GUI 扩权（project+撤销再弹）与阻拦（`harbor_demo_blocked`→记录·阻拦）通过，见 [permission-live-test](../demos/permission-live-test.md) 用例 4–5；样张 [screenshots/live-browser](../demos/screenshots/live-browser/)。导回 toast 提示源路径；命令级 hash 旁证见 `demos/evidence/syncback-hash-2026-10-31.txt`。口播见 [B6-SUCCESS-DEMO](../demos/B6-SUCCESS-DEMO.md)。非 context7 远程 MCP：`demos/evidence/mcp-remote-non-context7-2026-10-31.txt`。截图：[screenshots](../demos/screenshots/)。
 
 ## Codex / dsh 真实短任务（固定提交 · 本机 harness）
 

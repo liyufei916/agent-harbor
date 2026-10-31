@@ -128,7 +128,7 @@ python3 -m http.server 5173
 
 **目标**：不按交付裁剪；导航与各屏对齐 [PAGE-DESIGN](PAGE-DESIGN.md)。总纲 [SYSTEM-DESIGN v2](SYSTEM-DESIGN.md)；契约 [CONTRACT v1.2](CONTRACT.md)。
 
-**怎么看效果**：设计目标是 **桌面 App**；日常用浏览器 `cd frontend && npm run dev` 看全量 PAGE（mock）。真连 / 隔离 / Gate 用 `wails3 dev`（真实绑定）。浏览器 mock 不计 I1–I11。
+**怎么看效果**：**双终端** — 日常浏览器 `npm run dev`（mock）或 `go run ./scripts/cmd/http-live-serve`（本机 live，同后端）；交付与 I 验收用桌面 `./scripts/dev-desktop.sh` / `.app`。浏览器 mock 不计 I1–I11；http-live 可补 GUI 截图，主证据仍是桌面 + harness。
 
 ### 本分支已推进（C / mock）
 
@@ -160,7 +160,7 @@ python3 -m http.server 5173
 |---|---|
 | 撤回误改 `internal/`（Health/origin/OpenAI 桥） | **已撤回**；C 只动 frontend/scripts/vite |
 | mock 多模型/多 MCP 账号 | **已做**；`auth` 场景列表标 ▲ |
-| HOME 上限横幅；向导 SESSION_LIMIT / WORKSPACE_BUSY CTA | **已做** |
+| HOME 上限横幅；向导 SESSION_LIMIT / WORKSPACE_BUSY CTA | **已做**（BUSY：**选完工作区点下一步**早检，不进入 Agent 步） |
 | 模型页表单 UX（占位≠已填、失败保留 Key） | **已做** |
 | 桌面启动：Vite `127.0.0.1` + `dev-desktop.sh` | **已做**（不改 Gate） |
 | demos 三分钟话术对齐全量导航 | **已做** |

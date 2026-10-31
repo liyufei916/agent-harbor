@@ -65,6 +65,9 @@ func (a *App) setEngineProgress(percent int, label string, installing bool) {
 	if app := application.Get(); app != nil {
 		app.Event.Emit(contracts.EngineProgressEventName, payload)
 	}
+	if hub := a.httpLiveRef(); hub != nil {
+		hub.BroadcastEngineProgress(payload)
+	}
 }
 
 func (a *App) engineProgressSnapshot() (installing bool, percent int, label string) {
@@ -203,10 +206,14 @@ func (d *DesktopAPI) EnsureContainerEngine() contracts.ContainerEngineHealthResp
 			ae = contracts.NewAppError(contracts.ErrCancelled, msg, true)
 		}
 		d.app.setEngineProgress(0, msg, false)
+		failPayload := contracts.EngineProgressPayload{
+			Percent: 0, Label: msg, Done: true, Error: msg,
+		}
 		if app := application.Get(); app != nil {
-			app.Event.Emit(contracts.EngineProgressEventName, contracts.EngineProgressPayload{
-				Percent: 0, Label: msg, Done: true, Error: msg,
-			})
+			app.Event.Emit(contracts.EngineProgressEventName, failPayload)
+		}
+		if hub := d.app.httpLiveRef(); hub != nil {
+			hub.BroadcastEngineProgress(failPayload)
 		}
 		return enrichEngineHealth(d.app, contracts.ContainerEngineHealthResponse{
 			Ready:   false,

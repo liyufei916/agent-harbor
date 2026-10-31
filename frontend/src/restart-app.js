@@ -34,11 +34,17 @@ export async function requestAppRestart({ reason = "" } = {}) {
     showToast(`${res.error.code}: ${res.error.message}`, "bad");
     return false;
   }
-  if (api.isMock?.() || res?.restarting) {
-    // mock：刷新页面；桌面：进程即将退出
-    if (api.isMock?.()) {
-      showToast("模拟模式：请刷新页面", "ok");
-    }
+  if (api.isMock?.()) {
+    showToast("模拟模式：请刷新页面", "ok");
+    return true;
+  }
+  if (api.isHttpLive?.() && res?.restarting) {
+    // 桥进程已拉起新实例；稍候刷新同 URL（token 已落盘，可复用）
+    showToast("本机 live 正在重启，页面即将刷新…", "ok");
+    setTimeout(() => {
+      location.reload();
+    }, 1200);
+    return true;
   }
   return true;
 }

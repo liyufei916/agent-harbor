@@ -29,11 +29,13 @@
 | **工作台对话** | 边界条 + 过滤协议 JSON 的可读输出 + 下方输入发下一轮；Claude / Codex / dsh 同会话多轮；可**切换同 profile 模型** |
 | **模型自由添加** | 「模型」页自填 Origin + Key（提交后清空）；可勾选多 Agent 共用（须上游协议匹配）；亦支持预置 profile |
 | **多 Agent** | Claude Code / DeepSeek dsh / OpenAI Codex；向导**第一步即检**本机或镜像内 CLI |
-| **MCP 凭据机制 + 清单** | Key 只在宿主代填；兼容面见 [mcp-compat-matrix](demos/mcp-compat-matrix.md)（非「所有主流开箱」）；预置 + 远程 HTTP / 宿主 stdio |
+| **MCP 预置 + 双轨** | 工具页勾选预置（时间 / filesystem / Context7）；远程 HTTP（Token / OAuth）或宿主 stdio |
+| **MCP 凭据机制 + 清单** | Key 只在宿主代填；兼容面见 [mcp-compat-matrix](demos/mcp-compat-matrix.md)（非「所有主流开箱」） |
 | **本机「记录」** | 用量 / 阻拦 / 扩权 / 诊断；Gate 可采 input/output token 粗算费用；参考单价可改可删（CNY/USD 勿混）；导出脱敏 JSON（另存为 + 访达显示） |
 | **可校验分发** | Releases / CI 提供 `AgentHarbor-macos.zip` + **SHA256**；MIT 许可；首次打开需 Gatekeeper 放行（未公证时常见） |
+| **双终端** | 同一套前端：浏览器（mock / 本机 live）+ 桌面 App；开发与演示可浏览器开，交付与 I 验收走桌面 |
 
-叙事用语：「隔离运行」「密钥留在本机」「经安全闸口」。交付形态是 **桌面 App**；浏览器 mock 只看 UI，**不计** I1–I11。陌生用户路径见 [FIRST-RUN](demos/FIRST-RUN.md)。
+叙事用语：「隔离运行」「密钥留在本机」「经安全闸口」。交付形态是 **桌面 App**；浏览器可跑 mock（只看 UI）或本机 live 桥（与桌面同后端，便于复验/截图）。I1–I11 主证据仍以桌面 + harness 为准。陌生用户路径见 [FIRST-RUN](demos/FIRST-RUN.md)。
 
 ---
 
@@ -68,12 +70,15 @@ npm run build --prefix frontend
 # 2) 生成绑定（勿手改 frontend/bindings）
 wails3 generate bindings ./...
 
-# 3a) 桌面开发（推荐）
+# 3a) 桌面开发（推荐 · I 验收主路径）
 ./scripts/dev-desktop.sh
 # 或：wails3 dev
 
-# 3b) 仅看 UI（浏览器 mock，不计验收）
+# 3b) 浏览器 mock（仅 UI，不计 I）
 cd frontend && npm run dev   # http://127.0.0.1:5173/
+
+# 3c) 浏览器本机 live（双终端 · 与桌面同后端；先 npm run build）
+go run ./scripts/cmd/http-live-serve   # 打开日志 open: http://127.0.0.1:18765/?…
 
 # 4) 测试 / 打包
 go test ./internal/...
@@ -92,6 +97,7 @@ wails3 task darwin:package   # macOS .app
 |---|---|
 | 产品演示（全量 PAGE / 工作台） | [agent-harbor-demo.mov](https://winterbd251225.qbox.net/agent-harbor-demo.mov) |
 | **亮点截图（mock）** | [demos/screenshots/](demos/screenshots/) |
+| **浏览器本机 live 截图** | [demos/screenshots/live-browser/](demos/screenshots/live-browser/) |
 | mock 三分钟话术（可对照操作） | [demos/README.md · 三分钟 mock](demos/README.md#三分钟-mock-话术全量-page--d4) |
 | live 十分钟话术（I1/I2） | [demos/README.md · 十分钟 live](demos/README.md#十分钟-live-话术i1i2-评审向--p0-c-doc-2) |
 
@@ -214,7 +220,7 @@ HARBOR_NO_COMMIT=1 ./scripts/github-push.sh
 | 工具 | MCP **双轨**：浏览器 OAuth/SSO **或** Token；编辑 / 删除；stdio 标更高信任 |
 | 记录 | 用量（token/单价粗算）/ 阻拦 / 扩权 / 诊断；脱敏 JSON **另存为**并访达显示（本机不外传） |
 | 设置 | Agent 检测、默认挂载、结束与清理、侧栏偏好、记住的网站、关于（重检时展开逐条，完成后收起） |
-| 顶栏 | 模式徽章；会话切换；**使用教程**（内链使用说明） |
+| 顶栏 | 模式徽章；隔离徽章（Seatbelt / `Docker · 托管|本机`；改后端或引擎出重启）；会话切换；**使用教程** |
 | Onboarding | 一屏三句 + **逐条隔离检测**（可「下次启动重新显示引导」再跑） |
 | 系统打断 | 扩权 Modal；隔离不可用**阻断页**（逐条重检；无「仍要继续」） |
 

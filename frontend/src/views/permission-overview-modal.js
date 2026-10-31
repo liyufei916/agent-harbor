@@ -3,6 +3,10 @@
  */
 import * as api from "../api.js";
 import { showToast } from "../toast.js";
+import {
+  projectWorkspaceOf,
+  revokeRememberedHostUnified,
+} from "../remembered-hosts.js";
 
 let escHandler = null;
 
@@ -18,6 +22,8 @@ function escapeAttr(s) {
  * @param {{
  *   sessionId?: string,
  *   mountMode?: string,
+ *   snapshot?: object,
+ *   ctx?: object,
  *   onChanged?: () => void,
  * }} opts
  */
@@ -27,6 +33,7 @@ export async function mountPermissionOverviewModal(root, opts = {}) {
 
   const sid = opts.sessionId || "";
   const mountMode = opts.mountMode || "";
+  const projectWs = projectWorkspaceOf(opts.snapshot, opts.ctx);
   root.classList.remove("hidden");
   root.innerHTML = `
     <div class="modal-card permission-overview-card" role="dialog" aria-modal="true" aria-labelledby="perm-overview-title">
@@ -43,15 +50,26 @@ export async function mountPermissionOverviewModal(root, opts = {}) {
 
   const [res, hostsRes] = await Promise.all([
     api.getPermissionOverview(sid),
-    api.listRememberedHosts(sid),
+    api.listRememberedHosts(projectWs),
   ]);
   // 关闭后不再刷新内容
   if (!root.querySelector("#perm-overview-title")) return;
 
   const o = res.overview;
-  const remembered = hostsRes.hosts || [];
+  let remembered = hostsRes.hosts || [];
+  if (!remembered.length && projectWs) {
+    const all = await api.listRememberedHosts("");
+    remembered = (all.hosts || []).filter(
+      (h) =>
+        !h.workspace ||
+        h.workspace === projectWs ||
+        h.workspace === opts.snapshot?.workspace ||
+        h.workspace === opts.snapshot?.sourceWorkspace,
+    );
+  }
   const card = root.querySelector(".permission-overview-card");
   if (!card) return;
+  const displayWs = projectWs || o?.workspace || "—";
 
   card.innerHTML = `
     <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px">
@@ -62,10 +80,10 @@ export async function mountPermissionOverviewModal(root, opts = {}) {
       res.error
         ? `<p class="bad">${res.error.code}: ${res.error.message}</p>`
         : `
-      <p class="meta">会话 ${sid || "—"} · 工作区：${o?.workspace || "—"}</p>
+      <p class="meta">会话 ${sid || "—"} · 工作区：${escapeAttr(displayWs)}</p>
       <h4>文件</h4>
       <ul class="audit-list">
-        <li>可读写：${o?.workspace || "—"}（${mountMode === "clone" ? "安全副本" : "直接编辑"}）</li>
+        <li>可读写：${escapeAttr(o?.workspace || displayWs)}（${mountMode === "clone" ? "安全副本" : "直接编辑"}）</li>
         ${(o?.deniedPathCategories || []).map((m) => `<li>默认不可见：${m}</li>`).join("")}
       </ul>
       <h4>网络（白名单）</h4>
@@ -78,14 +96,14 @@ export async function mountPermissionOverviewModal(root, opts = {}) {
             (h) =>
               `<li class="row" style="justify-content:space-between;gap:8px">
                 <span>${escapeAttr(h.host)} · ${h.scope === "project" ? "本项目始终允许" : "本会话"}</span>
-                <button type="button" class="btn" data-rev="${escapeAttr(h.host)}" data-ws="${escapeAttr(h.workspace || o?.workspace || "")}">撤销</button>
+                <button type="button" class="btn" data-rev="${escapeAttr(h.host)}" data-ws="${escapeAttr(h.workspace || projectWs)}">撤销</button>
               </li>`,
           )
           .join("")}
       </ul>
       <h4>工具</h4>
       <ul class="audit-list">${(o?.mcpSummary || []).map((m) => `<li>${m}</li>`).join("") || "<li class='meta'>无挂载 MCP</li>"}</ul>
-      <p class="meta">密钥与 Token 留在宿主机 Gate；沙箱仅见 Sentinel / Gateway。完整「已记住的网站」也可在设置 · 网络安全中管理。</p>
+      <p class="meta">密钥与 Token 留在宿主机 Gate；沙箱仅见 Sentinel / Gateway。设置 · 网络安全与此处共用记住表；任一处撤销会同步。</p>
     `
     }
   `;
@@ -95,10 +113,14 @@ export async function mountPermissionOverviewModal(root, opts = {}) {
   });
   card.querySelectorAll("[data-rev]").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      await api.revokeRememberedHost({
+      const r = await revokeRememberedHostUnified(api, {
         host: btn.getAttribute("data-rev"),
-        workspace: btn.getAttribute("data-ws"),
+        workspace: btn.getAttribute("data-ws") || projectWs,
       });
+      if (r?.error) {
+        showToast(`${r.error.code}: ${r.error.message}`, "bad");
+        return;
+      }
       showToast("已撤销", "ok");
       opts.onChanged?.();
       await mountPermissionOverviewModal(root, opts);

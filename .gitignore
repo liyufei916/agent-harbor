@@ -43,3 +43,4 @@ __pycache__/
 # 本地冒烟临时目录 / 下划线草稿不入库
 /demos/evidence/_*/
 /demos/evidence/_*
+.vite/

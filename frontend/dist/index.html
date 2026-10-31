@@ -6,13 +6,13 @@
     <!-- 保守 CSP：本地资源 + Wails 桥 + Vite HMR + 页面所用 Google Fonts；禁止 object/frame 嵌入 -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data:; connect-src 'self' wails: https://wails.localhost http://wails.localhost ws: wss: http://127.0.0.1:5173 http://localhost:5173 ws://127.0.0.1:5173 ws://localhost:5173;"
+      content="default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data:; connect-src 'self' wails: https://wails.localhost http://wails.localhost ws: wss: http://127.0.0.1:5173 http://localhost:5173 ws://127.0.0.1:5173 ws://localhost:5173 http://127.0.0.1:18765 http://localhost:18765;"
     />
     <title>Agent Harbor</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Sora:wght@400;500;600&display=swap" rel="stylesheet" />
-    <script type="module" crossorigin src="/assets/index-C0MvjVJ_.js"></script>
+    <script type="module" crossorigin src="/assets/index-CaYDBOY2.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-D8-ex5EG.css">
   </head>
   <body>
@@ -22,8 +22,8 @@
         <strong class="titlebar-brand">Agent Harbor</strong>
         <span class="titlebar-tagline">密钥留在本机 · Agent 隔离运行</span>
         <span id="mode-badge" class="badge mock hidden" hidden>模拟模式</span>
-        <span id="isolation-badge" class="badge isolation-badge isolation-seatbelt" title="当前隔离后端">Seatbelt</span>
-        <button type="button" class="btn titlebar-help hidden" id="btn-restart-app" title="重启应用使隔离后端生效">重启应用</button>
+        <span id="isolation-badge" class="badge isolation-badge isolation-seatbelt" title="当前隔离后端 / Docker 引擎">Seatbelt</span>
+        <button type="button" class="btn titlebar-help hidden" id="btn-restart-app" title="重启应用使隔离后端或引擎生效">重启应用</button>
         <span class="spacer"></span>
         <label class="session-switch hidden" id="session-switch-wrap">
           <span class="meta">当前会话</span>

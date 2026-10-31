@@ -33,6 +33,11 @@ import {
 import { normalizeTier } from "./security-tier.js";
 import { healthAllowsStart, healthBlockReason } from "./health-ready.js";
 import { requestAppRestart } from "./restart-app.js";
+import {
+  computeIsolationBadge,
+  normalizeEngineSource,
+  normalizeIsolationBackend,
+} from "./isolation-badge.js";
 
 const badge = document.getElementById("mode-badge");
 const isolationBadge = document.getElementById("isolation-badge");
@@ -85,6 +90,8 @@ const ctx = {
       isolationBackend: "seatbelt",
       engineSource: "harbor-colima",
     },
+    /** 本进程启动时锁定的引擎来源；换引擎后与偏好不同则待重启 */
+    engineSourceAtLaunch: "",
     permissionPending: false,
   },
   setPermissionPending(pending) {
@@ -260,12 +267,20 @@ function syncBadge() {
   if (api.isMock()) {
     // 仅 mock 顶栏提示；桌面真连不展示「真实绑定」（对用户无信息量）
     badge.classList.remove("hidden");
+    badge.removeAttribute("hidden");
     badge.textContent = "模拟模式";
     badge.className = "badge mock";
     if (banner) {
       banner.classList.remove("hidden");
       banner.textContent = "模拟模式：仅看 UI，不能记入 I1–I11 真实验收。";
     }
+  } else if (api.isHttpLive()) {
+    // 双终端亮点：仅顶栏区分表面，不挂验收恐吓横幅
+    badge.classList.remove("hidden");
+    badge.removeAttribute("hidden");
+    badge.textContent = "本机 live（浏览器）";
+    badge.className = "badge live";
+    banner?.classList.add("hidden");
   } else {
     badge.classList.add("hidden");
     badge.textContent = "";
@@ -275,55 +290,33 @@ function syncBadge() {
   syncIsolationBadge();
 }
 
-/** 标题栏标记当前隔离后端：生效值来自 Health；与偏好不一致时提示待重启。 */
+/** 标题栏标记隔离后端 + Docker 引擎底座；后端或引擎与本进程不一致时出重启键。 */
 function syncIsolationBadge() {
   if (!isolationBadge) return;
-  const health = ctx.state.health;
-  const levelRaw = String(health?.isolationLevel || "").toLowerCase();
-  const fromHealth =
-    levelRaw === "docker" || levelRaw.includes("docker")
-      ? "docker"
-      : levelRaw === "seatbelt" || levelRaw.includes("seatbelt") || levelRaw.includes("mock-seatbelt")
-        ? "seatbelt"
-        : "";
   const preferred = preferredIsolationLevel();
-  const label = (v) => (v === "docker" ? "Docker" : "Seatbelt");
-  const pendingRestart = !!fromHealth && fromHealth !== preferred;
-  const verified = healthAllowsStart(health) && !!fromHealth;
-
-  if (pendingRestart) {
-    // 偏好已改但本进程仍跑旧 Runtime：徽章跟偏好走，并标明须重启。
-    isolationBadge.textContent = `${label(preferred)}（待重启）`;
-    isolationBadge.className = "badge isolation-badge isolation-pending";
-  } else if ((fromHealth || preferred) === "docker") {
-    isolationBadge.textContent = verified ? "Docker" : "Docker（偏好）";
-    isolationBadge.className = `badge isolation-badge ${verified ? "isolation-docker" : "isolation-pending"}`;
-  } else {
-    isolationBadge.textContent = verified ? "Seatbelt" : "Seatbelt（偏好）";
-    isolationBadge.className = `badge isolation-badge ${verified ? "isolation-seatbelt" : "isolation-pending"}`;
-  }
-
+  const preferredEngine = normalizeEngineSource(ctx.state.uiPrefs?.engineSource);
+  const atLaunch =
+    ctx.state.engineSourceAtLaunch || preferredEngine;
+  const view = computeIsolationBadge({
+    health: ctx.state.health,
+    preferredBackend: preferred,
+    preferredEngine,
+    engineSourceAtLaunch: atLaunch,
+    allowsStart: healthAllowsStart(ctx.state.health),
+  });
+  isolationBadge.textContent = view.text;
+  isolationBadge.className = view.className;
+  isolationBadge.title = view.title;
   if (restartAppBtn) {
-    restartAppBtn.classList.toggle("hidden", !pendingRestart);
+    restartAppBtn.classList.toggle("hidden", !view.pendingRestart);
   }
-
-  const bits = [];
-  if (fromHealth) {
-    bits.push(`当前生效：${label(fromHealth) === "Docker" ? "Docker" : "Seatbelt"}`);
-  } else {
-    bits.push(`设置偏好：${label(preferred) === "Docker" ? "Docker" : "Seatbelt"}（尚未由健康检查确认）`);
-  }
-  if (pendingRestart) {
-    bits.push(`偏好已改为 ${label(preferred)}，须重启应用后生效`);
-  }
-  bits.push("设置 → 隔离后端 可切换");
-  isolationBadge.title = bits.join(" · ");
 }
 
 if (restartAppBtn) {
   restartAppBtn.addEventListener("click", () => {
     void requestAppRestart({
-      reason: "重启后将按已保存的隔离后端偏好重新装配 Runtime。",
+      reason:
+        "重启后将按已保存的隔离后端与容器引擎偏好重新装配 Runtime。",
     });
   });
 }
@@ -531,7 +524,11 @@ function onSystemThemeChange() {
 
 function applyUIPrefs(prefs) {
   if (!prefs) return;
-  const backend = String(prefs.isolationBackend || "").toLowerCase();
+  const engine = normalizeEngineSource(prefs.engineSource);
+  // 首次读入偏好时锁定本进程引擎底座；之后仅换偏好，重启后才更新。
+  if (!ctx.state.engineSourceAtLaunch) {
+    ctx.state.engineSourceAtLaunch = engine;
+  }
   ctx.state.uiPrefs = {
     ...(ctx.state.uiPrefs || {}),
     sidebarCollapsed: !!prefs.sidebarCollapsed,
@@ -541,11 +538,8 @@ function applyUIPrefs(prefs) {
       prefs.clearOnStopDefault === "clear" ? "clear" : "keep",
     theme: normalizeThemePref(prefs.theme),
     securityTier: normalizeTier(prefs.securityTier),
-    isolationBackend:
-      backend === "docker" || backend === "p2" || backend === "container"
-        ? "docker"
-        : "seatbelt",
-    engineSource: prefs.engineSource,
+    isolationBackend: normalizeIsolationBackend(prefs.isolationBackend),
+    engineSource: engine,
   };
   applyDocumentTheme(ctx.state.uiPrefs.theme);
   syncIsolationBadge();
@@ -630,8 +624,7 @@ async function refreshHealth() {
 }
 
 function preferredIsolationLevel() {
-  const v = String(ctx.state.uiPrefs?.isolationBackend || "").toLowerCase();
-  return v === "docker" || v === "p2" || v === "container" ? "docker" : "seatbelt";
+  return normalizeIsolationBackend(ctx.state.uiPrefs?.isolationBackend);
 }
 
 function showBlock(reason) {
@@ -761,7 +754,21 @@ async function boot() {
   });
 
   const health = await refreshHealth();
-  if (!maybeOnboarding(health)) {
+  const routeParam = new URLSearchParams(location.search).get("route");
+  const allowedRoutes = new Set([
+    "home",
+    "models",
+    "tools",
+    "records",
+    "settings",
+    "wizard",
+  ]);
+  // ?route= 深链（截图/复验）跳过引导，直接进目标页
+  if (routeParam && allowedRoutes.has(routeParam)) {
+    shell.classList.remove("hidden");
+    onboardRoot?.classList.add("hidden");
+    navigate(routeParam);
+  } else if (!maybeOnboarding(health)) {
     navigate(ctx.state.sessionId ? "session" : "home");
   }
 

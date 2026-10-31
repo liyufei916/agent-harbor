@@ -9,5 +9,6 @@
 | `p2-colima-ensure-*.txt` / `p2-docker-agents-*.txt` / `p2-docker-gui-*.txt` | P2 引擎 / Agent / GUI 旁证 |
 | `mcp-remote-non-context7-*.txt` | 非 Context7 远程 HTTP `ConnectMcp` |
 | `syncback-hash-*.txt` | SyncBack 同名覆盖 + 源独有保留（sha256） |
+| `http-live-gui-*.txt` | 浏览器本机 live（双终端）+ `screenshots/live-browser/` |
 
 填空模板见 [`../evidence-template.md`](../evidence-template.md)。新证据用日期后缀；勿提交 `_` 开头临时目录或 Docker Desktop 家目录拷贝。

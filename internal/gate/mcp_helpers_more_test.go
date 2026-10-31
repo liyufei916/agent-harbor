@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/liyufei916/agent-harbor/internal/contracts"
 	"github.com/liyufei916/agent-harbor/internal/policy"
@@ -83,6 +84,80 @@ func TestInjectHarborDemoAskTool(t *testing.T) {
 	out2 := injectHarborDemoAskTool(out)
 	if bytes.Count(out2, []byte(`"harbor_demo_ask"`)) != 1 {
 		t.Fatalf("duplicated: %s", out2)
+	}
+}
+
+func TestInjectHarborDemoBlockedTool(t *testing.T) {
+	in := []byte(`{"jsonrpc":"2.0","id":1,"result":{"tools":[{"name":"other"}]}}`)
+	out := injectHarborDemoBlockedTool(in)
+	if !bytes.Contains(out, []byte(`"harbor_demo_blocked"`)) || !bytes.Contains(out, []byte(`"other"`)) {
+		t.Fatalf("%s", out)
+	}
+	out2 := injectHarborDemoBlockedTool(out)
+	if bytes.Count(out2, []byte(`"harbor_demo_blocked"`)) != 1 {
+		t.Fatalf("duplicated: %s", out2)
+	}
+}
+
+func TestDemoBlockedCallAuditsDeniedNoModal(t *testing.T) {
+	up := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Fatal("demo blocked must not hit upstream")
+	}))
+	t.Cleanup(up.Close)
+	ctx := context.Background()
+	store := secrets.NewStore()
+	modelID := putMountAccount(t, store, "model", "mk")
+	mcpID := putMountAccount(t, store, "mcp", "tok")
+	audits := make(chan contracts.AuditData, 2)
+	h := New(store, policy.NewBuilder(nil))
+	bind, err := h.Start(ctx, GateSpec{
+		SessionID:      "demo-blocked",
+		ModelAccountID: modelID,
+		EnableDemoAsk:  false,
+		Policy: policy.PolicySnapshot{
+			Model: policy.EndpointRule{Origin: up.URL, Paths: []string{"/"}},
+			MCPMounts: []policy.MCPMount{{
+				AccountID: mcpID,
+				Endpoint:  policy.EndpointRule{Origin: up.URL, Paths: []string{"/mcp"}},
+				Tools:     []string{"other_only"},
+			}},
+		},
+		RequestPermission: func(context.Context, contracts.PermissionNeeded) (string, error) {
+			t.Fatal("RequestPermission must not run for harbor_demo_blocked")
+			return "deny", nil
+		},
+	}, func(a contracts.AuditData) { audits <- a }, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { h.Revoke(ctx, "demo-blocked") })
+	mcpURL := bind.MCPURL
+	if mcpURL == "" && len(bind.MCPURLs) > 0 {
+		mcpURL = bind.MCPURLs[0]
+	}
+	body := []byte(`{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"harbor_demo_blocked","arguments":{}}}`)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, mcpURL, bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+bind.Sentinel)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != 200 || !bytes.Contains(raw, []byte("tool not allowed")) {
+		t.Fatalf("status=%d body=%s", resp.StatusCode, raw)
+	}
+	select {
+	case a := <-audits:
+		if a.Tool != "harbor_demo_blocked" || a.Result != "denied" {
+			t.Fatalf("audit %+v", a)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("no audit")
 	}
 }
 

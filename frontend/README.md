@@ -1,6 +1,6 @@
 # Wails 桌面前端
 
-**产品形态是桌面应用**（Wails WebView），不是网站。浏览器只用于 **mock 看页面效果 / 走 UI 流程**；真实隔离、Gate、凭据只在桌面 live（`wails3 dev`）里发生。mock ≠ I 通过。
+**双终端、同一套 UI**：桌面 App（Wails）为交付与 I 验收主路径；浏览器可跑 **mock**（只看页面）或 **本机 http-live**（loopback 连同一 DesktopAPI，便于复验/截图）。mock ≠ I 通过；http-live ≠ 整表 I（主证据仍是桌面 + harness）。
 
 负责人：产品 C 开发页面，研发 B 提供 Wails v3 绑定、事件和构建环境。C 实现与 D4 说明见 [DEV-C.md](../docs/DEV-C.md)。
 
@@ -13,19 +13,26 @@
 | `bindings/` | 生成 | Wails v3 绑定，**不手改** | B |
 | `dist/` | 构建产物 | 供 Go embed | 构建生成 |
 
-## 浏览器看效果（mock，不启沙箱）
+## 浏览器 mock（不启沙箱）
 
 ```bash
 cd frontend
 npm ci
 npm run dev
-# 打开提示的本地地址（如 http://127.0.0.1:5173/）
-# 可选 ?scenario=auth|busy|isolation|cleanup
+# http://127.0.0.1:5173/  · 可选 ?scenario=auth|busy|isolation|cleanup
 ```
 
-走的是同一套 PAGE 壳与 `mock-api.js`，适合对导航、向导、模型/工具、工作台对话区、扩权 Modal、引导/设置里的隔离逐条检测（`?scenario=isolation` 看阻断页）。向导「演示路径 B」**仅 mock**。顶栏「使用教程」与桌面同文案（内链使用说明，含 Docker / 引擎 / 重启）。**不要**把浏览器会话记成真实联调。
+同一套 PAGE + `mock-api.js`。顶栏「模拟模式」。向导「演示路径 B」**仅 mock**。
 
-静态预览也可用：`python3 -m http.server`（mock 不依赖已生成 bindings）。
+## 浏览器本机 live（双终端）
+
+```bash
+# 仓库根；先 npm run build --prefix frontend
+go run ./scripts/cmd/http-live-serve
+# 打开日志 open: http://127.0.0.1:18765/?…（已挂 dist，无需 Vite）
+```
+
+顶栏「本机 live（浏览器）」，**无**验收恐吓横幅。工作区填绝对路径；系统选目录 / 应用重启仍用桌面壳。
 
 ## 生成绑定与桌面开发（B）
 

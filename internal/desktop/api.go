@@ -326,13 +326,14 @@ func (d *DesktopAPI) ListRememberedHosts(workspace string) contracts.RememberedH
 	return contracts.RememberedHostsResponse{Hosts: hosts}
 }
 
-// RevokeRememberedHost 撤销本项目记住的主机。
+// RevokeRememberedHost 撤销本项目记住的主机，并清掉活动会话 Gate 内同名扩权（否则同会话再 ask 仍直接放行、不弹窗）。
 func (d *DesktopAPI) RevokeRememberedHost(in contracts.RevokeHostInput) contracts.EmptyResponse {
 	if in.Host == "" {
 		return contracts.EmptyResponse{Error: contracts.NewAppError(contracts.ErrInvalidArgument, "主机不能为空", false)}
 	}
-	if !d.app.revokeHost(in.Workspace, in.Host) {
-		return contracts.EmptyResponse{Error: contracts.NewAppError(contracts.ErrInvalidArgument, "无此记住项", false)}
+	_ = d.app.revokeHost(in.Workspace, in.Host) // 未知项幂等（CONTRACT）；仍须清 Gate
+	if g := d.app.gateRef(); g != nil {
+		g.RevokeExtraHostAll(in.Host)
 	}
 	return contracts.EmptyResponse{}
 }

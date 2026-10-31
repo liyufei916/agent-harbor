@@ -39,6 +39,7 @@ type GateSpec struct {
 	ExtraHosts map[string]string
 	// EnableDemoAsk：为 true 时才向 tools/list 注入 harbor_demo_ask 并拦截其 tools/call。
 	// 默认关闭；由桌面 UIPrefs.demoExpandAsk 或环境变量 HARBOR_DEMO_ASK=1 打开。
+	// harbor_demo_blocked 始终注入（阻拦演示）；与本开关无关。
 	EnableDemoAsk bool
 	// 可选的宿主机扩权决策回调；nil 时必须拒绝，不能自动放行。
 	// 返回决策后 Gate/Policy 仍须重新求值授权，不得直接绕过固定规则。
@@ -372,4 +373,35 @@ func (h *Harbor) HasExtraHost(sessionID, host string) bool {
 		delete(rt.extraHosts, host)
 	}
 	return true
+}
+
+// RevokeExtraHost 从指定会话去掉已扩权主机（幂等）。用于 UI「撤销记住」后同会话再 ask 能再弹窗。
+func (h *Harbor) RevokeExtraHost(sessionID, host string) {
+	host = strings.ToLower(strings.TrimSpace(host))
+	if sessionID == "" || host == "" {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	rt, ok := h.sessions[sessionID]
+	if !ok || rt.extraHosts == nil {
+		return
+	}
+	delete(rt.extraHosts, host)
+}
+
+// RevokeExtraHostAll 从全部活动会话去掉该主机（幂等）。
+func (h *Harbor) RevokeExtraHostAll(host string) {
+	host = strings.ToLower(strings.TrimSpace(host))
+	if host == "" {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for _, rt := range h.sessions {
+		if rt == nil || rt.extraHosts == nil {
+			continue
+		}
+		delete(rt.extraHosts, host)
+	}
 }

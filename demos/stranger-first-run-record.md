@@ -42,7 +42,7 @@ P2 GUI 截图：demos/screenshots/17-desktop-docker-health.png（文件在库）
 | 5 | 添加模型（成功后 Key 清空、仅账号引用） | ☑（I1 · keyHint 末四） |
 | 6 | 新会话：工作区 + Agent + 模型 → 开始 | ☑（I2 · demos/workspace · clone） |
 | 7 | 首任务有可见输出 / 工作区产物 | ☑（I2 marker；B6 SyncBack `summary.txt`） |
-| 8 | （可选）扩权点选后**有结果提示**（非仅关窗） | ☑（API/接线：`PromptPermission` + toast；EXPAND-TASK 已入仓）。**GUI 点选补镜 / 录屏未强制**（与 ACCEPTANCE「补镜可选」同口径） |
+| 8 | （可选）扩权点选后**有结果提示**（非仅关窗） | ☑（2026-10-31 补）：http-live GUI · `EXPAND-TASK`→`harbor_demo_ask`→本项目→三处记住可见→撤销后再弹；`BLOCK-TASK`→`harbor_demo_blocked`→记录·阻拦 denied（无 Modal）。详见 [permission-live-test.md](permission-live-test.md) 用例 4–5 |
 | 9 | 停止后无 Agent 主进程残留 | ☑（I8 幂等 Stop；I11 退出无主进程残留） |
 
 ## Agent 矩阵（至少填跑过的）
@@ -111,13 +111,14 @@ dsh：`bash scripts/install-dsh.sh` 默认路径下桌面可自动 Detect，**�
 卡在步骤 #：（无强制失败项）
 产品文案 / 错误码（脱敏）：—
 是否可复现：—
-下一步：公证账号（blocked）；真无 Desktop 另机 GUI（可选）；dsh Seatbelt 短任务（可选）；扩权 GUI 补镜（可选）
+下一步：公证账号（blocked）；真无 Desktop 另机 GUI（可选）；dsh Seatbelt 短任务（可选）
 ```
 
 ## 录屏索引（可选）
 
 ```text
-文件名 / 时长：无扩权 GUI 录屏；Docker Health 静帧见 17-desktop-docker-health.png
-对应提交：`main`（扩权演示 ff67c10；GUI Docker 7c8d017；代填/自检 3aa7db8；合入 1a5db77）
+文件名 / 时长：无独立录屏；扩权/阻拦以 2026-10-31 http-live 手工复验为准（permission-live-test 用例 4–5）
+Docker Health 静帧：17-desktop-docker-health.png
+对应提交：`main` 历史见上；扩权/阻拦 GUI 修复见本合入提交
 扩权段落时间码：—
 ```

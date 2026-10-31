@@ -8,7 +8,7 @@
 | 可浏览原型 | `../prototype/index.html` |
 | 关联 | [SYSTEM-DESIGN](SYSTEM-DESIGN.md) v2、[CONTRACT](CONTRACT.md) v1.2、`DESIGN.md` |
 | 范围 | **含** OAuth / clone / PTY / 多会话≤5；与历史两天裁剪冲突时 **以本文为准** |
-| 交付形态 | **桌面应用**（Wails）；浏览器仅 mock 预览同套页面，见 [frontend/README](../frontend/README.md) |
+| 交付形态 | **桌面应用**（Wails）为主；**双终端**：浏览器可 mock 或本机 http-live（同套前端），见 [FIRST-RUN](../demos/FIRST-RUN.md) / [CONTRACT §1.0a](CONTRACT.md) |
 
 ---
 
@@ -92,7 +92,7 @@ Agent Harbor
 
 | 顶栏 | 说明 |
 |---|---|
-| 徽章 | 仅浏览器 mock 显示「模拟模式」；桌面真连不展示绑定徽章；隔离后端用 Seatbelt/Docker 标记 |
+| 徽章 | mock：「模拟模式」+ 横幅；http-live：「本机 live（浏览器）」（无横幅）；桌面：无模式徽章；隔离用 Seatbelt/Docker 标记 |
 | 使用教程 | 右上角打开上手步骤；弹窗内可打开完整「使用说明」 |
 
 侧栏**收缩**后：

@@ -24,6 +24,18 @@ A/B 将声明落成 Go 类型与绑定，C 按本文 + [PAGE-DESIGN](PAGE-DESIGN
 | 扩权 | 快照 state **不**增加 `awaiting_permission`；`permission_needed` + `ResolvePermission`；可用 `PromptPermission` 主动 ask（不依赖上游 302） |
 | stdio MCP | **宿主侧支持**：`ConnectInput.transport=stdio` + 绝对路径 `command`/`args`/`env`；桌面在宿主机拉起进程并暴露 `http://127.0.0.1:port/mcp` 回环桥，沙箱仍只连 Gateway。远程 HTTP（Token/OAuth）继续可用 |
 
+### 1.0a 双终端 / 三表面（mock · 桌面 · http-live）
+
+产品亮点：**同一套前端**可跑在浏览器与桌面 App。浏览器不挂「旁证恐吓」横幅；http-live 仅顶栏徽章区分表面。
+
+| 表面 | 入口 | 顶栏 | 用途 |
+|---|---|---|---|
+| **mock** | `frontend` → `npm run dev` | **模拟模式** + 横幅 | D4 / 亮点截图；**不计** I1–I11 |
+| **桌面 live** | Wails `.app` / `dev-desktop.sh` | （无模式横幅） | I1–I11 主路径；系统目录面板 / 另存为 / 重启 |
+| **http-live** | `go run ./scripts/cmd/http-live-serve`（默认同端口挂 `frontend/dist`） | **本机 live（浏览器）**（无横幅） | 本机 loopback 复验 / GUI 截图；与桌面同 DesktopAPI；**非**托管 SaaS |
+
+http-live 约束：仅 `127.0.0.1`；Bearer token（落盘可跨重启复用）；默认关；不进 Release 默认开启。选工作区：**不能**冒充系统目录面板（网页拿不到绝对路径）；桥提供路径表单 + `ListWorkspaceShortcuts`（如 demos/workspace）。`SaveTextFile` → 浏览器下载；`RestartApp` → 拉起同命令新进程并退出桥（前端刷新同 URL）。截图：`demos/screenshots/`（mock）· `demos/screenshots/live-browser/`（http-live）· 桌面 GUI 注明壳。
+
 ## 1. 前端方法、返回与校验
 
 Wails 绑定对象只导出下列业务方法；Go 为 PascalCase，`frontend/src/api.js` 为 camelCase。页面不得直接使用内部服务。下列为可独立编译的接口规格；类型按 §4 拆入实际包。
@@ -452,7 +464,7 @@ type Runtime interface {
 }
 ```
 
-内部扩权回调 `GateSpec.RequestPermission` 由 A 按会话注入。仅接受 `Action=connect` 和小写精确主机名（不含 URL、端口、通配符或本机地址）；同一会话每个目标只允许一个挂起请求，最多 8 个。返回 `deny|once|project`，取消/停止返回 CANCELLED；无回调、回调失败或超时必须拒绝。批准只表示用户决策，Gate/Policy 仍须执行 DNS/IP 出站校验、按原工作区存 project 规则、限制 once 仅用于原请求并重新求值；不得直接转发任意目标或注入当前账号凭据。当前 Gate 的跨域重定向可触发回调，经批准后最多跟随一跳 HTTPS（默认/443），不复制认证头或原请求正文；拨号固定为本次已校验的公网 IP，TLS 仍验证原目标主机名。project 跨会话重新应用与撤销的完整闭环仍待联调，不代表通用出站扩权已验收。
+内部扩权回调 `GateSpec.RequestPermission` 由 A 按会话注入。仅接受 `Action=connect` 和小写精确主机名（不含 URL、端口、通配符或本机地址）；同一会话每个目标只允许一个挂起请求，最多 8 个。返回 `deny|once|project`，取消/停止返回 CANCELLED；无回调、回调失败或超时必须拒绝。批准只表示用户决策，Gate/Policy 仍须执行 DNS/IP 出站校验、按原工作区存 project 规则、限制 once 仅用于原请求并重新求值；不得直接转发任意目标或注入当前账号凭据。当前 Gate 的跨域重定向可触发回调，经批准后最多跟随一跳 HTTPS（默认/443），不复制认证头或原请求正文；拨号固定为本次已校验的公网 IP，TLS 仍验证原目标主机名。`RevokeRememberedHost` 须同时清落盘记住项与**活动会话** Gate `extraHosts`（否则同会话再 ask 不弹窗）；工作台 / 权限一览 / 设置·网络安全共用源工作区键。跨会话种子回灌已接线；通用出站扩权仍以 live 证据为准，不单凭 mock。
 
 ### dsh 契约增量（2026-10-25）
 
@@ -494,7 +506,7 @@ type Runtime interface {
 | ResolvePermission | 处理扩权挂起 | decision∈deny\|once\|project；无挂起 → `INVALID_ARGUMENT`；**禁止**全网允许 |
 | PromptPermission | 主动挂起出站扩权（ask） | 仅 running；目标为主机名；异步发 `permission_needed`，等 Resolve；**不依赖**上游 302 |
 
-扩权演示（live）：工作台「请求扩权」，或粘贴 `demos/workspace/EXPAND-TASK.txt` 让 Agent 调 MCP **`harbor_demo_ask`**（Gate 在任意挂载的 `tools/list` 注入该工具名，并对 `tools/call` **先于白名单**拦截 → `RequestPermission`）。阻拦演示：`BLOCK-TASK.txt`（未授权工具名 → audit denied，**无**三选一弹窗）。
+扩权演示（live）：工作台「请求扩权」，或粘贴 `demos/workspace/EXPAND-TASK.txt` 让 Agent 调 MCP **`harbor_demo_ask`**（Gate 在任意挂载的 `tools/list` **仅显式开启时**注入该工具名，并对 `tools/call` **先于白名单**拦截 → `RequestPermission`）。阻拦演示：`BLOCK-TASK.txt` → **`harbor_demo_blocked`**（Gate **始终**注入 `tools/list`；`tools/call` 一律 audit denied，**无**三选一弹窗；勿依赖「未列入表仍硬调」——现代 Agent 常拒调未登记工具）。
 | SaveTextFile | 系统另存为写入文本 | 建议名+内容；可选 reveal 在访达显示；取消 → cancelled；**不得**用于密钥 |
 | RestartApp | 拉起同路径新进程后退出本进程 | Force=false 且有 running/provisioning/stopping → `SESSION_BUSY` + busySessions；成功 `restarting=true`；经退出门清理 |
 | GetUIPrefs / SetUIPrefs | 读写本机 UI 偏好 | **不得**存 Key；缺文件返回默认值 |

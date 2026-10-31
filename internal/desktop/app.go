@@ -60,6 +60,7 @@ type App struct {
 	stdioBridges     map[string]*mcpstdio.Bridge
 	stdioFailed      map[string]string // accountID → 脱敏失败原因（桥未就绪）
 	ready            bool
+	httpLive         *HTTPLiveServer // 可选本机浏览器复验桥
 }
 
 // NewApp 创建纯内存控制面（单测默认）。桌面进程请用 NewDesktopApp。
@@ -269,6 +270,12 @@ func (a *App) sessionRef() SessionService {
 	return a.sessions
 }
 
+func (a *App) gateRef() *gate.Harbor {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.gate
+}
+
 func (a *App) agentRef() AgentDetector {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -323,16 +330,44 @@ func (a *App) rememberHost(host contracts.RememberedHost) {
 }
 
 func (a *App) revokeHost(workspace, host string) bool {
-	a.mu.Lock()
-	key := hostMapKey(workspace, host)
-	if _, ok := a.hosts[key]; !ok {
-		a.mu.Unlock()
+	host = strings.ToLower(strings.TrimSpace(host))
+	workspace = strings.TrimSpace(workspace)
+	if host == "" {
 		return false
 	}
-	delete(a.hosts, key)
+	a.mu.Lock()
+	deleted := false
+	if workspace != "" {
+		key := hostMapKey(workspace, host)
+		if _, ok := a.hosts[key]; ok {
+			delete(a.hosts, key)
+			deleted = true
+		}
+	}
+	// 工作区空：按主机撤销全部；或源路径与 clone 路径不一致时精确键未命中 → 同名主机兜底清掉
+	if !deleted {
+		for k, h := range a.hosts {
+			if strings.EqualFold(strings.TrimSpace(h.Host), host) {
+				if workspace == "" || h.Workspace == workspace {
+					delete(a.hosts, k)
+					deleted = true
+				}
+			}
+		}
+	}
+	if !deleted {
+		for k, h := range a.hosts {
+			if strings.EqualFold(strings.TrimSpace(h.Host), host) {
+				delete(a.hosts, k)
+				deleted = true
+			}
+		}
+	}
 	a.mu.Unlock()
-	a.savePersistedState()
-	return true
+	if deleted {
+		a.savePersistedState()
+	}
+	return deleted
 }
 
 func (a *App) getPrefs() contracts.UIPrefs {
@@ -353,11 +388,26 @@ func (a *App) setPrefs(p contracts.UIPrefs) contracts.UIPrefs {
 // forwardEvent 不缓存或推导状态；准入由编排统一管理。
 func (a *App) forwardEvent(ev contracts.Event) { a.EmitHarborEvent(ev) }
 
-// EmitHarborEvent 把契约事件发到前端固定通道。
+// EmitHarborEvent 把契约事件发到前端固定通道（Wails + 可选 http-live SSE）。
 func (a *App) EmitHarborEvent(ev contracts.Event) {
 	if app := application.Get(); app != nil {
 		app.Event.Emit(contracts.HarborEventName, ev)
 	}
+	if hub := a.httpLiveRef(); hub != nil {
+		hub.BroadcastEvent(ev)
+	}
+}
+
+func (a *App) setHTTPLive(s *HTTPLiveServer) {
+	a.mu.Lock()
+	a.httpLive = s
+	a.mu.Unlock()
+}
+
+func (a *App) httpLiveRef() *HTTPLiveServer {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.httpLive
 }
 
 // Shutdown 先停止编排并关闭宿主 stdio 桥。纯内存凭据在退出时清空；持久化 Store（Keychain/文件）保留跨重启。

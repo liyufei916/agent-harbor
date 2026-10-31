@@ -26,6 +26,11 @@ import { formatErrorWithHint } from "../error-hints.js";
 import { markTutorialStep } from "../tutorial-progress.js";
 import { healthAllowsStart, healthBlockReason } from "../health-ready.js";
 import { sessionStateLabel, shortPath } from "../session-state.js";
+import {
+  projectWorkspaceOf,
+  onRememberedHostsChanged,
+  revokeRememberedHostUnified,
+} from "../remembered-hosts.js";
 
 const SWITCH_MODEL_META =
   "仅可切换同 profile / 同主机账号；跨协议或改固定模型名不支持。";
@@ -290,33 +295,48 @@ export function mountSession(root, ctx) {
       els.permSummary.innerHTML = `<p class="meta">无会话</p>`;
       return;
     }
+    const snap = ctx.state.lastSnapshot;
+    const projectWs = projectWorkspaceOf(snap, ctx);
     try {
       const [res, hostsRes] = await Promise.all([
         api.getPermissionOverview(sid),
-        api.listRememberedHosts(sid),
+        // 必须用源工作区，不能传 sessionId（否则永远对不上记住表）
+        api.listRememberedHosts(projectWs),
       ]);
       if (res?.error) {
         els.permSummary.innerHTML = `<p class="bad">${res.error.code}: ${res.error.message}</p>`;
         return;
       }
       const o = res.overview || {};
-      const remembered = hostsRes.hosts || [];
+      let remembered = hostsRes.hosts || [];
+      // 源路径偶发不一致时兜底：拉全表再按主机展示本会话相关项
+      if (!remembered.length && projectWs) {
+        const all = await api.listRememberedHosts("");
+        remembered = (all.hosts || []).filter(
+          (h) =>
+            !h.workspace ||
+            h.workspace === projectWs ||
+            h.workspace === snap?.workspace ||
+            h.workspace === snap?.sourceWorkspace,
+        );
+      }
       const hosts = (o.allowedHosts || []).slice(0, 6);
       const hostLis =
         hosts.map((h) => `<li>${h}</li>`).join("") ||
         `<li class="meta">无固定白名单</li>`;
+      const displayWs = projectWs || o.workspace || "—";
       const remLis =
         remembered
           .map(
             (h) =>
               `<li class="row audit-revokable" style="justify-content:space-between;gap:8px;align-items:center">
                 <span>${escapeAttr(h.host)} · ${h.scope === "project" ? "本项目" : "本会话"}</span>
-                <button type="button" class="btn" data-rev-host="${escapeAttr(h.host)}" data-rev-ws="${escapeAttr(h.workspace || o.workspace || "")}">撤销</button>
+                <button type="button" class="btn" data-rev-host="${escapeAttr(h.host)}" data-rev-ws="${escapeAttr(h.workspace || projectWs)}">撤销</button>
               </li>`,
           )
           .join("") || `<li class="meta">尚无扩权记住项</li>`;
       els.permSummary.innerHTML = `
-        <p class="meta">工作区 ${o.workspace || "—"}</p>
+        <p class="meta">工作区 ${escapeAttr(displayWs)}</p>
         <p class="meta">网络白名单</p>
         <ul class="audit-list">${hostLis}</ul>
         <p class="meta">已记住（扩权）</p>
@@ -333,11 +353,18 @@ export function mountSession(root, ctx) {
       btn.onclick = async () => {
         btn.disabled = true;
         try {
-          await api.revokeRememberedHost({
+          const res = await revokeRememberedHostUnified(api, {
             host: btn.getAttribute("data-rev-host"),
-            workspace: btn.getAttribute("data-rev-ws"),
+            workspace: btn.getAttribute("data-rev-ws") || projectWorkspaceOf(ctx.state.lastSnapshot, ctx),
           });
+          if (res?.error) {
+            showToast(`${res.error.code}: ${res.error.message}`, "bad");
+            btn.disabled = false;
+            return;
+          }
           showToast("已撤销记住的允许", "ok");
+          // 活动行去掉撤销钮，避免三处不同步的假「可再撤」
+          btn.closest("li,span.row")?.querySelector("button")?.remove();
           await refreshPermSummary();
         } catch (e) {
           showToast(e?.message || "撤销失败", "bad");
@@ -630,10 +657,7 @@ export function mountSession(root, ctx) {
           const tag = uiDemo ? "演示扩权" : "扩权";
           const wroteProject =
             decision === "project" && !(uiDemo && !api.isMock());
-          const ws =
-            snap?.workspace ||
-            ctx.state.lastSnapshot?.workspace ||
-            "";
+          const ws = projectWorkspaceOf(snap || ctx.state.lastSnapshot, ctx);
           if (wroteProject) {
             prependActivity(
               `<span class="row audit-revokable" style="justify-content:space-between;gap:8px;align-items:center;width:100%">
@@ -658,6 +682,9 @@ export function mountSession(root, ctx) {
   }
 
   const unsub = api.onEvent(onEvent);
+  const unsubHosts = onRememberedHostsChanged(() => {
+    refreshPermSummary();
+  });
   fillModels();
 
   if (els.model) {
@@ -874,6 +901,8 @@ export function mountSession(root, ctx) {
       mountPermissionOverviewModal(modalRoot, {
         sessionId: ctx.state.sessionId || "",
         mountMode: ctx.state.lastSnapshot?.mountMode || "",
+        snapshot: ctx.state.lastSnapshot,
+        ctx,
         onChanged: () => refreshPermSummary(),
       });
     };
@@ -983,6 +1012,7 @@ export function mountSession(root, ctx) {
     showEmpty,
     destroy() {
       unsub();
+      unsubHosts?.();
       hidePermissionModal(modalRoot);
       setAwaiting(false);
       term?.dispose?.();

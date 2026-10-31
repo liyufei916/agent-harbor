@@ -2,37 +2,41 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { initializeTransport } from "./startup.js";
 
-function fixture(fail = false) {
+function fakeApi() {
   const calls = [];
   return {
     calls,
-    api: {
-      useMock() { calls.push("mock"); },
-      setMockScenario(value) { calls.push(value); },
-      async useLive() {
-        calls.push("live");
-        if (fail) throw new Error("fixture load failure");
-      },
+    async useLive() {
+      calls.push("live");
+    },
+    async useHttpLive() {
+      calls.push("http-live");
+    },
+    useMock() {
+      calls.push("mock");
+    },
+    setMockScenario(name) {
+      calls.push(`scenario:${name}`);
     },
   };
 }
 
-test("桌面默认使用 live，即使 URL 带有模拟参数", async () => {
-  const f = fixture();
-  await initializeTransport(f.api, { shell: true, search: "?live=0&scenario=auth" });
-  assert.deepEqual(f.calls, ["live"]);
+test("initializeTransport：默认 mock", async () => {
+  const api = fakeApi();
+  await initializeTransport(api, { search: "" });
+  assert.deepEqual(api.calls, ["mock"]);
 });
 
-test("live 初始化失败不会回退 mock", async () => {
-  for (const options of [{ shell: true }, { search: "?live=1" }]) {
-    const f = fixture(true);
-    await assert.rejects(initializeTransport(f.api, options));
-    assert.deepEqual(f.calls, ["live"]);
-  }
+test("initializeTransport：transport=http-live", async () => {
+  const api = fakeApi();
+  await initializeTransport(api, {
+    search: "?transport=http-live&token=x&bridge=http://127.0.0.1:18765",
+  });
+  assert.deepEqual(api.calls, ["http-live"]);
 });
 
-test("普通浏览器保留显式模拟场景", async () => {
-  const f = fixture();
-  await initializeTransport(f.api, { search: "?scenario=auth" });
-  assert.deepEqual(f.calls, ["mock", "auth"]);
+test("initializeTransport：shell 优先 live", async () => {
+  const api = fakeApi();
+  await initializeTransport(api, { shell: true, search: "?transport=http-live" });
+  assert.deepEqual(api.calls, ["live"]);
 });

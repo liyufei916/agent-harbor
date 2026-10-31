@@ -79,4 +79,14 @@ func TestHasExtraHostOnceConsumes(t *testing.T) {
 	if !h.HasExtraHost("s-extra", "cdn.example.test") {
 		t.Fatal("project should remain")
 	}
+
+	h.RevokeExtraHost("s-extra", "cdn.example.test")
+	if h.HasExtraHost("s-extra", "cdn.example.test") {
+		t.Fatal("revoke should clear project host for same session")
+	}
+	_ = h.AllowExtraHost("s-extra", "cdn.example.test", "project")
+	h.RevokeExtraHostAll("CDN.Example.TEST")
+	if h.HasExtraHost("s-extra", "cdn.example.test") {
+		t.Fatal("RevokeExtraHostAll should clear")
+	}
 }

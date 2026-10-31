@@ -11,12 +11,17 @@
 | `evidence/` | 现行脱敏冒烟/打包摘要（勿堆 Docker 日志） |
 | 根下 `*.md` / `verify-workspace.sh` | 口播、首跑、验收清单与自检 |
 
-| 模式 | 顶栏徽章 | 怎么开 | 能否记 I1–I11 |
-|---|---|---|---|
-| mock / D4 | **模拟模式** | `frontend` 下 `npm run dev` → http://127.0.0.1:5173/ | **否** |
-| 桌面 live | **真实绑定** | 仓库根 `./scripts/dev-desktop.sh` 或 `wails3 dev` | 可以记，须有脱敏证据 |
+**双终端**：同一套前端 → 浏览器（mock / 本机 live）+ 桌面 App。演示可浏览器，I 验收主路径仍是桌面 + harness。
 
-**亮点截图（mock）**：[screenshots/](screenshots/)（HOME → 模型/工具/记录/设置 → 隔离阻断 → 向导 → 扩权 Modal → 工作台）。
+| 模式 | 顶栏 | 怎么开 | I1–I11 |
+|---|---|---|---|
+| mock / D4 | **模拟模式** + 横幅 | `frontend` → `npm run dev` → http://127.0.0.1:5173/ | **否** |
+| 桌面 live | （无模式横幅） | `./scripts/dev-desktop.sh` 或打包 `.app` | **主路径**（须脱敏证据） |
+| **http-live** | **本机 live（浏览器）**（无横幅） | `go run ./scripts/cmd/http-live-serve` → 日志 `open: http://127.0.0.1:18765/?…`（已挂 dist，无需 Vite） | 可补 GUI 截图；**≠** 整表 I；I11/Gatekeeper/系统选目录仍须桌面 |
+
+**亮点截图（mock）**：[screenshots/](screenshots/)。
+
+**浏览器 live 截图**：[screenshots/live-browser/](screenshots/live-browser/)（顶栏「本机 live（浏览器）」；`./scripts/http-live-sample-shots.sh`）。适合 Health、模型/工具列表、会话、记录、设置、扩权 Modal。
 
 eng 已 **code-complete**；I1–I11 live 见 [ACCEPTANCE](../docs/ACCEPTANCE.md)。陌生用户：[FIRST-RUN.md](FIRST-RUN.md) · 填空记录 [stranger-first-run-record.md](stranger-first-run-record.md)。
 
@@ -44,7 +49,7 @@ go run ./scripts/cmd/agent-task-evidence -agents=codex,dsh
 |---|---|
 | 全量 PAGE / 扩权 / 双会话 | **浏览器 mock**（下节）或 live（Health 绿后） |
 | 扩权 Modal | **重建桌面 + 新会话**；粘贴 `EXPAND-TASK.txt`（Agent 调 `harbor_demo_ask`），或点「请求扩权」 |
-| 阻拦演示 | 粘贴 `BLOCK-TASK.txt` → 记录→阻拦（**无**三问弹窗） |
+| 阻拦演示 | 粘贴 `BLOCK-TASK.txt` → Agent 调 `harbor_demo_blocked`（Gate 注入列表）→ 记录→阻拦（**无**三问弹窗）；须**新会话**（旧会话工具表无该项） |
 | I1–I11 | live + 已登记 env；失败如实记 DOC-3 |
 
 设置里切场景 `isolation` 可在 **mock** 下复现阻断页。

@@ -11,6 +11,16 @@ import {
   paintCheckList,
   runIsolationProbe,
 } from "../isolation-checks.js";
+import {
+  computeIsolationBadge,
+  normalizeEngineSource,
+  normalizeIsolationBackend,
+} from "../isolation-badge.js";
+import { healthAllowsStart } from "../health-ready.js";
+import {
+  onRememberedHostsChanged,
+  revokeRememberedHostUnified,
+} from "../remembered-hosts.js";
 export function mountSettings(root, ctx, opts = {}) {
   const focusIsolation = !!opts.focusIsolation;
   root.innerHTML = `
@@ -98,7 +108,7 @@ export function mountSettings(root, ctx, opts = {}) {
 
     <section class="card ${focusIsolation ? "settings-focus-isolation" : ""}" style="margin-top:12px" id="settings-isolation">
       <h3>隔离后端</h3>
-      <p class="meta">二选一：<strong>Seatbelt</strong>（默认，macOS 沙箱）或 <strong>Docker</strong>（一会话一容器）。Colima / 本机 Docker 只是 Docker 后端的<strong>引擎</strong>，选 Seatbelt 时不必选引擎。<strong>改后端后需重启</strong>；<code>HARBOR_RUNTIME</code> 优先。</p>
+      <p class="meta">二选一：<strong>Seatbelt</strong>（默认，macOS 沙箱）或 <strong>Docker</strong>（一会话一容器）。Colima / 本机 Docker 只是 Docker 后端的<strong>引擎</strong>，选 Seatbelt 时不必选引擎。<strong>改后端或引擎底座后需重启</strong>；<code>HARBOR_RUNTIME</code> 优先。</p>
       <label class="field">后端
         <select id="set-isolation-backend">
           <option value="seatbelt">Seatbelt（默认）</option>
@@ -107,7 +117,7 @@ export function mountSettings(root, ctx, opts = {}) {
       </label>
       <div class="actions" id="isolation-restart-row" hidden>
         <button type="button" class="btn primary" id="btn-restart-for-isolation">重启应用使生效</button>
-        <span class="meta">偏好已保存，本进程仍用旧隔离后端。</span>
+        <span class="meta" id="isolation-restart-hint">偏好已保存，本进程仍用旧隔离后端或引擎。</span>
       </div>
       <div id="engine-panel" class="engine-panel" hidden>
         <p class="meta"><strong>无 Docker Desktop</strong> → 用「Harbor 托管 Colima」并<strong>一键安装</strong>（才下载）。<strong>本机已有 Docker</strong> → 选「本机 Docker」，只检测连接、<strong>不下载托管组件</strong>。</p>
@@ -262,14 +272,28 @@ export function mountSettings(root, ctx, opts = {}) {
       .join("");
     el.querySelectorAll("[data-rev]").forEach((btn) => {
       btn.onclick = async () => {
-        await api.revokeRememberedHost({
+        btn.disabled = true;
+        const r = await revokeRememberedHostUnified(api, {
           host: btn.getAttribute("data-rev"),
           workspace: btn.getAttribute("data-ws"),
         });
+        if (r?.error) {
+          showToast(`${r.error.code}: ${r.error.message}`, "bad");
+          btn.disabled = false;
+          return;
+        }
+        showToast("已撤销", "ok");
         refreshHosts();
       };
     });
   }
+
+  if (typeof root._harborHostsUnsub === "function") {
+    root._harborHostsUnsub();
+  }
+  root._harborHostsUnsub = onRememberedHostsChanged(() => {
+    refreshHosts();
+  });
 
   root.querySelector("#btn-refresh-agents").onclick = async () => {
     const btn = root.querySelector("#btn-refresh-agents");
@@ -306,19 +330,6 @@ export function mountSettings(root, ctx, opts = {}) {
   function normalizeTierPref(tier) {
     if (tier === "strict" || tier === "relaxed" || tier === "standard") return tier;
     return "standard";
-  }
-
-  function normalizeIsolationBackend(v) {
-    if (v === "docker" || v === "p2" || v === "container") return "docker";
-    return "seatbelt";
-  }
-
-  function normalizeEngineSource(v) {
-    const s = String(v || "").toLowerCase();
-    if (s === "system-docker" || s === "system" || s === "desktop") {
-      return "system-docker";
-    }
-    return "harbor-colima";
   }
 
   function paintEngineProgress(percent, label, on) {
@@ -507,6 +518,7 @@ export function mountSettings(root, ctx, opts = {}) {
     const prevBackend = normalizeIsolationBackend(
       ctx.state.uiPrefs?.isolationBackend,
     );
+    const prevEngine = normalizeEngineSource(ctx.state.uiPrefs?.engineSource);
     const nextBackend = normalizeIsolationBackend(
       root.querySelector("#set-isolation-backend")?.value,
     );
@@ -538,6 +550,7 @@ export function mountSettings(root, ctx, opts = {}) {
     syncEnginePanel(nextBackend);
     paintRunMode(nextBackend);
 
+    const engineChanged = prevEngine !== nextEngine;
     if (prevBackend !== nextBackend) {
       if (nextBackend === "docker") {
         st.innerHTML = `<span class="warn">已保存 · 请选择引擎并启用，再点「重启应用使生效」</span>`;
@@ -547,6 +560,10 @@ export function mountSettings(root, ctx, opts = {}) {
         st.innerHTML = `<span class="warn">已保存 · 请点「重启应用使生效」</span>`;
         showToast("隔离后端已保存，请重启应用", "ok");
       }
+    } else if (engineChanged && nextBackend === "docker") {
+      st.innerHTML = `<span class="warn">已保存 · 引擎底座已改，请点「重启应用使生效」</span>`;
+      showToast("引擎来源已保存，请重启应用", "ok");
+      refreshEngineHealth().catch(() => paintEngineHealth(null));
     } else {
       st.innerHTML = `<span class="ok">已保存</span>`;
     }
@@ -560,15 +577,29 @@ export function mountSettings(root, ctx, opts = {}) {
       root.querySelector("#set-isolation-backend")?.value ||
         ctx.state.uiPrefs?.isolationBackend,
     );
-    const level = String(ctx.state.health?.isolationLevel || "").toLowerCase();
-    const fromHealth =
-      level.includes("docker")
-        ? "docker"
-        : level.includes("seatbelt") || level.includes("mock-seatbelt")
-          ? "seatbelt"
-          : "";
-    const need = !!fromHealth && fromHealth !== preferred;
-    row.hidden = !need;
+    const preferredEngine = normalizeEngineSource(
+      root.querySelector("#set-engine-source")?.value ||
+        ctx.state.uiPrefs?.engineSource,
+    );
+    const view = computeIsolationBadge({
+      health: ctx.state.health,
+      preferredBackend: preferred,
+      preferredEngine,
+      engineSourceAtLaunch:
+        ctx.state.engineSourceAtLaunch || preferredEngine,
+      allowsStart: healthAllowsStart(ctx.state.health),
+    });
+    row.hidden = !view.pendingRestart;
+    const hint = root.querySelector("#isolation-restart-hint");
+    if (hint) {
+      if (view.pendingIsolation && view.pendingEngine) {
+        hint.textContent = "偏好已保存，本进程仍用旧隔离后端与引擎。";
+      } else if (view.pendingEngine) {
+        hint.textContent = "引擎底座已改，本进程仍用启动时引擎；须重启后切换。";
+      } else {
+        hint.textContent = "偏好已保存，本进程仍用旧隔离后端。";
+      }
+    }
   }
 
   function paintRunMode(backend) {
@@ -579,14 +610,17 @@ export function mountSettings(root, ctx, opts = {}) {
       b === "docker"
         ? "隔离后端偏好 Docker（须重启生效）"
         : "隔离后端偏好 Seatbelt";
-    el.textContent = api.isMock()
+    el.textContent = api.isHttpLive?.()
+      ? `运行模式：本机 live（浏览器）· 与桌面 App 同后端 · ${backendLabel}`
+      : api.isMock()
       ? `运行模式：模拟（浏览器 mock）— 不能当真实验收 · ${backendLabel}`
-      : `运行模式：真实绑定（桌面后端）· ${backendLabel}`;
+      : `运行模式：桌面 App · ${backendLabel}`;
   }
 
   root.querySelector("#btn-restart-for-isolation")?.addEventListener("click", () => {
     void requestAppRestart({
-      reason: "重启后将按已保存的隔离后端偏好重新装配 Runtime。",
+      reason:
+        "重启后将按已保存的隔离后端与容器引擎偏好重新装配 Runtime。",
     });
   });
   root.querySelector("#set-theme").onchange = savePrefs;
@@ -594,6 +628,7 @@ export function mountSettings(root, ctx, opts = {}) {
   root.querySelector("#set-auto-collapse").onchange = savePrefs;
   root.querySelector("#set-ask-clear").onchange = savePrefs;
   root.querySelector("#set-security-tier")?.addEventListener("change", savePrefs);
+  root.querySelector("#set-demo-expand-ask")?.addEventListener("change", savePrefs);
   root.querySelector("#set-isolation-backend")?.addEventListener("change", savePrefs);
   root.querySelector("#set-engine-source")?.addEventListener("change", () => {
     syncEnsureButton(null);

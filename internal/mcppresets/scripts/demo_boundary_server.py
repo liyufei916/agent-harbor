@@ -3,7 +3,7 @@
 
 tools/list 只登记 harbor_demo_ask。实际扩权由 Gate 拦截 tools/call 并走
 RequestPermission；本进程若收到该调用仅回占位文案（联调兜底）。
-阻拦演示：让 Agent 调用未登记的 harbor_demo_blocked → Gate 直接 denied。
+阻拦演示：Gate 向 tools/list 注入 harbor_demo_blocked；tools/call 由 Gate 直接 denied（本进程不必登记）。
 """
 import json
 import sys

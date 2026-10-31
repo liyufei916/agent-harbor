@@ -1,0 +1,23 @@
+# http-live GUI 旁证
+# 日期：2026-10-31
+# 命令：./scripts/http-live-sample-shots.sh
+# transport=http-live · 顶栏「本机 live（浏览器）」
+
+## GetRuntimeHealth
+{"available": false, "reason": "Harbor 运行时镜像不存在，已拒绝启动。请在设置对当前引擎点「一键安装并启用」（会自动构建），或对本机当前 DOCKER_HOST 执行 bash scripts/docker-p2-up.sh。注意：Docker Desktop 与 Harbor Colima 镜像互不可见。", "error": {"code": "ISOLATION_UNAVAILABLE", "message": "Harbor 运行时镜像不存在，已拒绝启动。请在设置对当前引擎点「一键安装并启用」（会自动构建），或对本机当前 DOCKER_HOST 执行 bash scripts/docker-p2-up.sh。注意：Docker Desktop 与 Harbor Colima 镜像互不可见。", "retryable": false}}
+
+## ListAccounts（字段摘要，无 Key）
+count= 8
+{'kind': 'mcp', 'name': '演示边界（阻拦/扩权）', 'host': '127.0.0.1:55423', 'profileId': 'custom', 'keyHint': 'stdio', 'protocols': None, 'agents': None}
+{'kind': 'mcp', 'name': '本机时间', 'host': '127.0.0.1:55424', 'profileId': 'custom', 'keyHint': 'stdio', 'protocols': None, 'agents': None}
+{'kind': 'mcp', 'name': 'MCP', 'host': 'mcp.context7.com', 'profileId': 'custom', 'keyHint': '…191e', 'protocols': None, 'agents': None}
+{'kind': 'mcp', 'name': '演示工作区文件（只读）', 'host': '127.0.0.1:55425', 'profileId': 'custom', 'keyHint': 'stdio', 'protocols': None, 'agents': None}
+{'kind': 'mcp', 'name': 'Context7 文档', 'host': 'mcp.context7.com', 'profileId': 'custom', 'keyHint': '…191e', 'protocols': None, 'agents': None}
+{'kind': 'mcp', 'name': 'CX7-MCP', 'host': 'mcp.context7.com', 'profileId': 'custom', 'keyHint': '…191e', 'protocols': None, 'agents': None}
+{'kind': 'model', 'name': 'Deepseek', 'host': 'api.deepseek.com', 'profileId': 'custom', 'keyHint': '…c6d9', 'protocols': ['anthropic'], 'agents': ['claude', 'dsh']}
+{'kind': 'model', 'name': 'GPT', 'host': 'llmapi.qiniu.io', 'profileId': 'custom', 'keyHint': '…1JUQ', 'protocols': ['openai-responses'], 'agents': ['codex']}
+
+## 截图
+demos/screenshots/live-browser/01-home-health.png
+demos/screenshots/live-browser/02-models.png
+PASS: http-live GUI sample shots
