@@ -79,7 +79,8 @@ func (g *mcpGateway) handleMCP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid sentinel", http.StatusUnauthorized)
 		return
 	}
-	if !policy.PathAllowed(mount.Endpoint, "/mcp") {
+	upPath := mcpUpstreamPath(mount)
+	if !policy.PathAllowed(mount.Endpoint, upPath) {
 		g.h.emitAudit(rt, contracts.AuditData{Target: host, Tool: auditToolMCP, Result: "denied"})
 		http.Error(w, "path not allowed", http.StatusForbidden)
 		return
@@ -133,7 +134,8 @@ func (g *mcpGateway) handleMCP(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := g.h.upstreamContext(r.Context())
 	defer cancel()
-	upstreamURL := strings.TrimRight(mount.Endpoint.Origin, "/") + "/mcp"
+	// 须用挂载登记的 Paths[0]（如 /mcp/xxx/uuid），不能写死 /mcp，否则自定义 Streamable HTTP 连错上游。
+	upstreamURL := strings.TrimRight(mount.Endpoint.Origin, "/") + upPath
 	upstream, err := http.NewRequestWithContext(ctx, r.Method, upstreamURL, bytes.NewReader(body))
 	if err != nil {
 		http.Error(w, "bad upstream", http.StatusBadGateway)
@@ -621,4 +623,15 @@ func (g *mcpGateway) mountForPath(rt *sessionRuntime, path string) (policy.MCPMo
 		}
 	}
 	return policy.MCPMount{}, false
+}
+
+// mcpUpstreamPath 取挂载登记的上游 path（Connect 探测成功的那条）；缺省 /mcp。
+func mcpUpstreamPath(mount policy.MCPMount) string {
+	for _, p := range mount.Endpoint.Paths {
+		p = strings.TrimSpace(p)
+		if p != "" && p != "/" {
+			return p
+		}
+	}
+	return "/mcp"
 }

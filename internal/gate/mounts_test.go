@@ -70,6 +70,54 @@ func TestMCPMountsKeepCredentialsAndToolsSeparate(t *testing.T) {
 		}
 	}
 }
+func TestMCPGatewayForwardsCustomNestedPath(t *testing.T) {
+	// 回归：mcpcn 等 Origin+长 path；旧实现写死 Origin+"/mcp" 导致 Agent 看不到工具。
+	ctx := context.Background()
+	store := secrets.NewStore()
+	model := putMountAccount(t, store, "model", "model-fixture")
+	mcpID := putMountAccount(t, store, "mcp", "ocr-token")
+	nested := "/mcp/mcp-image-ocr-mcp/b252ea47-4d31-4eee-9fdd-2ac0a84e4a39"
+	var gotPath string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		if r.Header.Get("Authorization") != "Bearer ocr-token" {
+			t.Errorf("auth=%q", r.Header.Get("Authorization"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":1,"result":{"tools":[{"name":"ocr_extract_text"}]}}`)
+	}))
+	defer upstream.Close()
+
+	h := New(store, policy.NewBuilder(nil))
+	spec := GateSpec{SessionID: "nested-mcp", ModelAccountID: model, Policy: policy.PolicySnapshot{MCPMounts: []policy.MCPMount{
+		{AccountID: mcpID, Endpoint: policy.EndpointRule{Origin: upstream.URL, Paths: []string{nested}}, Tools: []string{"ocr_extract_text"}},
+	}}}
+	binding, err := h.Start(ctx, spec, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Revoke(ctx, spec.SessionID)
+
+	req, _ := http.NewRequest(http.MethodPost, binding.MCPURL, strings.NewReader(
+		`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
+	req.Header.Set("Authorization", "Bearer "+binding.Sentinel)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d body=%s", resp.StatusCode, body)
+	}
+	if gotPath != nested {
+		t.Fatalf("upstream path=%q want %q (must not collapse to /mcp)", gotPath, nested)
+	}
+	if !strings.Contains(string(body), "ocr_extract_text") {
+		t.Fatalf("tools filtered incorrectly: %s", body)
+	}
+}
+
 func TestZeroMCPStartsOnlyModelListener(t *testing.T) {
 	ctx := context.Background()
 	store := secrets.NewStore()

@@ -53,6 +53,7 @@
 | 2026-10-31i | **首跑口径**：`stranger-first-run-record` 勾选保留为**本机/harness**；显式「独立陌生机未做·不声称」；FIRST-RUN/ACCEPTANCE/README 同步；dsh Seatbelt 短任务证据入库。 |
 | 2026-10-31j | **扩权默认保留**：StartSession 与 Create 同源回灌落盘 project+档位；Resolve 写当前 Gate；换引擎/重启不清记住表（CONTRACT + 设置/指南文案）。 |
 | 2026-10-31k | **评委 P0**：MCP 服务器名按 accountId 稳定派生；`No such tool available` 中文化+断言；README 标明 Release vs CI Artifact；设置页写明 Agent 能力边界；发 **v0.1.1**。 |
+| 2026-10-31l | **MCP 长 path 转发**：Gate 按挂载 `Paths[0]` 上游（修 mcpcn 等 `…/mcp/…/uuid` 被错打成 `/mcp`，Claude/dsh 均挂不上工具）。 |
 
 ## eng-complete（代码已接线）
 
