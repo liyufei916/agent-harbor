@@ -62,6 +62,7 @@ const GUIDE_HTML = `
   <ul>
     <li>对话区展示可读回复；下方输入 Enter 发下一轮（Claude / Codex / dsh 均支持同会话多轮）。</li>
     <li>扩权：工作台「请求扩权」；演示工具（ask/blocked）须在设置勾选启用或 <code>HARBOR_DEMO_ASK=1</code> 后<strong>新会话</strong>再用 <code>EXPAND-TASK</code>/<code>BLOCK-TASK</code>。三选一：拒绝 / 仅本次 / 本项目；<strong>没有「全网放行」</strong>。「本项目」会记住并落盘，可在设置撤销。</li>
+    <li>能力边界（默认）：Claude 仅 Read/Write/Edit（沙箱内无 Bash）；Codex 因外层已隔离不做逐条确认；出站仍须 Gate。详见设置页说明。</li>
     <li>「本项目始终允许」：落盘按源工作区记住；<strong>新建会话</strong>与<strong>再次开始（StartSession）</strong>都会回灌 Gate。换隔离后端/引擎或重启应用<strong>不清</strong>记住表（只清会话内存与「仅本次」）；工作区文件/SyncBack 也不影响。工作台 / 权限一览 / 设置共用记住表；任一处撤销两层同清。阻拦见 <code>BLOCK-TASK.txt</code>。</li>
   </ul>
 

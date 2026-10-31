@@ -7,7 +7,7 @@
 export function humanizeAgentToolError(raw) {
   const text = String(raw || "").replace(/\s+/g, " ").trim();
   const lower = text.toLowerCase();
-  if (/not authorized|not allowed|permission|tool.*not.*permit|unknown tool|not in.*allow/i.test(text)) {
+  if (/no such tool available|not authorized|not allowed|permission|tool.*not.*permit|unknown tool|not in.*allow/i.test(text)) {
     return "本次会话未授权该工具；请到「工具」页确认白名单后重开会话。";
   }
   if (/file does not exist|no such file|enoent|not found.*file/i.test(text)) {

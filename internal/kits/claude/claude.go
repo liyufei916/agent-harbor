@@ -379,7 +379,7 @@ func (k *Kit) Build(ctx context.Context, input kits.KitInput) (runtime.LaunchSpe
 	servers := map[string]any{}
 	permissions := []string{"Read", "Write", "Edit"}
 	for i, endpoint := range urls {
-		name := kits.MCPName(i)
+		name := kits.MCPServerName(input, i)
 		servers[name] = map[string]any{"type": "http", "url": endpoint, "headers": map[string]string{"Authorization": "Bearer " + input.Sentinel}}
 		permissions = append(permissions, "mcp__"+name+"__*")
 	}

@@ -155,7 +155,7 @@ func TestBuildOptionalAndMultipleMCP(t *testing.T) {
 		found := 0
 		for _, row := range patches[0].Insert {
 			if row.Name == "@deepseek-ai/dsh-mcp-client" {
-				if row.Config["url"] != urls[found] || row.Config["serverName"] != kits.MCPName(found) {
+				if row.Config["url"] != urls[found] || row.Config["serverName"] != kits.MCPServerName(input, found) {
 					t.Fatal("挂载配置串用")
 				}
 				found++

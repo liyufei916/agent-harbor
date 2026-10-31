@@ -425,7 +425,11 @@ type KitInput struct {
     PrivateHome string
     ModelBaseURL string
     MCPURL string
+    MCPURLs []string
+    MCPIDs []string // 与 MCPURLs 同序；服务器名按 AccountID 稳定派生
     Sentinel string
+    Model string
+    Workspace string
 }
 type Kit interface {
     Detect(context.Context) (KitInfo, error)
@@ -622,6 +626,6 @@ policy 的固定 profile 来自 B 管理的后端配置，不从前端或 Agent 
 
 ### 多 MCP 的 Go 内部交接（2026-10-25；自定义 MCP 2026-10-26）
 
-`SessionSpec.mcpIds` 为 0–8 个不重复的已连接账号 ID；空列表表示不挂载工具。PolicyRequest.MCPs 按该顺序构造 PolicySnapshot.MCPMounts（AccountID、Endpoint、Tools），GateBinding.MCPURLs 按同一顺序交给 Kit。每个挂载有独立 Gateway 路径，按挂载解析宿主凭据及工具白名单，不合并同名工具。Kit 将其映射为 harbor、harbor-2 等独立服务器；0 个挂载生成空 MCP 配置，不连接占位服务。
+`SessionSpec.mcpIds` 为 0–8 个不重复的已连接账号 ID；空列表表示不挂载工具。PolicyRequest.MCPs 按该顺序构造 PolicySnapshot.MCPMounts（AccountID、Endpoint、Tools），GateBinding.MCPURLs 按同一顺序交给 Kit（并传入同序 `KitInput.MCPIDs`）。每个挂载有独立 Gateway 路径，按挂载解析宿主凭据及工具白名单，不合并同名工具。Kit 服务器名 **按 AccountID 稳定派生**（`harbor-<sha256前8字节hex>`；无 ID 时才回退 `harbor` / `harbor-2`…），**不随勾选顺序变化**；0 个挂载生成空 MCP 配置，不连接占位服务。
 
 旧单 MCP 字段仅兼容内部单挂载调用：MCP/MCPID/Tools、MCPAccountID、MCPURL；新列表与旧字段同时提供且有歧义时拒绝。多挂载路径仅用于选定授权项。**固定 demo-mcp** 上游 path 仍为登记值（通常 `/mcp`）；**自定义 MCP** 以上游探测成功的 path 为准（用户 path 或自动补 `/mcp`），不得由执行面改写为任意目标。公开 Wails DTO 和绑定签名不变（`AccountInfo.tools` 为新增可选字段）。

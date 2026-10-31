@@ -72,6 +72,26 @@ test("stream-display 展示 Read 缺 file_path 的完整要点", () => {
   assert.match(out, /读取缺少文件路径|file_path/);
 });
 
+test("stream-display 将 No such tool available 中文化", () => {
+  const d = createStreamDisplay();
+  const chunk =
+    JSON.stringify({
+      type: "user",
+      message: {
+        content: [
+          {
+            type: "tool_result",
+            is_error: true,
+            content: "No such tool available: mcp__harbor-2__resolve-library-id",
+          },
+        ],
+      },
+    }) + "\n";
+  const out = d.push(chunk);
+  assert.match(out, /未授权该工具|白名单/);
+  assert.doesNotMatch(out, /No such tool available/i);
+});
+
 test("stream-display 将 File does not exist 中文化", () => {
   const d = createStreamDisplay();
   const chunk =

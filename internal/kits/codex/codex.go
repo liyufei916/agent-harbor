@@ -350,7 +350,7 @@ func (k *Kit) Build(ctx context.Context, input kits.KitInput) (runtime.LaunchSpe
 	// plugins=false：Docker/Gate 出站仅 harbor.gate；Codex 默认同步 openai/plugins 会挂死在 git fetch。
 	fmt.Fprintf(&b, "model = %s\nmodel_provider = \"harbor\"\napproval_policy = \"never\"\nsandbox_mode = \"danger-full-access\"\n\n[features]\nplugins = false\nplugin_discovery_prefetch = false\nremote_plugin = false\nrecommended_plugins = false\n\n[model_providers.harbor]\nname = \"Agent Harbor\"\nbase_url = %s\nwire_api = \"responses\"\nenv_key = \"OPENAI_API_KEY\"\n", model, providerURL)
 	for i, endpoint := range mcpURLs {
-		name := kits.MCPName(i)
+		name := kits.MCPServerName(input, i)
 		fmt.Fprintf(&b, "\n[mcp_servers.%s]\nurl = %s\nhttp_headers = { Authorization = %s }\n", name, strconv.Quote(endpoint), sentinel)
 	}
 	configs := []runtime.ConfigFile{{RelativePath: "codex/config.toml", Content: []byte(b.String())}}

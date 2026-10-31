@@ -104,6 +104,7 @@ export function mountSettings(root, ctx, opts = {}) {
         启用扩权/阻拦演示工具（<code>harbor_demo_ask</code> / <code>harbor_demo_blocked</code>）
       </label>
       <p class="meta">默认关闭。开启后新建会话才向 MCP <code>tools/list</code> 注入上述演示工具；亦可用 <code>HARBOR_DEMO_ASK=1</code>。工作区「本项目」记住的主机会落盘，可在下方撤销。</p>
+      <p class="meta" style="margin-top:10px"><strong>沙箱内 Agent 能力（当前默认）</strong>：Claude 仅 <code>Read/Write/Edit</code>（无 Bash/构建）；Codex 外层已隔离故 <code>approval_policy=never</code>（无逐条确认）；出站仍走 Gate 扩权。需要更宽工具面属后续「能力档位」，本版不开放。</p>
     </section>
 
     <section class="card ${focusIsolation ? "settings-focus-isolation" : ""}" style="margin-top:12px" id="settings-isolation">

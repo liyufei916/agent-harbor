@@ -174,13 +174,27 @@ func TestBuildUsesMCPURLs(t *testing.T) {
 	input := validInput()
 	input.MCPURL = ""
 	input.MCPURLs = []string{"http://127.0.0.1:41002/mcp/0", "http://127.0.0.1:41003/mcp/1"}
+	input.MCPIDs = []string{"mcp-acct-a", "mcp-acct-b"}
 	launch, err := k.Build(context.Background(), input)
 	if err != nil {
 		t.Fatal(err)
 	}
 	config := string(launch.ConfigFiles[0].Content)
-	if !strings.Contains(config, "[mcp_servers.harbor]") || !strings.Contains(config, "[mcp_servers.harbor-2]") {
+	n0, n1 := kits.MCPServerName(input, 0), kits.MCPServerName(input, 1)
+	if !strings.Contains(config, "[mcp_servers."+n0+"]") || !strings.Contains(config, "[mcp_servers."+n1+"]") {
 		t.Fatalf("多 MCP 配置错误: %s", config)
+	}
+	// 交换挂载顺序，账号名仍应稳定
+	swapped := input
+	swapped.MCPURLs = []string{input.MCPURLs[1], input.MCPURLs[0]}
+	swapped.MCPIDs = []string{input.MCPIDs[1], input.MCPIDs[0]}
+	again, err := k.Build(context.Background(), swapped)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg2 := string(again.ConfigFiles[0].Content)
+	if !strings.Contains(cfg2, "[mcp_servers."+n0+"]") || !strings.Contains(cfg2, "[mcp_servers."+n1+"]") {
+		t.Fatalf("换序后服务器名应仍随账号: %s", cfg2)
 	}
 }
 

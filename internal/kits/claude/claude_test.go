@@ -331,7 +331,7 @@ func TestBuildOptionalAndMultipleMCP(t *testing.T) {
 			t.Fatalf("%+v", config)
 		}
 		for index, endpoint := range urls {
-			if config.Servers[kits.MCPName(index)].URL != endpoint {
+			if config.Servers[kits.MCPServerName(i, index)].URL != endpoint {
 				t.Fatal("挂载配置串用")
 			}
 		}

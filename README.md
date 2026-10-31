@@ -41,7 +41,9 @@
 
 ## 获取（最终用户）
 
-优先从 [GitHub Releases](https://github.com/liyufei916/agent-harbor/releases) 下载 `AgentHarbor-macos.zip`（打 `v*` 标签或手动跑 Release workflow 会发布；亦有 `v0.0.0-ci.*` 预发布）。日常 CI 也会上传同名 Artifacts + `.sha256`（保留 14 天）。
+优先从 [GitHub Releases](https://github.com/liyufei916/agent-harbor/releases) 下载 `AgentHarbor-macos.zip`（打 `v*` 标签或手动跑 Release workflow 会发布；亦有 `v0.0.0-ci.*` 预发布）。
+
+**版本口径**：正式 Release 可能短暂滞后于 `main`。要跟最新提交，请用对应 push 的 CI Artifact（`AgentHarbor-macos-<fullsha>` + `.sha256`，保留约 14 天），或以最新 `v*` tag 为准。应用**未公证**。
 
 **校验下载（推荐）**：若 Release / Artifact 附带 `AgentHarbor-macos.zip.sha256`（或同目录 checksum 文件），在本机比对：
 

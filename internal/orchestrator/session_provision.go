@@ -167,9 +167,13 @@ func (o *Service) provision(s *session) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	mcpIDs := make([]string, 0, len(mcps))
+	for _, acc := range mcps {
+		mcpIDs = append(mcpIDs, acc.ID)
+	}
 	launch, err := kit.Build(ctx, kits.KitInput{
 		Task: s.spec.Task, PrivateHome: handle.PrivateHome, ModelBaseURL: binding.ModelBaseURL,
-		MCPURLs: bindingMCPURLs(binding), Sentinel: binding.Sentinel, Model: strings.TrimSpace(model.Model),
+		MCPURLs: bindingMCPURLs(binding), MCPIDs: mcpIDs, Sentinel: binding.Sentinel, Model: strings.TrimSpace(model.Model),
 		Workspace: handle.Workspace,
 	})
 	if err != nil {
