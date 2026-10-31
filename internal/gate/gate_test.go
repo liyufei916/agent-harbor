@@ -384,13 +384,16 @@ func TestMCPFiltersToolsListAndCall(t *testing.T) {
 }
 
 func TestModelProxyIdleTimeout(t *testing.T) {
+	// 上游只冲刷响应头后挂起，不写正文：逼出 Gate 空闲读超时 → 504。
+	// （旧写法 sleep 后再写 "late" 在 -race/CI 负载下偶发 Client 等头超时。）
+	flushed := make(chan struct{})
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		if f, ok := w.(http.Flusher); ok {
 			f.Flush()
 		}
-		time.Sleep(300 * time.Millisecond)
-		_, _ = io.WriteString(w, "late")
+		close(flushed)
+		<-r.Context().Done()
 	}))
 	defer origin.Close()
 
@@ -408,7 +411,7 @@ func TestModelProxyIdleTimeout(t *testing.T) {
 	})
 	h := New(store, pol)
 	h.idleTimeout = 40 * time.Millisecond
-	h.totalTimeout = time.Second
+	h.totalTimeout = 5 * time.Second
 	bind, err := h.Start(ctx, GateSpec{
 		SessionID: "idle1",
 		Policy: policy.PolicySnapshot{
@@ -426,12 +429,17 @@ func TestModelProxyIdleTimeout(t *testing.T) {
 
 	req, _ := http.NewRequest(http.MethodGet, bind.ModelBaseURL+"/v1/chat", nil)
 	req.Header.Set("Authorization", "Bearer "+bind.Sentinel)
-	client := &http.Client{Timeout: time.Second}
+	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
+	select {
+	case <-flushed:
+	default:
+		t.Fatal("upstream never flushed headers")
+	}
 	if resp.StatusCode != http.StatusGatewayTimeout {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("status=%d body=%s", resp.StatusCode, body)
