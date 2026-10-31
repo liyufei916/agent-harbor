@@ -544,4 +544,3 @@ func (o *Service) timeoutLocked(s *session) {
 		s.cancel()
 	}
 }
-

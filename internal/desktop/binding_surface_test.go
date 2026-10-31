@@ -15,7 +15,7 @@ func TestDesktopExposesOnlyContractMethods(t *testing.T) {
 		"ListSessions": true, "DestroySession": true, "SyncBackWorkspace": true,
 		"GetRuntimeHealth": true, "GetContainerEngineHealth": true, "EnsureContainerEngine": true, "StopContainerEngine": true,
 		"GetPermissionOverview": true,
-		"ListRememberedHosts": true, "RevokeRememberedHost": true, "ResolvePermission": true,
+		"ListRememberedHosts":   true, "RevokeRememberedHost": true, "ResolvePermission": true,
 		"PromptPermission": true,
 		"GetUIPrefs":       true, "SetUIPrefs": true,
 		"SwitchModel": true, "StartMcpOAuth": true, "CancelMcpOAuth": true,
