@@ -74,7 +74,8 @@ jobs:
 
   go:
     name: Go checks (macOS)
-    needs: [frontend]
+    # format 红则不跑覆盖率/打包，避免徽章落到「format 红但 go 绿」的错位 SHA。
+    needs: [frontend, format]
     runs-on: macos-14
     timeout-minutes: 20
     steps:

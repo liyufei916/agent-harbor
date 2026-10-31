@@ -30,6 +30,27 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      # 发版门禁：与 CI 同口径，失败不得上传 Release 资产。
+      - name: Check Go formatting
+        shell: bash
+        run: |
+          bad="$(gofmt -l .)"
+          if [ -n "$bad" ]; then
+            echo "gofmt needed:"
+            echo "$bad"
+            exit 1
+          fi
+
+      - name: Go test (race)
+        shell: bash
+        run: go test -race ./...
+
+      - name: Frontend test
+        shell: bash
+        run: |
+          npm ci --prefix frontend
+          npm test --prefix frontend
+
       - name: Build and package
         shell: bash
         run: |
@@ -37,7 +58,7 @@ jobs:
           mkdir -p "$GOBIN"
           export PATH="$GOBIN:$PATH"
           go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.34
-          npm ci --prefix frontend
+          # npm ci 已在 Frontend test 步完成
           # 先生成 bindings，再构建前端（live-api 依赖 desktopapi）
           wails3 generate bindings ./...
           npm run build --prefix frontend
