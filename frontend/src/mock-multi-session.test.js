@@ -16,7 +16,7 @@ async function connectBasics() {
   });
 }
 
-test("mock 双会话：同工作区 WORKSPACE_BUSY，不同路径可开两条，第三条 SESSION_LIMIT", async () => {
+test("mock 多会话：同工作区 WORKSPACE_BUSY，不同路径可开满 5 条，第 6 条 SESSION_LIMIT", async () => {
   mock.resetMock();
   try {
     await connectBasics();
@@ -40,28 +40,35 @@ test("mock 双会话：同工作区 WORKSPACE_BUSY，不同路径可开两条，
     });
     assert.equal(same.error?.code, "WORKSPACE_BUSY");
 
-    const b = await mock.createSession({
-      workspace: "/demo/project-b",
-      agentId: "claude",
-      modelAccountId: "mock-model",
-      mcpIds: [],
-      task: "two",
-    });
-    assert.ok(b.session);
-    assert.notEqual(a.session.sessionId, b.session.sessionId);
+    const extras = [];
+    for (const suffix of ["b", "c", "d", "e"]) {
+      const created = await mock.createSession({
+        workspace: `/demo/project-${suffix}`,
+        agentId: "claude",
+        modelAccountId: "mock-model",
+        mcpIds: [],
+        task: `task-${suffix}`,
+      });
+      assert.ok(created.session, `expected session for project-${suffix}`);
+      extras.push(created.session.sessionId);
+    }
+    assert.equal(extras.length, 4);
+    assert.ok(extras.every((id) => id !== a.session.sessionId));
 
     const listed = await mock.listSessions();
-    assert.equal(listed.sessions.filter((s) => ["provisioning", "running"].includes(s.state) || s.state === "running").length >= 1, true);
-    assert.ok(listed.sessions.length >= 2);
+    const active = listed.sessions.filter((s) =>
+      ["provisioning", "running", "stopping"].includes(s.state),
+    );
+    assert.equal(active.length, 5);
 
-    const third = await mock.createSession({
-      workspace: "/demo/project-c",
+    const sixth = await mock.createSession({
+      workspace: "/demo/project-f",
       agentId: "claude",
       modelAccountId: "mock-model",
       mcpIds: [],
-      task: "three",
+      task: "six",
     });
-    assert.equal(third.error?.code, "SESSION_LIMIT");
+    assert.equal(sixth.error?.code, "SESSION_LIMIT");
 
     // 扩权：project 写入记住表；状态保持 running（无 awaiting_permission）
     let sawPerm = false;

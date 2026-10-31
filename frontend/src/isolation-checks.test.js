@@ -38,7 +38,10 @@ test("checksFromHealth 失败且 preferred docker 时用 Docker 项名", () => {
     "docker",
   );
   assert.equal(items[0].name, "Docker CLI");
-  assert.match(items[0].detail, /daemon/);
+  assert.equal(items[0].status, "skipped");
+  assert.equal(items[1].name, "Docker daemon");
+  assert.equal(items[1].status, "bad");
+  assert.match(items[1].detail, /daemon/);
 });
 
 test("runIsolationProbe 成功时逐项结束为 ok", async () => {
