@@ -130,6 +130,7 @@ func (d *DesktopAPI) GetSession(id string) contracts.SessionResponse {
 }
 
 // StartSession 在已停止的原会话上重新拉起，不创建新会话。
+// 与 CreateSession 相同：从落盘记住表 + 当前安全档位回灌 ExtraHosts，并刷新 DemoExpandAsk。
 func (d *DesktopAPI) StartSession(id string) contracts.SessionResponse {
 	starter, ok := d.app.sessionRef().(interface {
 		Start(context.Context, string) (contracts.SessionSnapshot, error)
@@ -139,6 +140,19 @@ func (d *DesktopAPI) StartSession(id string) contracts.SessionResponse {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	if snap, err := d.app.sessionRef().Get(ctx, id); err == nil {
+		ws := strings.TrimSpace(snap.SourceWorkspace)
+		if ws == "" {
+			ws = strings.TrimSpace(snap.Workspace)
+		}
+		if ws != "" {
+			if apply, ok := d.app.sessionRef().(orchestrator.OutboundGrantsSetter); ok {
+				hosts := mergeRememberedWithTier(d.app.listRemembered(ws), ws, d.app.prefs.SecurityTier)
+				prefs := d.app.getPrefs()
+				_ = apply.SetOutboundGrants(id, hosts, prefs.DemoExpandAsk || envDemoExpandAsk())
+			}
+		}
+	}
 	snap, err := starter.Start(ctx, id)
 	if err != nil {
 		return contracts.SessionResponse{Error: mapError(err)}
@@ -366,7 +380,8 @@ func (d *DesktopAPI) PromptPermission(in contracts.PromptPermissionInput) contra
 	return contracts.EmptyResponse{}
 }
 
-// ResolvePermission 将扩权决策转交给唯一的会话状态机；project 成功时写入本机记住表。
+// ResolvePermission 将扩权决策转交给唯一的会话状态机；
+// project 写入本机记住表；once|project 同时写入当前会话 Gate extraHosts（含工作台主动 ask）。
 func (d *DesktopAPI) ResolvePermission(in contracts.ResolvePermissionInput) contracts.EmptyResponse {
 	resolver, ok := d.app.sessionRef().(interface {
 		ResolvePermission(context.Context, contracts.ResolvePermissionInput) error
@@ -390,6 +405,10 @@ func (d *DesktopAPI) ResolvePermission(in contracts.ResolvePermissionInput) cont
 				Workspace: ws,
 				Scope:     "project",
 			})
+		}
+		// Gate 发起的 ask 会在 authorizeOutboundHost 再写一次（幂等）；UI PromptPermission 依赖此处落热路径。
+		if g := d.app.gateRef(); g != nil {
+			_ = g.AllowExtraHost(in.SessionID, in.Target, in.Decision)
 		}
 	}
 	return contracts.EmptyResponse{}

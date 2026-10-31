@@ -469,7 +469,9 @@ type Runtime interface {
 「本项目 / project」双层语义（勿混为一谈）：
 
 1. **Gate 会话内存 `extraHosts`**：仅当前会话生效；`once` 命中即消费删除，`project` 在本会话内常驻到撤销/停会话。这是出站放行的热路径。
-2. **桌面落盘记住表**（按源工作区键）：`decision=project` 时写入；**跨重启、跨同工作区新会话**经种子回灌再写入新会话的 `extraHosts`。UI「本项目始终允许」指的是这一层。
+2. **桌面落盘记住表**（按源工作区键）：`decision=project` 时写入；**跨重启、跨同工作区 CreateSession / StartSession** 经种子回灌再写入会话的 `extraHosts`。UI「本项目始终允许」指的是这一层。
+
+保留口径（默认）：工作区文件操作 / SyncBack / clone 导回 **不**改记住表；换隔离后端或 Docker/Colima 引擎 **不**清记住表（重启只清会话内存，`once` 与挂起弹窗不跨重启）；换源工作区路径 = 另一项目桶。安全档位种子主机不落盘，随当前档位在 Create/Start 注入。`ResolvePermission(once|project)` 须同时写入当前会话 Gate（含工作台主动 ask）。
 
 `RevokeRememberedHost` 须同时清落盘记住项与**活动会话** Gate `extraHosts`（否则同会话再 ask 不弹窗）；工作台 / 权限一览 / 设置·网络安全共用源工作区键。通用出站扩权仍以 live 证据为准，不单凭 mock。
 
@@ -499,7 +501,7 @@ type Runtime interface {
 | WritePty / ResizePty | 向焦点会话 PTY 写输入/改尺寸 | 无 PTY 或未 running → `INVALID_ARGUMENT` |
 | GetSession | 最新快照与 seq | 未知 → `SESSION_NOT_FOUND`；无任务正文/凭据 |
 | StopSession | 返回 stopping，事件报清理 | 终态幂等；未知 → `SESSION_NOT_FOUND` |
-| StartSession | 原 session_id 回到 provisioning | 仅 `stopped`/`failed` 且 cleanupComplete=true；否则 `INVALID_ARGUMENT` 或 `CLEANUP_FAILED`；并发与同工作区规则同 CreateSession；未知 → `SESSION_NOT_FOUND`。不新建会话。进程起来后等待下一轮输入，不再自动送入创建时的任务 |
+| StartSession | 原 session_id 回到 provisioning | 仅 `stopped`/`failed` 且 cleanupComplete=true；否则 `INVALID_ARGUMENT` 或 `CLEANUP_FAILED`；并发与同工作区规则同 CreateSession；未知 → `SESSION_NOT_FOUND`。不新建会话。进程起来后等待下一轮输入，不再自动送入创建时的任务。**回灌**：与 CreateSession 相同，按源工作区重读落盘记住表 + 当前安全档位 / `DemoExpandAsk` 再开 Gate |
 | ListSessions | 本应用生命周期内会话摘要 | 含终态直至 Destroy；空 `[]` |
 | DestroySession | 移除终态会话记录 | 非 stopped/failed 或 cleanupComplete=false → `INVALID_ARGUMENT`；未知 → `SESSION_NOT_FOUND`；并删除停止后保留的 clone 副本 |
 | SyncBackWorkspace | 将 clone 副本合并写回 `sourceWorkspace` | 仅 `mountMode=clone`；覆盖同名常规文件，不删原目录多余项；成功后 toast 提示路径（不自动打开访达）；无副本/direct → `INVALID_ARGUMENT`；未知 → `SESSION_NOT_FOUND` |
@@ -510,7 +512,7 @@ type Runtime interface {
 | GetPermissionOverview | 只读边界摘要 | 无 Key/Sentinel/完整 Gate URL；sessionId 空则返回「默认/全局」允许摘要（无工作区时 workspace=""） |
 | ListRememberedHosts | 已记住主机 | workspace 空=全部；与设置「管理网站」同源 |
 | RevokeRememberedHost | 撤销 project/session 记住项 | 未知 host 成功幂等（error=null） |
-| ResolvePermission | 处理扩权挂起 | decision∈deny\|once\|project；无挂起 → `INVALID_ARGUMENT`；**禁止**全网允许 |
+| ResolvePermission | 处理扩权挂起 | decision∈deny\|once\|project；无挂起 → `INVALID_ARGUMENT`；**禁止**全网允许；once\|project 写入当前会话 Gate；project 另落盘 |
 | PromptPermission | 主动挂起出站扩权（ask） | 仅 running；目标为主机名；异步发 `permission_needed`，等 Resolve；**不依赖**上游 302 |
 
 扩权/阻拦演示（live）：须显式开启 `UIPrefs.demoExpandAsk` 或 `HARBOR_DEMO_ASK=1` 后**新建会话**。工作台「请求扩权」，或粘贴 `EXPAND-TASK.txt` 调 **`harbor_demo_ask`**（`tools/list` 注入；`tools/call` 先于白名单拦截 → `RequestPermission`）。阻拦：`BLOCK-TASK.txt` → **`harbor_demo_blocked`**（同开关注入；`tools/call` 一律 audit denied，**无**三选一弹窗）。默认不注入，以免污染真实工具清单。

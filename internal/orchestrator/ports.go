@@ -42,6 +42,11 @@ type ProjectWorkspaceReader interface {
 	ProjectWorkspace(context.Context, string) (string, error)
 }
 
+// OutboundGrantsSetter StartSession 前由桌面刷新落盘 project + 档位种子。
+type OutboundGrantsSetter interface {
+	SetOutboundGrants(string, []contracts.RememberedHost, bool) error
+}
+
 type AccountCatalog interface {
 	Lookup(context.Context, string) (contracts.AccountInfo, error)
 }

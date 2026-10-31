@@ -316,7 +316,7 @@ if (restartAppBtn) {
   restartAppBtn.addEventListener("click", () => {
     void requestAppRestart({
       reason:
-        "重启后将按已保存的隔离后端与容器引擎偏好重新装配 Runtime。",
+        "重启后将按已保存的隔离后端与容器引擎偏好重新装配 Runtime。「本项目」记住的主机会保留，再次开始或新建会话时回灌。",
     });
   });
 }

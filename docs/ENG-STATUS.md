@@ -51,6 +51,7 @@
 | 2026-10-31g | **评测 P1 材料**：main 绿 CI `41187174465`（`3d0ded4`）`go-unit-coverage` 旁证入 demos/evidence；UIPrefs 引擎/演示开关测；工具页预置渲染测；http-live token 剥离单测。 |
 | 2026-10-31h | **CI 拆分**：`Frontend tests` 独立 job（npm test 失败直达）；`go` needs frontend 再打包；format 比对 Go/JS 会话上限；coverage-badge 强制存在 `coverage-source-sha.txt`。 |
 | 2026-10-31i | **首跑口径**：`stranger-first-run-record` 勾选保留为**本机/harness**；显式「独立陌生机未做·不声称」；FIRST-RUN/ACCEPTANCE/README 同步；dsh Seatbelt 短任务证据入库。 |
+| 2026-10-31j | **扩权默认保留**：StartSession 与 Create 同源回灌落盘 project+档位；Resolve 写当前 Gate；换引擎/重启不清记住表（CONTRACT + 设置/指南文案）。 |
 
 ## eng-complete（代码已接线）
 
@@ -66,7 +67,8 @@
 | OAuth / stdio MCP | 回环 OAuth、宿主 stdio 桥 |
 | Keychain | Darwin Keychain fail-closed；`vaultNotice` |
 | 浅色主题 | `UIPrefs.theme` system/light/dark |
-| 安全档位种子 | `UIPrefs.securityTier` → CreateSession ExtraHosts |
+| 安全档位种子 | `UIPrefs.securityTier` → CreateSession / StartSession ExtraHosts |
+| 本项目扩权 | 落盘跨重启；Create/Start 回灌；换引擎不清；Resolve 写 Gate |
 | 记录/诊断/扩权 UX | 导出 JSON、诊断 Tab、Modal 三问+超时拒绝、出舱审查、运行报告、教程进度 |
 | Seatbelt（macOS） | P1 主路径；Health fail-closed |
 | Gate 非 2xx 抹 Key 片段 | 错误响应额外抹前 8/末 4 位 |

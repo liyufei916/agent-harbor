@@ -16,7 +16,8 @@ export async function requestAppRestart({ reason = "" } = {}) {
     busy = 0;
   }
   const body = [
-    reason || "将退出并重新打开应用，使隔离后端等设置生效。",
+    reason ||
+      "将退出并重新打开应用，使隔离后端等设置生效。「本项目」记住的主机会保留。",
     busy > 0 ? `\n有 ${busy} 个进行中的会话将被停止。` : "",
   ].join("");
   const ok = await askConfirm({

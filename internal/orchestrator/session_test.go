@@ -389,6 +389,29 @@ func TestListAndDestroyRetainOnlyExplicitlyDestroyedRecords(t *testing.T) {
 	}
 }
 
+func TestSetOutboundGrants(t *testing.T) {
+	f := newFixture()
+	o := setup(t, f, Timeouts{}, nil)
+	s := create(t, o)
+	awaitState(t, o, s.SessionID, contracts.StateRunning)
+	hosts := []contracts.RememberedHost{{Host: "cdn.example.test", Workspace: "/ws", Scope: "project"}}
+	if err := o.SetOutboundGrants(s.SessionID, hosts, true); err != nil {
+		t.Fatal(err)
+	}
+	o.mu.Lock()
+	sess := o.sessions[s.SessionID]
+	ok := len(sess.spec.RememberedHosts) == 1 && sess.spec.RememberedHosts[0].Host == "cdn.example.test" && sess.spec.DemoExpandAsk
+	o.mu.Unlock()
+	if !ok {
+		t.Fatal("SetOutboundGrants 应更新下次 provision 用的记住主机与演示开关")
+	}
+	if err := o.SetOutboundGrants("missing", nil, false); err == nil {
+		t.Fatal("未知会话应被拒绝")
+	} else {
+		assertCode(t, err, "SESSION_NOT_FOUND")
+	}
+}
+
 func TestStartReopensSameSession(t *testing.T) {
 	f := newFixture()
 	o := setup(t, f, Timeouts{}, nil)

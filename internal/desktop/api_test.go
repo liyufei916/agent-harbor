@@ -189,6 +189,15 @@ type extendedSession struct {
 	input    contracts.PtyInput
 	boundary contracts.PermissionOverview
 	resolved contracts.ResolvePermissionInput
+	grants   []contracts.RememberedHost
+	demoAsk  *bool
+}
+
+func (s *extendedSession) SetOutboundGrants(_ string, hosts []contracts.RememberedHost, demoAsk bool) error {
+	s.grants = append([]contracts.RememberedHost(nil), hosts...)
+	v := demoAsk
+	s.demoAsk = &v
+	return nil
 }
 
 func (s *extendedSession) Get(context.Context, string) (contracts.SessionSnapshot, error) {
@@ -233,9 +242,12 @@ func (s *extendedSession) ResizePty(_ context.Context, in contracts.PtyInput) er
 
 func TestDesktopSessionLifecycleAndPtyBindings(t *testing.T) {
 	app := NewApp()
-	svc := &extendedSession{snapshot: contracts.SessionSnapshot{SessionID: "s1", State: contracts.StateRunning}}
+	svc := &extendedSession{snapshot: contracts.SessionSnapshot{
+		SessionID: "s1", State: contracts.StateRunning, Workspace: "/tmp/project", SourceWorkspace: "/tmp/project",
+	}}
 	app.SetSessionService(svc)
 	api := NewDesktopAPI(app)
+	app.rememberHost(contracts.RememberedHost{Workspace: "/tmp/project", Host: "cdn.example.test", Scope: "project"})
 
 	if got := api.GetSession("s1"); got.Error != nil || got.Session == nil {
 		t.Fatalf("get=%+v", got)
@@ -245,6 +257,19 @@ func TestDesktopSessionLifecycleAndPtyBindings(t *testing.T) {
 	}
 	if got := api.StartSession("s1"); got.Error != nil || got.Session == nil || got.Session.SessionID != "s1" || got.Session.State != contracts.StateProvisioning {
 		t.Fatalf("start=%+v", got)
+	}
+	if len(svc.grants) == 0 {
+		t.Fatal("StartSession 应从落盘记住表回灌 SetOutboundGrants")
+	}
+	found := false
+	for _, h := range svc.grants {
+		if h.Host == "cdn.example.test" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("grants=%+v", svc.grants)
 	}
 	if got := api.DestroySession("s1"); got.Error != nil || got.Session == nil {
 		t.Fatalf("destroy=%+v", got)

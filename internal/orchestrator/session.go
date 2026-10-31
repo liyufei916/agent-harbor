@@ -382,6 +382,20 @@ func (o *Service) Destroy(ctx context.Context, id string) (contracts.SessionSnap
 	return result, nil
 }
 
+// SetOutboundGrants 在下次 Gate.Start（含 StartSession 再 provision）前更新本会话的记住主机与演示扩权开关。
+// 与 CreateSession 同源：落盘 project + 当前安全档位种子由桌面合并后传入。
+func (o *Service) SetOutboundGrants(id string, hosts []contracts.RememberedHost, demoAsk bool) error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	s, ok := o.sessions[id]
+	if !ok {
+		return publicError("SESSION_NOT_FOUND")
+	}
+	s.spec.RememberedHosts = append([]contracts.RememberedHost(nil), hosts...)
+	s.spec.DemoExpandAsk = demoAsk
+	return nil
+}
+
 // Start 在已清理的原会话上重新拉起 Agent，不分配新的 session_id。
 func (o *Service) Start(ctx context.Context, id string) (contracts.SessionSnapshot, error) {
 	if ctx.Err() != nil {

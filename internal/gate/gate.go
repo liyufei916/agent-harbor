@@ -335,7 +335,7 @@ func (h *Harbor) SetModelAccount(sessionID, accountID string) error {
 }
 
 // AllowExtraHost 将扩权通过的主机记入本会话 extraHosts（once 仅一次；project 本会话常驻到撤销）。
-// 跨会话「本项目」持久化不在此方法：由桌面落盘 + CreateSession 种子回灌完成。
+// 跨会话「本项目」持久化不在此方法：由桌面落盘 + CreateSession/StartSession 种子回灌完成。
 func (h *Harbor) AllowExtraHost(sessionID, host, scope string) error {
 	host = strings.ToLower(strings.TrimSpace(host))
 	if sessionID == "" || host == "" {

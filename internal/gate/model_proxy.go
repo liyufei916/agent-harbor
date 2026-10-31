@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -15,6 +16,12 @@ import (
 	"github.com/liyufei916/agent-harbor/internal/contracts"
 	"github.com/liyufei916/agent-harbor/internal/policy"
 )
+
+// maxModelProxyRewriteBody 是改写顶层 model 时允许缓冲的请求体上限。
+// 旧值 2MiB 会在多图/tool_result 场景截断 JSON（Anthropic 报 EOF @ column 2097152）。
+const maxModelProxyRewriteBody = 32 << 20
+
+var errModelProxyBodyTooLarge = errors.New("model proxy request body too large")
 
 // modelProxy 是固定模型 HTTPS 上游的显式 Base URL 反向代理。
 // 不实现通用 CONNECT / HTTPS MITM。
@@ -91,10 +98,17 @@ func (p *modelProxy) handle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if r.Method == http.MethodPost && wantModel != "" && r.Body != nil {
-		if rewritten, ok := rewriteJSONModelField(r.Body, wantModel); ok {
-			body = rewritten
-			r.Body = io.NopCloser(bytes.NewReader(nil))
+		rewritten, err := rewriteJSONModelField(r.Body, wantModel)
+		if err != nil {
+			if errors.Is(err, errModelProxyBodyTooLarge) {
+				http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+				return
+			}
+			http.Error(w, "bad request body", http.StatusBadRequest)
+			return
 		}
+		body = rewritten
+		r.Body = io.NopCloser(bytes.NewReader(nil))
 	}
 	outReq, err := http.NewRequestWithContext(ctx, r.Method, upstreamURL, body)
 	if err != nil {
@@ -190,26 +204,33 @@ func normalizeModelRequestPath(rule policy.EndpointRule, path string) string {
 	return path
 }
 
-// rewriteJSONModelField 将 JSON 对象顶层 "model" 改为账号模型名；失败则原样透传。
-func rewriteJSONModelField(r io.Reader, model string) (*bytes.Reader, bool) {
-	raw, err := io.ReadAll(io.LimitReader(r, 2<<20))
-	if err != nil || len(raw) == 0 {
-		return nil, false
+// rewriteJSONModelField 将 JSON 对象顶层 "model" 改为账号模型名；非 JSON 则原样透传。
+// 超过 maxModelProxyRewriteBody 时返回 errModelProxyBodyTooLarge（禁止截断后转发）。
+func rewriteJSONModelField(r io.Reader, model string) (*bytes.Reader, error) {
+	raw, err := io.ReadAll(io.LimitReader(r, maxModelProxyRewriteBody+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(raw) > maxModelProxyRewriteBody {
+		return nil, errModelProxyBodyTooLarge
+	}
+	if len(raw) == 0 {
+		return bytes.NewReader(nil), nil
 	}
 	var obj map[string]json.RawMessage
 	if json.Unmarshal(raw, &obj) != nil {
-		return bytes.NewReader(raw), true
+		return bytes.NewReader(raw), nil
 	}
 	enc, err := json.Marshal(model)
 	if err != nil {
-		return bytes.NewReader(raw), true
+		return bytes.NewReader(raw), nil
 	}
 	obj["model"] = enc
 	out, err := json.Marshal(obj)
 	if err != nil {
-		return bytes.NewReader(raw), true
+		return bytes.NewReader(raw), nil
 	}
-	return bytes.NewReader(out), true
+	return bytes.NewReader(out), nil
 }
 
 func joinOrigin(origin string, u *url.URL) (string, error) {
