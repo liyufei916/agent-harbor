@@ -48,10 +48,13 @@ func TestBuildUsesResponsesProviderAndPrivateCodexHome(t *testing.T) {
 		t.Fatalf("Codex 配置路径错误: %+v", launch.ConfigFiles)
 	}
 	config := string(launch.ConfigFiles[0].Content)
-	for _, required := range []string{"wire_api = \"responses\"", "env_key = \"OPENAI_API_KEY\"", "[mcp_servers.harbor]", "http://127.0.0.1:41002/mcp", `base_url = "http://127.0.0.1:41001/v1"`, `sandbox_mode = "danger-full-access"`, `approval_policy = "never"`, "[features]", "plugins = false"} {
+	for _, required := range []string{"wire_api = \"responses\"", "env_key = \"OPENAI_API_KEY\"", "[mcp_servers.harbor]", "http://127.0.0.1:41002/mcp", `base_url = "http://127.0.0.1:41001/v1"`, `sandbox_mode = "danger-full-access"`, `approval_policy = "never"`, "[features]", "plugins = false", "remote_plugin = false", "recommended_plugins = false"} {
 		if !strings.Contains(config, required) {
 			t.Fatalf("Codex 配置缺少 %q: %s", required, config)
 		}
+	}
+	if strings.Contains(config, "plugin_discovery_prefetch") {
+		t.Fatal("勿写入已移除的 plugin_discovery_prefetch（Codex 会 Unknown feature flag 退出）")
 	}
 	if strings.Contains(config, "workspace-write") {
 		t.Fatal("外层已 Seatbelt 时不应再启用 Codex workspace-write 嵌套沙箱")
@@ -103,6 +106,13 @@ func TestNativeAppServerUsesTurnBridge(t *testing.T) {
 	}
 	if len(launch.ConfigFiles) != 2 || launch.ConfigFiles[1].RelativePath != "codex/harbor-turn.mjs" {
 		t.Fatalf("缺少常驻桥脚本: %+v", launch.ConfigFiles)
+	}
+	bridge := string(launch.ConfigFiles[1].Content)
+	if strings.Contains(bridge, `"plugin_discovery_prefetch"`) {
+		t.Fatal("turn_bridge 勿 --disable 已移除的 plugin_discovery_prefetch")
+	}
+	if !strings.Contains(bridge, `"plugins"`) || !strings.Contains(bridge, `"remote_plugin"`) {
+		t.Fatal("turn_bridge 应仍禁用 plugins / remote_plugin")
 	}
 }
 

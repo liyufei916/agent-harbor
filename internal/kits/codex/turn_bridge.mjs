@@ -75,8 +75,16 @@ function mapItem(item) {
 // --native：ChatGPT.app 等 Mach-O。直接 exec 该二进制；npm 脚本仍由当前 node 解释。
 const native = process.argv.includes("--native");
 const serverCmd = native ? codexScript : process.execPath;
-// 关闭 plugins：Gate 仅放行 harbor.gate，默认同步 openai/plugins 会卡死 git fetch。
-const disablePlugins = ["--disable", "plugins", "--disable", "plugin_discovery_prefetch"];
+// 关闭 plugins / remote_plugin：Gate 仅放行 harbor.gate，默认同步 openai/plugins 会卡死 git fetch。
+// 勿 --disable plugin_discovery_prefetch（新版 CLI 已无此 flag → Unknown feature flag 直接退出）。
+const disablePlugins = [
+  "--disable",
+  "plugins",
+  "--disable",
+  "remote_plugin",
+  "--disable",
+  "recommended_plugins",
+];
 const serverArgs = native
   ? [...disablePlugins, "app-server", "--listen", "stdio://"]
   : [codexScript, ...disablePlugins, "app-server", "--listen", "stdio://"];
