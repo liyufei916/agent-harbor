@@ -565,11 +565,61 @@ func filterToolsValue(v any, allow []string) bool {
 		}
 		name, _ := tm["name"].(string)
 		if toolAllowed(allow, name) {
+			sanitizeToolOutputSchema(tm)
 			kept = append(kept, item)
 		}
 	}
 	res["tools"] = kept
 	return true
+}
+
+// sanitizeToolOutputSchema 去掉非法 outputSchema（如 type:"any"）。
+// 该字段可选；Claude Code 遇非法 schema 会拒收整条工具，导致汇率等 MCP「调了却不可用」。
+func sanitizeToolOutputSchema(tool map[string]any) {
+	raw, ok := tool["outputSchema"]
+	if !ok {
+		return
+	}
+	if !jsonSchemaTypeOK(raw) {
+		delete(tool, "outputSchema")
+	}
+}
+
+func jsonSchemaTypeOK(schema any) bool {
+	m, ok := schema.(map[string]any)
+	if !ok {
+		return false
+	}
+	t, has := m["type"]
+	if !has {
+		// 无 type 时仍可能靠 $ref；保守保留
+		return true
+	}
+	return jsonSchemaTypeValueOK(t)
+}
+
+func jsonSchemaTypeValueOK(t any) bool {
+	switch v := t.(type) {
+	case string:
+		switch v {
+		case "object", "string", "number", "integer", "boolean", "array", "null":
+			return true
+		default:
+			return false // 含 "any"
+		}
+	case []any:
+		if len(v) == 0 {
+			return false
+		}
+		for _, e := range v {
+			if !jsonSchemaTypeValueOK(e) {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
 }
 
 func filterSSETools(body []byte, allow []string) []byte {

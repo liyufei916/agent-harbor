@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -38,6 +39,15 @@ func TestMCPPayloadHelpers(t *testing.T) {
 	if bytes.Contains(filteredSSE, []byte(`"write"`)) {
 		t.Fatalf("SSE tools not filtered: %s", filteredSSE)
 	}
+	badOut := []byte(`{"jsonrpc":"2.0","id":1,"result":{"tools":[{"name":"exchange_rate_convert","inputSchema":{"type":"object"},"outputSchema":{"type":"any"}}]}}`)
+	fixed := filterToolsPayload(badOut, []string{"exchange_rate_convert"})
+	if strings.Contains(string(fixed), `"any"`) || strings.Contains(string(fixed), "outputSchema") {
+		t.Fatalf("illegal outputSchema must be stripped: %s", fixed)
+	}
+	if !strings.Contains(string(fixed), "exchange_rate_convert") {
+		t.Fatalf("tool must remain after sanitize: %s", fixed)
+	}
+
 	if got := filterToolsPayload([]byte("invalid"), nil); string(got) != "invalid" {
 		t.Fatalf("invalid payload changed: %s", got)
 	}
