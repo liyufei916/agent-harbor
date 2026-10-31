@@ -1,0 +1,14 @@
+# records 样张（mock + http-live）
+# 日期：2026-10-31
+# 命令：./scripts/records-sample-shots.sh
+# shotSeed=1 · 演示用量/单价（非真实账单）
+
+## mock
+demos/screenshots/06-records-usage.png
+demos/screenshots/06b-records-metering.png
+demos/screenshots/06c-records-metering-price.png
+
+## http-live
+demos/screenshots/live-browser/04-records.png
+demos/screenshots/live-browser/04b-records-metering.png
+PASS: records sample shots

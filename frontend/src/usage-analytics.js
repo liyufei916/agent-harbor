@@ -817,3 +817,101 @@ export function estimateCostStatus() {
     byModel,
   };
 }
+
+/**
+ * 截图/样张专用：写入本机会话用量 + CNY 单价样例（覆盖 localStorage）。
+ * 仅由 ?shotSeed=1 触发，勿在产品路径调用。
+ */
+export function seedShotUsageForScreenshots() {
+  const now = Date.now();
+  const hour = 3600_000;
+  const events = [
+    {
+      t: now - 5 * hour,
+      kind: "session_outcome",
+      sessionId: "shot-sess-01",
+      state: "stopped",
+    },
+    {
+      t: now - 2 * hour,
+      kind: "session_outcome",
+      sessionId: "shot-sess-02",
+      state: "failed",
+      code: "UPSTREAM_TIMEOUT",
+    },
+    {
+      t: now - 4.5 * hour,
+      kind: "audit",
+      result: "allowed",
+      tool: "read",
+      target: "api.deepseek.com",
+      model: "deepseek-chat",
+      sessionId: "shot-sess-01",
+      inputTokens: 12_400,
+      outputTokens: 3_200,
+    },
+    {
+      t: now - 4 * hour,
+      kind: "audit",
+      result: "allowed",
+      tool: "read",
+      target: "api.openai.com",
+      model: "gpt-4o-mini",
+      sessionId: "shot-sess-01",
+      inputTokens: 8_100,
+      outputTokens: 1_900,
+    },
+    {
+      t: now - 3 * hour,
+      kind: "audit",
+      result: "denied",
+      tool: "bash",
+      target: "evil.example",
+      sessionId: "shot-sess-01",
+    },
+    {
+      t: now - 1.5 * hour,
+      kind: "audit",
+      result: "failed",
+      tool: "search",
+      target: "mcp",
+      sessionId: "shot-sess-02",
+    },
+    {
+      t: now - 1 * hour,
+      kind: "audit",
+      result: "allowed",
+      tool: "read",
+      target: "api.deepseek.com",
+      model: "deepseek-chat",
+      sessionId: "shot-sess-02",
+      inputTokens: 22_000,
+      outputTokens: 5_500,
+    },
+    {
+      t: now - 50 * 60_000,
+      kind: "permission",
+      decision: "project",
+      action: "connect",
+      target: "cdn.example",
+      sessionId: "shot-sess-01",
+    },
+  ];
+  storageSet(JSON.stringify({ events }));
+  saveModelPrices([
+    {
+      model: "deepseek-chat",
+      inputPer1M: 1,
+      outputPer1M: 2,
+      currency: "CNY",
+      asOf: "2026-10-31",
+    },
+    {
+      model: "gpt-4o-mini",
+      inputPer1M: 0.15,
+      outputPer1M: 0.6,
+      currency: "CNY",
+      asOf: "2026-10-31",
+    },
+  ]);
+}

@@ -306,7 +306,8 @@ body { padding: 0; }
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 0;
-  overflow: hidden;
+  /* 勿 overflow:hidden：WKWebView 会裁掉原生 <select> 弹出层，表现为「模型选不了」 */
+  overflow: visible;
 }
 .rec-price-summary {
   cursor: pointer;
@@ -316,6 +317,7 @@ body { padding: 0; }
   font-weight: 600;
   color: var(--muted);
   background: color-mix(in srgb, var(--hover, #222) 50%, transparent);
+  border-radius: 10px 10px 0 0;
 }
 .rec-price-summary::-webkit-details-marker { display: none; }
 .rec-price-details[open] > .rec-price-summary {
@@ -323,6 +325,32 @@ body { padding: 0; }
   border-bottom: 1px solid var(--line);
 }
 .rec-price-body { padding: 12px 14px 14px; }
+.rec-price-body .field-price-model {
+  flex: 1 1 240px;
+  min-width: min(100%, 220px);
+  max-width: 420px;
+}
+.rec-price-body .field-price-ccy {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.rec-price-body .field-price-ccy .field-label {
+  line-height: 1.2;
+}
+.rec-price-ccy {
+  display: flex;
+  gap: 6px;
+}
+.rec-price-ccy .btn {
+  min-width: 56px;
+}
+.rec-price-ccy .btn:disabled {
+  opacity: 0.45;
+}
 .rec-meter-series {
   display: flex;
   flex-direction: column;
@@ -353,6 +381,28 @@ body { padding: 0; }
   justify-content: flex-end;
   align-items: center;
   gap: 4px;
+  cursor: default;
+  border-radius: 4px;
+}
+.rec-meter-col:hover,
+.rec-meter-col:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--hover, #333) 55%, transparent);
+}
+.rec-meter-tip {
+  position: fixed;
+  z-index: 80;
+  max-width: min(280px, calc(100vw - 24px));
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface, #1a1a1a) 92%, #000);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-line;
+  box-shadow: 0 8px 24px color-mix(in srgb, #000 35%, transparent);
+  pointer-events: none;
 }
 .rec-meter-bar {
   width: 100%;

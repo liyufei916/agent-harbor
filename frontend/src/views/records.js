@@ -5,8 +5,6 @@ import * as api from "../api.js";
 import { showToast } from "../toast.js";
 import {
   clearUsageAnalytics,
-  costByModel,
-  estimateCostStatus,
   exportUsageBundle,
   failureReasonDistribution,
   formatEventRow,
@@ -30,7 +28,7 @@ import {
 /**
  * @param {HTMLElement} root
  * @param {*} ctx
- * @param {{ tab?: string, usageTab?: string }} [opts]
+ * @param {{ tab?: string, usageTab?: string, meterTab?: string, meterRange?: string }} [opts]
  */
 export function mountRecords(root, ctx, opts = {}) {
   const allowed = ["usage", "metering", "blocks", "permissions", "diagnose"];
@@ -39,36 +37,24 @@ export function mountRecords(root, ctx, opts = {}) {
   const rangeAllowed = ["1d", "7d", "all"];
   let tab = allowed.includes(opts.tab) ? opts.tab : "usage";
   let usageTab = usageAllowed.includes(opts.usageTab) ? opts.usageTab : "summary";
-  let meterTab = "qty";
-  let meterRange = "1d";
+  let meterTab = meterAllowed.includes(opts.meterTab) ? opts.meterTab : "qty";
+  let meterRange = rangeAllowed.includes(opts.meterRange) ? opts.meterRange : "1d";
   /** @type {string} 正在编辑的模型名；空=新建 */
   let editingModel = "";
+  /** @type {string} 下拉当前选中（含尚未落单价的模型；paint 后保留） */
+  let draftModel = "";
+  /** @type {"CNY"|"USD"|""} 币种草稿；空则跟表单默认 */
+  let draftCcy = "";
   const PAGE_SIZE = 10;
   let outcomesPage = 0;
   let bySessionPage = 0;
 
   async function paint() {
+    const priceDetailsWasOpen = Boolean(root.querySelector("#rec-price-details")?.open);
     const s = summarizeUsage();
-    const cost = estimateCostStatus();
-    const modelCosts = cost.byModel || costByModel();
     const prices = loadModelPrices();
     const lockedCcy = lockedPriceCurrency(prices);
     const meter = meteringSeries({ range: meterRange });
-    const modelCostList =
-      modelCosts.length === 0
-        ? `<p class="meta">尚无按模型 token。</p>`
-        : `<ul class="rec-fail-list">${modelCosts
-            .map((r) => {
-              const tok = `in ${r.inputTokens} / out ${r.outputTokens}`;
-              const money =
-                r.priced && (r.inputTokens > 0 || r.outputTokens > 0)
-                  ? ` ≈ ${(Number(r.cost) || 0).toFixed(4)} ${escapeHtml(r.currency)}`
-                  : r.priced && r.inputTokens === 0 && r.outputTokens === 0
-                    ? " · 已设单价，尚无出站 token"
-                    : " · 无匹配单价";
-              return `<li><span class="rec-fail-label">${escapeHtml(r.model)}</span><span class="rec-fail-count">${tok}${money}</span></li>`;
-            })
-            .join("")}</ul>`;
 
     const bySessionAll = groupUsageBySession({ limit: 80 });
     const byTool = groupUsageByTool({ limit: 40 });
@@ -112,8 +98,8 @@ export function mountRecords(root, ctx, opts = {}) {
       hosts = [];
     }
 
-    /** @type {{ value: string, label: string }[]} */
-    let modelChoices = [];
+    /** @type {{ value: string, label: string }[]} 账号模型（含已有单价的，稍后过滤） */
+    let accountModels = [];
     try {
       const acc = await api.listAccounts("model");
       const seen = new Set();
@@ -125,15 +111,25 @@ export function mountRecords(root, ctx, opts = {}) {
         const bits = [a.name || value];
         if (a.model && a.model !== a.name) bits.push(a.model);
         if (a.host) bits.push(a.host);
-        modelChoices.push({ value, label: bits.join(" · ") });
+        accountModels.push({ value, label: bits.join(" · ") });
       }
     } catch {
-      modelChoices = [];
+      accountModels = [];
     }
-    for (const p of prices) {
-      if (p.model && !modelChoices.some((m) => m.value === p.model)) {
-        modelChoices.push({ value: p.model, label: `${p.model}（仅单价）` });
-      }
+    const pricedModels = new Set((prices || []).map((p) => p.model).filter(Boolean));
+    // 新建：下拉只露出尚未配置单价的模型（一模型一套价）；编辑：只显示当前模型
+    /** @type {{ value: string, label: string }[]} */
+    let modelChoices = [];
+    if (editingModel) {
+      const hit =
+        accountModels.find((m) => m.value === editingModel) ||
+        (pricedModels.has(editingModel)
+          ? { value: editingModel, label: editingModel }
+          : null);
+      if (hit) modelChoices = [hit];
+    } else {
+      modelChoices = accountModels.filter((m) => !pricedModels.has(m.value));
+      if (draftModel && pricedModels.has(draftModel)) draftModel = "";
     }
 
     const editing = prices.find((p) => p.model === editingModel);
@@ -141,7 +137,7 @@ export function mountRecords(root, ctx, opts = {}) {
       ? prices.filter((p) => p.model !== editingModel)
       : prices;
     const peerLocked = lockedPriceCurrency(peersForCcy);
-    const formCcy =
+    const formCcyDefault =
       editing?.currency ||
       (peerLocked === "CNY" || peerLocked === "USD"
         ? peerLocked
@@ -149,17 +145,38 @@ export function mountRecords(root, ctx, opts = {}) {
           ? lockedCcy
           : "CNY");
     const ccySelectLocked = peerLocked === "CNY" || peerLocked === "USD";
-    const modelOpts =
-      modelChoices.length === 0
-        ? `<option value="">（请先在「模型」页添加账号）</option>`
-        : `${editingModel ? "" : `<option value="">选择已添加的模型</option>`}${modelChoices
-            .map(
-              (m) =>
-                `<option value="${escapeAttr(m.value)}" ${
-                  editingModel === m.value ? "selected" : ""
-                }>${escapeHtml(m.label)}</option>`,
-            )
-            .join("")}`;
+    if (ccySelectLocked) {
+      draftCcy = peerLocked;
+    } else if (draftCcy !== "CNY" && draftCcy !== "USD") {
+      draftCcy = formCcyDefault === "USD" ? "USD" : "CNY";
+    }
+    const formCcy = ccySelectLocked ? peerLocked : draftCcy || formCcyDefault;
+    const selectedModel = editingModel || draftModel;
+    let modelOpts;
+    if (editingModel) {
+      modelOpts = modelChoices
+        .map(
+          (m) =>
+            `<option value="${escapeAttr(m.value)}" selected>${escapeHtml(m.label)}</option>`,
+        )
+        .join("");
+      if (!modelOpts) {
+        modelOpts = `<option value="${escapeAttr(editingModel)}" selected>${escapeHtml(editingModel)}</option>`;
+      }
+    } else if (accountModels.length === 0) {
+      modelOpts = `<option value="">（请先在「模型」页添加账号）</option>`;
+    } else if (modelChoices.length === 0) {
+      modelOpts = `<option value="">（已添加模型均已配置单价）</option>`;
+    } else {
+      modelOpts = `<option value="">选择未配置单价的模型</option>${modelChoices
+        .map(
+          (m) =>
+            `<option value="${escapeAttr(m.value)}" ${
+              selectedModel === m.value ? "selected" : ""
+            }>${escapeHtml(m.label)}</option>`,
+        )
+        .join("")}`;
+    }
 
     const pricePanel = renderPricePanel({
       prices,
@@ -194,7 +211,7 @@ export function mountRecords(root, ctx, opts = {}) {
         </div>
 
         <div class="${usageTab === "summary" ? "" : "hidden"}" data-usage-panel="summary">
-          <p class="meta">按会话首次终态近似「首任务」；阻拦率来自审计 denied。费用与参考单价见「计量」。</p>
+          <p class="meta">按会话首次终态近似「首任务」；阻拦率来自审计 denied。token / 费用见「计量」。</p>
           <div class="rec-metric-grid" aria-label="本机汇总指标">
             <div class="rec-metric"><span class="rec-metric-label">会话样本</span><span class="rec-metric-value">${s.sessions}</span></div>
             <div class="rec-metric"><span class="rec-metric-label">审计</span><span class="rec-metric-value">${s.auditTotal}</span></div>
@@ -203,12 +220,6 @@ export function mountRecords(root, ctx, opts = {}) {
             <div class="rec-metric"><span class="rec-metric-label">阻拦占比</span><span class="rec-metric-value">${escapeHtml(s.denyRate)}</span></div>
             <div class="rec-metric"><span class="rec-metric-label">工具失败</span><span class="rec-metric-value">${escapeHtml(s.mcpFailRate)}</span></div>
           </div>
-          <div class="rec-cost-banner">
-            <span class="rec-cost-status">${escapeHtml(cost.status)}</span>
-            <span class="meta">${escapeHtml(cost.detail)}</span>
-          </div>
-          <h4 class="rec-section-title">按模型 token / 粗算</h4>
-          ${modelCostList}
           <h4 class="rec-section-title">失败原因分布</h4>
           ${top}
         </div>
@@ -304,6 +315,7 @@ export function mountRecords(root, ctx, opts = {}) {
         paint();
       });
     });
+    bindMeterTips(root);
     root.querySelectorAll("[data-meter-range]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const next = btn.getAttribute("data-meter-range") || "1d";
@@ -382,11 +394,31 @@ export function mountRecords(root, ctx, opts = {}) {
       }
       showToast("当前通道未绑定 SaveTextFile，请重新生成绑定后再导出", "bad");
     });
+    const priceDetails = root.querySelector("#rec-price-details");
+    if (priceDetails && (priceDetailsWasOpen || editingModel)) {
+      priceDetails.open = true;
+    }
+    root.querySelector("#price-model")?.addEventListener("change", () => {
+      if (editingModel) return;
+      draftModel = root.querySelector("#price-model")?.value?.trim() || "";
+    });
+    root.querySelectorAll("[data-price-ccy]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (ccySelectLocked) return;
+        const next = btn.getAttribute("data-price-ccy") || "";
+        if (next !== "CNY" && next !== "USD") return;
+        draftCcy = next;
+        // 只切按钮态，勿整页 paint（避免清掉已填的入/出单价）
+        root.querySelectorAll("[data-price-ccy]").forEach((b) => {
+          b.classList.toggle("primary", b.getAttribute("data-price-ccy") === next);
+        });
+      });
+    });
     root.querySelector("#price-add")?.addEventListener("click", () => {
       const model = root.querySelector("#price-model")?.value?.trim();
       const inputPer1M = Number(root.querySelector("#price-in")?.value || 0);
       const outputPer1M = Number(root.querySelector("#price-out")?.value || 0);
-      let currency = root.querySelector("#price-ccy")?.value || "CNY";
+      let currency = draftCcy || formCcy || "CNY";
       if (ccySelectLocked) currency = peerLocked;
       const wasEdit = Boolean(editingModel);
       const result = upsertModelPrice(prices, {
@@ -401,16 +433,19 @@ export function mountRecords(root, ctx, opts = {}) {
         return;
       }
       editingModel = "";
+      draftModel = "";
       paint();
       showToast(wasEdit ? "已更新单价" : "已添加单价", "ok");
     });
     root.querySelector("#price-cancel-edit")?.addEventListener("click", () => {
       editingModel = "";
+      draftModel = "";
       paint();
     });
     root.querySelectorAll("[data-price-edit]").forEach((btn) => {
       btn.addEventListener("click", () => {
         editingModel = btn.getAttribute("data-price-edit") || "";
+        draftModel = editingModel;
         paint();
       });
     });
@@ -419,6 +454,7 @@ export function mountRecords(root, ctx, opts = {}) {
         const model = btn.getAttribute("data-price-del") || "";
         removeModelPrice(prices, model);
         if (editingModel === model) editingModel = "";
+        if (draftModel === model) draftModel = "";
         paint();
         showToast("已删除单价", "ok");
       });
@@ -512,19 +548,20 @@ function renderPricePanel({
     <details class="rec-price-details" id="rec-price-details" ${editingModel ? "open" : ""}>
       <summary class="rec-price-summary">参考单价（默认收起 · 点此展开配置）</summary>
       <div class="rec-price-body">
-        <p class="meta">人工填写；同一列表内 CNY/USD 勿混加。单价名须与账号「模型名」一致。</p>
+        <p class="meta">人工填写；每个模型仅一套单价。已配置的不在下拉中，点列表「修改」编辑。同一列表 CNY/USD 勿混加。</p>
         <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">
-          <label class="field">模型
+          <label class="field field-price-model">模型
             <select id="price-model" ${editingModel ? "disabled" : ""}>${modelOpts}</select>
           </label>
           <label class="field">输入/1M <input id="price-in" type="number" min="0" step="0.01" placeholder="0" value="${editing ? editing.inputPer1M : ""}" /></label>
           <label class="field">输出/1M <input id="price-out" type="number" min="0" step="0.01" placeholder="0" value="${editing ? editing.outputPer1M : ""}" /></label>
-          <label class="field">币种
-            <select id="price-ccy" ${ccySelectLocked ? "disabled" : ""}>
-              <option value="CNY" ${formCcy === "CNY" ? "selected" : ""}>CNY</option>
-              <option value="USD" ${formCcy === "USD" ? "selected" : ""}>USD</option>
-            </select>
-          </label>
+          <div class="field field-price-ccy">
+            <span class="field-label">币种</span>
+            <div class="rec-price-ccy" role="group" aria-label="币种">
+              <button type="button" class="btn ${formCcy === "CNY" ? "primary" : ""}" data-price-ccy="CNY" ${ccySelectLocked && formCcy !== "CNY" ? "disabled" : ""}>CNY</button>
+              <button type="button" class="btn ${formCcy === "USD" ? "primary" : ""}" data-price-ccy="USD" ${ccySelectLocked && formCcy !== "USD" ? "disabled" : ""}>USD</button>
+            </div>
+          </div>
           <button type="button" class="btn primary" id="price-add">${editingModel ? "更新单价" : "添加单价"}</button>
           ${editingModel ? `<button type="button" class="btn" id="price-cancel-edit">取消编辑</button>` : ""}
         </div>
@@ -580,12 +617,13 @@ function renderMeteringPanel(meter, meterTab, meterRange, pricePanel) {
                   <strong class="rec-mono">${escapeHtml(m.model)}</strong>
                   <span class="meta">入估 ${(m.inputCost || 0).toFixed(4)} · 出估 ${(m.outputCost || 0).toFixed(4)} ${escapeHtml(m.currency || ccy)}${m.priced ? "" : "（无单价）"}</span>
                 </div>
-                <div class="rec-meter-bars" aria-hidden="true">
+                <div class="rec-meter-bars">
                   ${m.buckets
                     .map((b, i) => {
                       const v = b.inputCost + b.outputCost;
                       const h = Math.max(2, Math.round((100 * v) / maxCost));
-                      return `<div class="rec-meter-col" title="${escapeAttr(meter.bucketLabels[i])}: 入 ${(b.inputCost || 0).toFixed(4)} / 出 ${(b.outputCost || 0).toFixed(4)}">
+                      const tip = `${meter.bucketLabels[i]} · ${m.model}\n入估 ${(b.inputCost || 0).toFixed(4)} ${m.currency || t.currency || ""}\n出估 ${(b.outputCost || 0).toFixed(4)} ${m.currency || t.currency || ""}\n合计 ${(v || 0).toFixed(4)}`;
+                      return `<div class="rec-meter-col" tabindex="0" data-meter-tip="${escapeAttr(tip)}" aria-label="${escapeAttr(tip.replace(/\n/g, "；"))}">
                         <div class="rec-meter-bar rec-meter-bar-price" style="height:${h}%"></div>
                         <span class="rec-meter-tick">${escapeHtml(meter.bucketLabels[i])}</span>
                       </div>`;
@@ -599,13 +637,14 @@ function renderMeteringPanel(meter, meterTab, meterRange, pricePanel) {
                 <strong class="rec-mono">${escapeHtml(m.model)}</strong>
                 <span class="meta">入 ${m.inputTokens} · 出 ${m.outputTokens}</span>
               </div>
-              <div class="rec-meter-bars" aria-hidden="true">
+              <div class="rec-meter-bars">
                 ${m.buckets
                   .map((b, i) => {
                     const v = b.inputTokens + b.outputTokens;
                     const h = Math.max(2, Math.round((100 * v) / maxTok));
                     const inH = v ? Math.round((100 * b.inputTokens) / v) : 50;
-                    return `<div class="rec-meter-col" title="${escapeAttr(meter.bucketLabels[i])}: 入 ${b.inputTokens} / 出 ${b.outputTokens}">
+                    const tip = `${meter.bucketLabels[i]} · ${m.model}\n入 ${b.inputTokens} token\n出 ${b.outputTokens} token\n合计 ${v} token`;
+                    return `<div class="rec-meter-col" tabindex="0" data-meter-tip="${escapeAttr(tip)}" aria-label="${escapeAttr(tip.replace(/\n/g, "；"))}">
                       <div class="rec-meter-bar" style="height:${h}%">
                         <span class="rec-meter-bar-in" style="flex:${Math.max(inH, 1)}"></span>
                         <span class="rec-meter-bar-out" style="flex:${Math.max(100 - inH, 1)}"></span>
@@ -640,10 +679,52 @@ function renderMeteringPanel(meter, meterTab, meterRange, pricePanel) {
       }
     </div>
     <h4 class="rec-section-title">分模型时序</h4>
-    <p class="meta">${meterTab === "qty" ? "柱高为该时段入+出 token；青绿=入、琥珀=出。" : "柱高为该时段入+出估价合计（须已配参考单价）。"}</p>
+    <p class="meta">${meterTab === "qty" ? "柱高为该时段入+出 token；青绿=入、琥珀=出。鼠标悬停柱上可看明细。" : "柱高为该时段入+出估价合计（须已配参考单价）。鼠标悬停柱上可看明细。"}</p>
     <div class="rec-meter-series">${seriesHtml}</div>
+    <div class="rec-meter-tip" id="rec-meter-tip" hidden role="tooltip"></div>
     ${pricePanel}
   `;
+}
+
+/** 分模型时序柱：自定义悬浮提示（桌面 WebView 原生 title 几乎不可用） */
+function bindMeterTips(root) {
+  const tip = root.querySelector("#rec-meter-tip");
+  if (!tip) return;
+  const hide = () => {
+    tip.hidden = true;
+    tip.textContent = "";
+  };
+  const show = (col, clientX, clientY) => {
+    const text = col.getAttribute("data-meter-tip") || "";
+    if (!text) {
+      hide();
+      return;
+    }
+    tip.textContent = text;
+    tip.hidden = false;
+    const pad = 12;
+    const rect = tip.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let left = clientX + pad;
+    let top = clientY + pad;
+    if (left + rect.width > vw - 8) left = Math.max(8, clientX - rect.width - pad);
+    if (top + rect.height > vh - 8) top = Math.max(8, clientY - rect.height - pad);
+    tip.style.left = `${left}px`;
+    tip.style.top = `${top}px`;
+  };
+  root.querySelectorAll("[data-meter-tip]").forEach((col) => {
+    col.addEventListener("mouseenter", (e) => show(col, e.clientX, e.clientY));
+    col.addEventListener("mousemove", (e) => {
+      if (!tip.hidden) show(col, e.clientX, e.clientY);
+    });
+    col.addEventListener("mouseleave", hide);
+    col.addEventListener("focus", () => {
+      const r = col.getBoundingClientRect();
+      show(col, r.left + r.width / 2, r.top);
+    });
+    col.addEventListener("blur", hide);
+  });
 }
 
 function escapeHtml(s) {

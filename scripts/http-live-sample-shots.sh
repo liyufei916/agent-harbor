@@ -77,6 +77,7 @@ chrome_shot() {
 }
 
 # ?route= 跳过引导，直接进页
+# 记录页全套样张见 ./scripts/records-sample-shots.sh
 chrome_shot "$OUT/01-home-health.png" "${BASE}&route=home"
 chrome_shot "$OUT/02-models.png" "${BASE}&route=models"
 

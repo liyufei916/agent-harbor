@@ -21,6 +21,7 @@ import {
 import {
   recordAudit,
   recordSessionOutcome,
+  seedShotUsageForScreenshots,
 } from "./usage-analytics.js";
 import {
   loadTutorialProgress,
@@ -754,7 +755,8 @@ async function boot() {
   });
 
   const health = await refreshHealth();
-  const routeParam = new URLSearchParams(location.search).get("route");
+  const params = new URLSearchParams(location.search);
+  const routeParam = params.get("route");
   const allowedRoutes = new Set([
     "home",
     "models",
@@ -763,11 +765,24 @@ async function boot() {
     "settings",
     "wizard",
   ]);
+  // 样张：?shotSeed=1 写入本机用量/单价演示数据（覆盖 localStorage）
+  if (params.get("shotSeed") === "1") {
+    seedShotUsageForScreenshots();
+  }
+
   // ?route= 深链（截图/复验）跳过引导，直接进目标页
+  // records 可带 tab / usageTab / meterTab / meterRange（样张）
   if (routeParam && allowedRoutes.has(routeParam)) {
     shell.classList.remove("hidden");
     onboardRoot?.classList.add("hidden");
-    navigate(routeParam);
+    if (routeParam === "records") {
+      navigate("records", {
+        tab: params.get("tab") || undefined,
+        usageTab: params.get("usageTab") || undefined,
+        meterTab: params.get("meterTab") || undefined,
+        meterRange: params.get("meterRange") || undefined,
+      });
+    } else navigate(routeParam);
   } else if (!maybeOnboarding(health)) {
     navigate(ctx.state.sessionId ? "session" : "home");
   }
