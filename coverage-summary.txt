@@ -1,6 +1,6 @@
 github.com/liyufei916/agent-harbor/internal/contracts/errors.go:13:			Error				100.0%
 github.com/liyufei916/agent-harbor/internal/contracts/events.go:47:			NewAppError			100.0%
-github.com/liyufei916/agent-harbor/internal/contracts/events.go:86:			Validate			93.8%
+github.com/liyufei916/agent-harbor/internal/contracts/events.go:87:			Validate			93.8%
 github.com/liyufei916/agent-harbor/internal/contracts/mcp_summary.go:6:			FormatMCPSummary		100.0%
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:26:				NewDesktopAPI			100.0%
 github.com/liyufei916/agent-harbor/internal/desktop/api.go:31:				ListAgents			90.9%
@@ -273,13 +273,13 @@ github.com/liyufei916/agent-harbor/internal/gate/model_binding.go:48:			acquireM
 github.com/liyufei916/agent-harbor/internal/gate/model_proxy.go:35:			newModelProxy			100.0%
 github.com/liyufei916/agent-harbor/internal/gate/model_proxy.go:43:			close				100.0%
 github.com/liyufei916/agent-harbor/internal/gate/model_proxy.go:49:			serve				50.0%
-github.com/liyufei916/agent-harbor/internal/gate/model_proxy.go:58:			handle				68.7%
-github.com/liyufei916/agent-harbor/internal/gate/model_proxy.go:172:			authorize			83.3%
-github.com/liyufei916/agent-harbor/internal/gate/model_proxy.go:184:			applyModelKey			71.4%
-github.com/liyufei916/agent-harbor/internal/gate/model_proxy.go:200:			normalizeModelRequestPath	100.0%
-github.com/liyufei916/agent-harbor/internal/gate/model_proxy.go:209:			rewriteJSONModelField		72.2%
-github.com/liyufei916/agent-harbor/internal/gate/model_proxy.go:236:			joinOrigin			80.0%
-github.com/liyufei916/agent-harbor/internal/gate/model_proxy.go:245:			copyHeaders			100.0%
+github.com/liyufei916/agent-harbor/internal/gate/model_proxy.go:58:			handle				70.5%
+github.com/liyufei916/agent-harbor/internal/gate/model_proxy.go:179:			authorize			83.3%
+github.com/liyufei916/agent-harbor/internal/gate/model_proxy.go:191:			applyModelKey			71.4%
+github.com/liyufei916/agent-harbor/internal/gate/model_proxy.go:207:			normalizeModelRequestPath	100.0%
+github.com/liyufei916/agent-harbor/internal/gate/model_proxy.go:216:			rewriteJSONModelField		72.2%
+github.com/liyufei916/agent-harbor/internal/gate/model_proxy.go:243:			joinOrigin			80.0%
+github.com/liyufei916/agent-harbor/internal/gate/model_proxy.go:252:			copyHeaders			100.0%
 github.com/liyufei916/agent-harbor/internal/gate/mounts.go:10:				mcpMounts			87.5%
 github.com/liyufei916/agent-harbor/internal/gate/redact.go:14:				newSecretRedactor		100.0%
 github.com/liyufei916/agent-harbor/internal/gate/redact.go:19:				newSecretRedactorOpts		81.8%
@@ -654,4 +654,4 @@ github.com/liyufei916/agent-harbor/scripts/cmd/syncback-checksum/main.go:14:		ha
 github.com/liyufei916/agent-harbor/scripts/cmd/syncback-checksum/main.go:23:		main				0.0%
 github.com/liyufei916/agent-harbor/shutdown.go:17:					newExitGate			100.0%
 github.com/liyufei916/agent-harbor/shutdown.go:20:					request				90.5%
-total:											(statements)			61.2%
+total:											(statements)			61.3%
