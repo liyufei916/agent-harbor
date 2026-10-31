@@ -15,8 +15,7 @@ includes:
   windows: ./build/windows/Taskfile.yml
   darwin: ./build/darwin/Taskfile.yml
   linux: ./build/linux/Taskfile.yml
-  ios: ./build/ios/Taskfile.yml
-  android: ./build/android/Taskfile.yml
+  # ios/android 脚手架不入库（见 .gitignore）；勿再 include，否则 task 启动即失败。
 
 tasks:
   build:
