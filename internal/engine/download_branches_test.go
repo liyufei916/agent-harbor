@@ -136,3 +136,28 @@ func TestColimaEnsureImageWithLocalBinaries(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestDownloadHelpersCoverDisabledAndMalformedPaths(t *testing.T) {
+	for value, want := range map[string]bool{"0": false, "false": false, "OFF": false, "1": true, "": true} {
+		t.Setenv("HARBOR_ENGINE_AUTO_DOWNLOAD", value)
+		if got := autoDownloadEnabled(); got != want {
+			t.Fatalf("autoDownloadEnabled(%q)=%v", value, got)
+		}
+	}
+	if err := defaultFetch(context.Background(), "://bad", io.Discard); err == nil {
+		t.Fatal("invalid URL accepted")
+	}
+	if _, err := (&progressWriter{w: errorWriter{}}).Write([]byte("x")); err == nil {
+		t.Fatal("writer error lost")
+	}
+	c := NewColima()
+	c.Root = t.TempDir()
+	bad := pinnedArtifact{Name: "x", SHA256: "", Kind: artifactKind(99)}
+	if err := c.installArtifact(context.Background(), func(context.Context, string, io.Writer) error { return nil }, bad, filepath.Join(c.Root, "x"), nil); err == nil {
+		t.Fatal("empty artifact accepted")
+	}
+}
+
+type errorWriter struct{}
+
+func (errorWriter) Write([]byte) (int, error) { return 0, errors.New("write failed") }

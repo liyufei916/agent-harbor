@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -15,6 +17,42 @@ func coverageDockerEntry() *dockerEntry {
 		mounts:     map[string]string{"/host/ro": "/harbor/ro/0"},
 		allowedTCP: []string{"127.0.0.1:1234"},
 	}
+}
+
+func TestDockerCreateArgsBranches(t *testing.T) {
+	r := &Docker{image: "harbor:test"}
+	mounts := map[string]string{}
+	args := r.createArgs(" ", "/tmp/home", "/tmp/workspace", []string{"/usr/bin/true"}, mounts)
+	joined := strings.Join(args, " ")
+	if !strings.Contains(joined, "agent-harbor.session=unknown") || !strings.Contains(joined, "harbor:test sleep infinity") {
+		t.Fatalf("create args=%s", joined)
+	}
+	if len(mounts) != 1 || mounts["/usr/bin/true"] == "" {
+		t.Fatalf("readonly mounts=%v", mounts)
+	}
+}
+
+func TestDockerCreateRejectsInvalidInputsAndLookup(t *testing.T) {
+	r := NewDocker()
+	r.runner = &fakeDockerRunner{binOK: true}
+	ws := t.TempDir()
+	for _, spec := range []RuntimeSpec{
+		{SessionID: "", MountMode: "direct", Workspace: ws, AllowedTCP: []string{"127.0.0.1:1"}},
+		{SessionID: "x", MountMode: "bad", Workspace: ws, AllowedTCP: []string{"127.0.0.1:1"}},
+		{SessionID: "x", MountMode: "direct", Workspace: ws},
+		{SessionID: "x", MountMode: "direct", Workspace: ws, AllowedTCP: []string{"127.0.0.1:1"}, ReadOnlyPaths: []string{""}},
+	} {
+		if _, err := r.Create(context.Background(), spec); err == nil {
+			t.Fatalf("invalid spec accepted: %+v", spec)
+		}
+	}
+	if _, err := r.lookup(Handle{ID: "missing", PrivateHome: filepath.Join(ws, "home")}); err == nil {
+		t.Fatal("missing handle accepted")
+	}
+	if err := r.Destroy(context.Background(), Handle{ID: "missing"}); err == nil {
+		t.Fatal("destroy missing handle accepted")
+	}
+	_ = os.RemoveAll(ws)
 }
 
 func TestDockerPathAndEnvironmentRewrites(t *testing.T) {

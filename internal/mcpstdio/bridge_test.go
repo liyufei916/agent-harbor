@@ -238,3 +238,23 @@ func TestBridgeHTTPValidationAndCachedMethods(t *testing.T) {
 		t.Fatal("closed bridge call succeeded")
 	}
 }
+
+func TestBridgeFramingAndClosedNotifications(t *testing.T) {
+	var out bytes.Buffer
+	if err := writeFramed(&out, []byte(`{"jsonrpc":"2.0"}`)); err != nil || !strings.Contains(out.String(), "Content-Length:") {
+		t.Fatalf("framed=%q err=%v", out.String(), err)
+	}
+	b := &Bridge{closed: true, pending: map[string]chan json.RawMessage{}}
+	if err := b.notify(context.Background(), "x", nil); err == nil {
+		t.Fatal("closed notify succeeded")
+	}
+	ch := make(chan json.RawMessage, 1)
+	b = &Bridge{pending: map[string]chan json.RawMessage{"1": ch}}
+	b.failAll()
+	if _, ok := <-ch; ok {
+		t.Fatal("pending channel should be closed")
+	}
+	if parseToolNames(json.RawMessage(`{"tools":[{},null,{"name":123}]}`)) != nil {
+		t.Fatal("invalid tool entries should produce no usable names")
+	}
+}
