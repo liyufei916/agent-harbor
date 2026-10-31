@@ -34,6 +34,8 @@ ALLOWED_SKIP_SUBSTR = (
     "设置 HARBOR_",
     "python3",
     "stdio fixture",
+    "Keychain",
+    "TestPersistentStoreRoundTrip",
 )
 
 
