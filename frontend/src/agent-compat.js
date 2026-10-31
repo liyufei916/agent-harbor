@@ -44,10 +44,25 @@ export function accountProtocols(account) {
   return [];
 }
 
-function agentNeedsProtocol(agentId) {
+export function agentNeedsProtocol(agentId) {
   if (agentId === "codex") return "openai-responses";
   if (agentId === "claude" || agentId === "dsh") return "anthropic";
   return "";
+}
+
+/** 协议勾选 → 默认可勾 Agent（Codex 仅 Responses；Claude/dsh 仅 Anthropic）。 */
+export function agentsForProtocols(protocols = []) {
+  const set = new Set(protocols);
+  const out = [];
+  if (set.has("anthropic")) out.push("claude", "dsh");
+  if (set.has("openai-responses")) out.push("codex");
+  return [...new Set(out)];
+}
+
+export function protocolLabel(id) {
+  if (id === "anthropic") return "Anthropic Messages（/v1/messages）";
+  if (id === "openai-responses") return "OpenAI Responses（/v1/responses）";
+  return id || "";
 }
 
 export function modelFitsAgent(account, agentId, _agents = []) {

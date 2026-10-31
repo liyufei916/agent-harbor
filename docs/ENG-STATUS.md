@@ -43,6 +43,7 @@
 | 2026-10-30am | **代填自检收紧**：步骤 1–2/Gatekeeper/扩权 GUI/§B「无 Desktop」标明代填或 API 口径，避免冒充陌生机重下或 GUI 补镜。 |
 | 2026-10-30an | **`feat/p2-docker-runtime` → `main`**：`1a5db77`；文档去掉「不合 main」口径。 |
 | 2026-10-31 | **评审 A 包**：gofmt + RestartApp race；`harbor_demo_ask` 默认关（UIPrefs/`HARBOR_DEMO_ASK`）；持久化口径注释；MCP「机制+清单」文案。 |
+| 2026-10-31b | **评审 B 包**：非 context7 远程 MCP 证据 + 矩阵；模型页协议→Agent 显式勾选；`gatekeeper-verify.sh`；SyncBack sha256 旁证。 |
 
 ## eng-complete（代码已接线）
 

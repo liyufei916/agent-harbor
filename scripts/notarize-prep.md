@@ -21,6 +21,12 @@
 - [ ] 成功后对 `.app` / `.dmg` 执行 `xcrun stapler staple`
 - [ ] 干净机（或另一用户）打开：Gatekeeper 无「无法验证开发者」阻断
 
+未公证前的临时路径（校验 zip + 打印「仍要打开」步骤）：
+
+```bash
+./scripts/gatekeeper-verify.sh AgentHarbor-macos.zip
+```
+
 ## 分发（可选）
 
 - [ ] 上传公证后的 zip/dmg 至内部分发渠道

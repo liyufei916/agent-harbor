@@ -1,0 +1,14 @@
+# 非 context7 远程 HTTP MCP 接通证据
+# 日期：2026-10-31
+# 命令：go run ./scripts/cmd/mcp-remote-evidence
+# 上游：本机受控 Streamable HTTP（http://127.0.0.1 · AllowInsecureLoopback）
+# 说明：证明非 Context7 的远程 HTTP ConnectMcp 路径；公网用户仍用 HTTPS Origin。
+
+ORIGIN=http://127.0.0.1:49571
+accountId=mcp_d48b61a44d97a27f
+host=127.0.0.1
+transport=
+authMode=
+tools=harbor_evidence_echo
+keyHint=
+PASS: ConnectMcp non-context7 remote HTTP

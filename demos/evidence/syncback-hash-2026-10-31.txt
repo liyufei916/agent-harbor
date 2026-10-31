@@ -1,0 +1,11 @@
+# SyncBack 画面级旁证（命令级 hash）
+# 日期：2026-10-31
+# 命令：go run ./scripts/cmd/syncback-checksum <cloneDir> <sourceDir>
+# 语义：同名覆盖源；源独有 ONLY_SRC_KEEP 导回后 sha256 不变。
+# GUI 口播见 B6-SUCCESS-DEMO；本文件为命令级旁证。
+
+SYNCBACK_DEMO.md before=44ea8ede9025c26663124ceeefca2a35e40e5021cd116e436d368e2deae3355e after=6045bd48b0cfd420d66589747410ca4f51ea5aa093275ee1779ab8b3abc45652
+ONLY_SRC_KEEP.txt before=9b1b3e1121fded7b3f1fe65880fb12787284b501166373c9f929dd49c117567f after=9b1b3e1121fded7b3f1fe65880fb12787284b501166373c9f929dd49c117567f (must equal)
+body="harbor-syncback-ok\n"
+OK: overwrite same-name + keep extra
+PASS: SyncBack path ownership via sha256

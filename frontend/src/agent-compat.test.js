@@ -6,6 +6,8 @@ import {
   filterModelsForAgent,
   filterModelsForSwitch,
   modelCompatLabel,
+  agentsForProtocols,
+  protocolLabel,
 } from "./agent-compat.js";
 
 test("expectedModelProfile 按 Agent 映射", () => {
@@ -121,4 +123,17 @@ test("modelCompatLabel", () => {
     }),
     "可用于 claude / codex",
   );
+});
+
+test("agentsForProtocols / protocolLabel：协议→Agent 显式映射", () => {
+  assert.deepEqual(agentsForProtocols(["anthropic"]), ["claude", "dsh"]);
+  assert.deepEqual(agentsForProtocols(["openai-responses"]), ["codex"]);
+  assert.deepEqual(agentsForProtocols(["anthropic", "openai-responses"]), [
+    "claude",
+    "dsh",
+    "codex",
+  ]);
+  assert.deepEqual(agentsForProtocols([]), []);
+  assert.match(protocolLabel("anthropic"), /messages/i);
+  assert.match(protocolLabel("openai-responses"), /responses/i);
 });

@@ -4,7 +4,19 @@
  * Codex Agent 须另存 profileId=codex-model（Responses；Origin 来自宿主机 env）。
  */
 import * as api from "../api.js";
-import { defaultAgentsForProfile, modelCompatLabel } from "../agent-compat.js";
+import {
+  defaultAgentsForProfile,
+  modelCompatLabel,
+  accountProtocols,
+  agentNeedsProtocol,
+  agentsForProtocols,
+  protocolLabel,
+} from "../agent-compat.js";
+
+const PROTOCOL_OPTS = [
+  { id: "anthropic", label: "Anthropic Messages（/v1/messages）→ Claude / dsh" },
+  { id: "openai-responses", label: "OpenAI Responses（/v1/responses）→ Codex" },
+];
 import { fixedProfileHint } from "../agent-env-hints.js";
 import { openFormModal } from "../form-modal.js";
 import { showToast } from "../toast.js";
@@ -47,6 +59,10 @@ export function mountModels(root, ctx, opts = {}) {
   let listStatus = "";
   /** null=自定义 Anthropic；否则为固定 profileId（codex-model / dsh-model） */
   let fixedProfileId = null;
+  /** 表单内勾选的上游协议（自定义可改；固定 profile 锁定） */
+  let formProtocols = null;
+  /** 表单内勾选的 Agent（受 formProtocols 约束） */
+  let formAgents = null;
   /** @type {{ body: HTMLElement, setTitle: Function, close: Function } | null} */
   let formModal = null;
 
@@ -69,6 +85,8 @@ export function mountModels(root, ctx, opts = {}) {
         formModal = null;
         editing = null;
         fixedProfileId = null;
+        formProtocols = null;
+        formAgents = null;
       },
     });
     return formModal?.body || null;
@@ -139,6 +157,11 @@ export function mountModels(root, ctx, opts = {}) {
           <div>
             <strong>${a.name}</strong>
             <span class="meta">${a.host || a.profileId || ""} · ${modelCompatLabel(a)}</span>
+            <span class="meta">协议：${
+              accountProtocols(a).length
+                ? accountProtocols(a).map(protocolLabel).join(" · ")
+                : "—"
+            }</span>
             ${a.invalid ? `<span class="bad">▲ 无效</span>` : ""}
           </div>
           <div class="row">
@@ -159,6 +182,8 @@ export function mountModels(root, ctx, opts = {}) {
       pendingDelete = "";
       listStatus = "";
       fixedProfileId = null;
+      formProtocols = ["anthropic"];
+      formAgents = ["claude"];
       paintForm();
     };
     root.querySelector("#btn-add-model").onclick = startAdd;
@@ -176,6 +201,11 @@ export function mountModels(root, ctx, opts = {}) {
           acc?.profileId === "codex-model" || acc?.profileId === "dsh-model"
             ? acc.profileId
             : null;
+        formProtocols = accountProtocols(acc);
+        formAgents =
+          Array.isArray(acc?.agents) && acc.agents.length
+            ? [...acc.agents]
+            : defaultAgentsForProfile(acc?.profileId || "custom");
         paintForm();
       };
     });
@@ -229,27 +259,55 @@ export function mountModels(root, ctx, opts = {}) {
     const isFixed = !!fixedProfileId;
     const fixedMeta = FIXED_PRESETS.find((p) => p.profileId === fixedProfileId);
     const profileForAgents = fixedProfileId || acc.profileId || "custom";
-    const selectedAgents =
-      Array.isArray(acc.agents) && acc.agents.length
-        ? acc.agents
-        : defaultAgentsForProfile(profileForAgents);
+    if (fixedProfileId === "codex-model") formProtocols = ["openai-responses"];
+    else if (fixedProfileId === "dsh-model") formProtocols = ["anthropic"];
+    else if (!formProtocols?.length) {
+      formProtocols = accountProtocols(
+        editing === "new"
+          ? { profileId: "custom" }
+          : { profileId: profileForAgents, protocols: acc.protocols },
+      );
+      if (!formProtocols.length) formProtocols = ["anthropic"];
+    }
+    const selectedProtocols = [...formProtocols];
+    const allowedAgents = agentsForProtocols(selectedProtocols);
+    if (!formAgents?.length) {
+      formAgents =
+        Array.isArray(acc.agents) && acc.agents.length
+          ? [...acc.agents]
+          : defaultAgentsForProfile(profileForAgents);
+    }
+    formAgents = formAgents.filter((id) => allowedAgents.includes(id));
+    if (!formAgents.length && allowedAgents.length) {
+      formAgents = [allowedAgents[0]];
+    }
+    const agentsFinal = formAgents;
     form.innerHTML = `
         <label class="field">名称<input id="m-name" value="${acc.name || ""}" maxlength="100"/></label>
         <div id="m-custom-fields" class="${isFixed ? "hidden" : ""}">
           <label class="field">API 地址<input id="m-origin" value="${originValue}" placeholder="https://api.deepseek.com/anthropic"/></label>
-          <p class="meta">须 Anthropic 兼容 Messages API（探测 <code>POST …/v1/messages</code>）。七牛两套 Key 不能混用。若同时勾选 Codex，地址须为<strong>同时提供 Messages + Responses</strong> 的网关。</p>
+          <p class="meta">保存时按勾选协议探测；仅 Anthropic 时勿勾 Codex。双协议网关须<strong>同时提供 Messages + Responses</strong>。七牛两套 Key 不能混用。</p>
           <label class="field">模型名（可选）<input id="m-model" value="${acc.model || ""}" placeholder="空则按主机推断，如 deepseek-chat"/></label>
           <p class="meta">此处模型名会经 Gate 改写出站请求，可覆盖 Agent CLI 默认名；因此非 Anthropic 原生上游（如 DeepSeek 兼容 Messages）也能用。</p>
         </div>
         <div id="m-fixed-fields" class="${isFixed ? "" : "hidden"}">
           <p class="meta ok">固定 profile：<code>${fixedProfileId || ""}</code>。${fixedMeta?.hint || "上游由启动环境变量登记，页面不填 Origin。"}</p>
         </div>
-        <p class="meta">可用于哪些 Agent（可多选）：</p>
+        <p class="meta">上游协议（先选协议，再勾 Agent；保存时探测校验）：</p>
+        <div class="row" id="m-protocols">
+          ${PROTOCOL_OPTS.map((o) => {
+            const checked = selectedProtocols.includes(o.id);
+            const locked = isFixed;
+            return `<label class="check-row"><input type="checkbox" data-protocol="${o.id}" ${checked ? "checked" : ""} ${locked ? "disabled" : ""}/> ${o.label}</label>`;
+          }).join("")}
+        </div>
+        <p class="meta">可用于哪些 Agent（随协议自动约束）：</p>
         <div class="row" id="m-agents">
-          ${AGENT_OPTS.map(
-            (o) =>
-              `<label class="check-row"><input type="checkbox" data-agent="${o.id}" ${selectedAgents.includes(o.id) ? "checked" : ""}/> ${o.label}</label>`,
-          ).join("")}
+          ${AGENT_OPTS.map((o) => {
+            const need = agentNeedsProtocol(o.id);
+            const ok = selectedProtocols.includes(need);
+            return `<label class="check-row"><input type="checkbox" data-agent="${o.id}" ${agentsFinal.includes(o.id) ? "checked" : ""} ${ok ? "" : "disabled"}/> ${o.label}${ok ? "" : `（需 ${protocolLabel(need)}）`}</label>`;
+          }).join("")}
         </div>
         <label class="field">API Key（提交后清空）<input id="m-key" type="password" autocomplete="off" spellcheck="false" placeholder="${editing === "new" ? "粘贴完整 sk-… Key" : "重贴新 Key（不回显旧值）"}"/></label>
         <p class="meta" id="m-key-hint">${
@@ -293,6 +351,8 @@ export function mountModels(root, ctx, opts = {}) {
     form.querySelectorAll("[data-preset]").forEach((btn) => {
       btn.onclick = () => {
         fixedProfileId = null;
+        formProtocols = ["anthropic"];
+        formAgents = ["claude"];
         paintForm();
         const o = form.querySelector("#m-origin");
         const m = form.querySelector("#m-model");
@@ -311,6 +371,8 @@ export function mountModels(root, ctx, opts = {}) {
     form.querySelectorAll("[data-fixed]").forEach((btn) => {
       btn.onclick = () => {
         fixedProfileId = btn.getAttribute("data-fixed");
+        formProtocols = null;
+        formAgents = null;
         if (!nameEl.value.trim()) {
           nameEl.value = "我的 " + (btn.getAttribute("data-pname") || "");
         }
@@ -320,11 +382,56 @@ export function mountModels(root, ctx, opts = {}) {
     });
     form.querySelector("#m-use-custom")?.addEventListener("click", () => {
       fixedProfileId = null;
+      formProtocols = ["anthropic"];
+      formAgents = ["claude"];
       paintForm();
+    });
+    form.querySelectorAll("[data-protocol]").forEach((el) => {
+      el.addEventListener("change", () => {
+        if (isFixed) return;
+        const next = [...form.querySelectorAll("[data-protocol]:checked")].map((x) =>
+          x.getAttribute("data-protocol"),
+        );
+        if (!next.length) {
+          el.checked = true;
+          status.innerHTML = `<span class="bad">至少勾选一种上游协议</span>`;
+          return;
+        }
+        const keep = {
+          name: nameEl.value,
+          origin: originEl?.value || "",
+          model: modelEl?.value || "",
+          key: keyEl.value,
+        };
+        formProtocols = next;
+        formAgents = [...form.querySelectorAll("[data-agent]:checked")]
+          .map((x) => x.getAttribute("data-agent"))
+          .filter((id) => agentsForProtocols(next).includes(id));
+        paintForm();
+        const f = formModal?.body;
+        if (!f) return;
+        const n = f.querySelector("#m-name");
+        const o = f.querySelector("#m-origin");
+        const m = f.querySelector("#m-model");
+        const k = f.querySelector("#m-key");
+        if (n) n.value = keep.name;
+        if (o) o.value = keep.origin;
+        if (m) m.value = keep.model;
+        if (k) k.value = keep.key;
+      });
+    });
+    form.querySelectorAll("[data-agent]").forEach((el) => {
+      el.addEventListener("change", () => {
+        formAgents = [...form.querySelectorAll("[data-agent]:checked")].map((x) =>
+          x.getAttribute("data-agent"),
+        );
+      });
     });
     form.querySelector("#m-cancel").onclick = () => {
       editing = null;
       fixedProfileId = null;
+      formProtocols = null;
+      formAgents = null;
       closeFormModal();
       if (returning) {
         clearReturn();
@@ -435,6 +542,8 @@ export function mountModels(root, ctx, opts = {}) {
         keyEl.value = "";
         editing = null;
         fixedProfileId = null;
+        formProtocols = null;
+        formAgents = null;
         closeFormModal();
         markTutorialStep(1);
         ctx.onAccountsChanged?.();

@@ -43,8 +43,9 @@
 
 上手说明见 [FIRST-RUN.md](FIRST-RUN.md)；契约见 [CONTRACT.md](../docs/CONTRACT.md)。
 
-## 非 context7 接通（待补）
+## 非 context7 接通
 
 | 上游 | 状态 | 证据 |
 |---|---|---|
-| （填写非 context7 远程 MCP） | **待补** | 报告行或录屏时间码 |
+| 本机受控 Streamable HTTP（`http://127.0.0.1` · `AllowInsecureLoopback`；非 Context7） | **通过（2026-10-31）** | `go run ./scripts/cmd/mcp-remote-evidence` → [`evidence/mcp-remote-non-context7-2026-10-31.txt`](evidence/mcp-remote-non-context7-2026-10-31.txt)（`PASS: ConnectMcp non-context7 remote HTTP`；工具 `harbor_evidence_echo`） |
+| Context7 预置 | 另见工具页一键 / I1 账号列表 | 不替代上列「非 context7」项 |
