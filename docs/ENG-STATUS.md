@@ -46,6 +46,7 @@
 | 2026-10-31b | **评审 B 包**：非 context7 远程 MCP 证据 + 矩阵；模型页协议→Agent 显式勾选；`gatekeeper-verify.sh`；SyncBack sha256 旁证。 |
 | 2026-10-31c | **双终端 + http-live**：浏览器与桌面同前端；loopback 桥默认同端口挂 dist；UI 不挂旁证恐吓横幅。 |
 | 2026-10-31d | **http-live 复验闭环**：`harbor_demo_blocked` 始终注入；撤销清 Gate extraHosts + 三处记住表同步；向导 `WORKSPACE_BUSY` 早检；live-browser 样张 + EXPAND/BLOCK GUI 通过（permission-live-test 用例 4–5）。 |
+| 2026-10-31e | **口径+记录**：CONTRACT/注释厘清「本项目」= 落盘跨会话 vs Gate `extraHosts` 会话热路径；记录页补按会话/工具分组与失败原因分布；前端测对齐 Docker 落点与 SESSION_LIMIT=5。 |
 
 ## eng-complete（代码已接线）
 

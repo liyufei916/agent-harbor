@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import {
   clearUsageAnalytics,
   estimateCostStatus,
+  failureReasonDistribution,
   formatEventRow,
+  groupUsageBySession,
+  groupUsageByTool,
   listUsageEvents,
   loadModelPrices,
   lockedPriceCurrency,
@@ -64,6 +67,43 @@ test("records channels split blocks vs permissions", () => {
   assert.equal(perms.length, 2);
   assert.match(formatEventRow(perms[0]), /deny|project/);
   assert.equal(summarizeUsage().permissionCount, 2);
+  clearUsageAnalytics();
+});
+
+test("group by session/tool and failure reason distribution", () => {
+  clearUsageAnalytics();
+  recordSessionOutcome({ sessionId: "sess-aaa", state: "stopped" });
+  recordSessionOutcome({
+    sessionId: "sess-bbb",
+    state: "failed",
+    error: { code: "UPSTREAM_TIMEOUT" },
+  });
+  recordAudit({ result: "allowed", tool: "read", target: "ok" }, "sess-aaa");
+  recordAudit({ result: "denied", tool: "bash", target: "evil" }, "sess-aaa");
+  recordAudit({ result: "failed", tool: "bash", target: "mcp" }, "sess-bbb");
+  recordPermissionDecision({
+    sessionId: "sess-aaa",
+    target: "cdn.example",
+    decision: "project",
+  });
+
+  const sessions = groupUsageBySession();
+  assert.equal(sessions.length, 2);
+  const a = sessions.find((s) => s.sessionId === "sess-aaa");
+  assert.ok(a);
+  assert.equal(a.denied, 1);
+  assert.equal(a.permissions, 1);
+  assert.equal(a.outcome, "stopped");
+
+  const tools = groupUsageByTool();
+  const bash = tools.find((t) => t.tool === "bash");
+  assert.ok(bash);
+  assert.equal(bash.total, 2);
+  assert.equal(bash.denied, 1);
+  assert.equal(bash.failed, 1);
+
+  const fails = failureReasonDistribution();
+  assert.ok(fails.some((f) => /denied:bash|UPSTREAM_TIMEOUT|failed:bash/.test(f.label)));
   clearUsageAnalytics();
 });
 

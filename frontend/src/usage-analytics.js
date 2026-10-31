@@ -226,6 +226,103 @@ export function summarizeUsage() {
 }
 
 /**
+ * 按会话聚合：审计/扩权/终态计数，便于本机迭代对照。
+ * @param {{ limit?: number }} [opts]
+ * @returns {{ sessionId: string, shortId: string, audits: number, denied: number, failed: number, permissions: number, outcome: string }[]}
+ */
+export function groupUsageBySession(opts = {}) {
+  const limit = Math.min(Math.max(Number(opts.limit) || 20, 1), 80);
+  const { events } = load();
+  /** @type {Map<string, { sessionId: string, audits: number, denied: number, failed: number, permissions: number, outcome: string, lastT: number }>} */
+  const by = new Map();
+  const touch = (sid) => {
+    const id = String(sid || "").trim() || "(无会话)";
+    if (!by.has(id)) {
+      by.set(id, {
+        sessionId: id,
+        audits: 0,
+        denied: 0,
+        failed: 0,
+        permissions: 0,
+        outcome: "",
+        lastT: 0,
+      });
+    }
+    return by.get(id);
+  };
+  for (const e of events) {
+    const row = touch(e.sessionId);
+    row.lastT = Math.max(row.lastT, Number(e.t) || 0);
+    if (e.kind === "audit") {
+      row.audits += 1;
+      if (e.result === "denied") row.denied += 1;
+      if (e.result === "failed") row.failed += 1;
+    } else if (e.kind === "permission") {
+      row.permissions += 1;
+    } else if (e.kind === "session_outcome") {
+      row.outcome = e.code ? `${e.state}:${e.code}` : e.state || row.outcome;
+    }
+  }
+  return [...by.values()]
+    .sort((a, b) => b.lastT - a.lastT)
+    .slice(0, limit)
+    .map((r) => ({
+      sessionId: r.sessionId,
+      shortId: shortSession(r.sessionId === "(无会话)" ? "" : r.sessionId),
+      audits: r.audits,
+      denied: r.denied,
+      failed: r.failed,
+      permissions: r.permissions,
+      outcome: r.outcome || "—",
+    }));
+}
+
+/**
+ * 按工具聚合审计结果（含失败原因分布）。
+ * @param {{ limit?: number }} [opts]
+ * @returns {{ tool: string, total: number, allowed: number, denied: number, failed: number, other: number }[]}
+ */
+export function groupUsageByTool(opts = {}) {
+  const limit = Math.min(Math.max(Number(opts.limit) || 15, 1), 60);
+  const { events } = load();
+  /** @type {Map<string, { tool: string, total: number, allowed: number, denied: number, failed: number, other: number }>} */
+  const by = new Map();
+  for (const e of events) {
+    if (e.kind !== "audit") continue;
+    const tool = String(e.tool || "mcp").trim() || "mcp";
+    if (!by.has(tool)) {
+      by.set(tool, {
+        tool,
+        total: 0,
+        allowed: 0,
+        denied: 0,
+        failed: 0,
+        other: 0,
+      });
+    }
+    const row = by.get(tool);
+    row.total += 1;
+    if (e.result === "allowed") row.allowed += 1;
+    else if (e.result === "denied") row.denied += 1;
+    else if (e.result === "failed") row.failed += 1;
+    else row.other += 1;
+  }
+  return [...by.values()]
+    .sort((a, b) => b.total - a.total || b.denied + b.failed - (a.denied + a.failed))
+    .slice(0, limit);
+}
+
+/**
+ * 失败原因分布（会话错误码 + 审计 denied/failed + 扩权拒绝）。
+ * @param {{ limit?: number }} [opts]
+ * @returns {{ label: string, count: number }[]}
+ */
+export function failureReasonDistribution(opts = {}) {
+  const limit = Math.min(Math.max(Number(opts.limit) || 12, 1), 40);
+  return summarizeUsage().topFailures.slice(0, limit);
+}
+
+/**
  * @param {"blocks"|"permissions"|"sessions"} channel
  * @param {{ limit?: number }} [opts]
  * @returns {UsageEvent[]}

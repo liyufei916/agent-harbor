@@ -97,9 +97,16 @@ func runDesktopSmoke() {
 	win.OnWindowEvent(events.Common.WindowRuntimeReady, func(*application.WindowEvent) {
 		win.ExecJS(fmt.Sprintf(`(async () => {
   const check = (ok, message) => { if (!ok) throw new Error(message); };
-  for (let i = 0; i < 200 && document.getElementById('mode-badge')?.textContent !== '真实绑定'; i++)
+  // 桌面 live：顶栏不再展示「真实绑定」（对用户无信息量），syncBadge 清空文案并加 class live。
+  const liveReady = () => {
+    const b = document.getElementById('mode-badge');
+    if (!b) return false;
+    if (b.textContent === '真实绑定') return true;
+    return b.classList.contains('live') && b.textContent !== '模拟模式';
+  };
+  for (let i = 0; i < 200 && !liveReady(); i++)
     await new Promise(resolve => setTimeout(resolve, 100));
-  check(document.getElementById('mode-badge')?.textContent === '真实绑定', '桌面没有进入 live');
+  check(liveReady(), '桌面没有进入 live');
   const { createLiveTransport } = await import(%q);
   const api = createLiveTransport();
   const agents = await api.listAgents();

@@ -71,7 +71,8 @@ type sessionRuntime struct {
 	done       chan struct{}
 	audit      func(contracts.AuditData)
 	fatal      func(error)
-	// extraHosts：扩权追加的主机 → once|project（会话期；once 消费后删除）
+	// extraHosts：扩权追加的主机 → once|project（仅本会话热路径；once 消费后删除）。
+	// project 跨会话持久化由桌面落盘记住表 + 新会话种子回灌负责，不在本 map。
 	extraHosts map[string]string
 }
 
@@ -334,7 +335,8 @@ func (h *Harbor) SetModelAccount(sessionID, accountID string) error {
 	return h.SwitchModel(context.Background(), sessionID, accountID)
 }
 
-// AllowExtraHost 将扩权通过的主机记入会话（once 仅一次；project 会话期有效）。
+// AllowExtraHost 将扩权通过的主机记入本会话 extraHosts（once 仅一次；project 本会话常驻到撤销）。
+// 跨会话「本项目」持久化不在此方法：由桌面落盘 + CreateSession 种子回灌完成。
 func (h *Harbor) AllowExtraHost(sessionID, host, scope string) error {
 	host = strings.ToLower(strings.TrimSpace(host))
 	if sessionID == "" || host == "" {

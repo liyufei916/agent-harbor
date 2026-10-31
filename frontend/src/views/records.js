@@ -7,7 +7,10 @@ import {
   clearUsageAnalytics,
   estimateCostStatus,
   exportUsageBundle,
+  failureReasonDistribution,
   formatEventRow,
+  groupUsageBySession,
+  groupUsageByTool,
   listUsageEvents,
   loadModelPrices,
   lockedPriceCurrency,
@@ -41,10 +44,31 @@ export function mountRecords(root, ctx, opts = {}) {
     const cost = estimateCostStatus();
     const prices = loadModelPrices();
     const lockedCcy = lockedPriceCurrency(prices);
+    const bySession = groupUsageBySession({ limit: 12 });
+    const byTool = groupUsageByTool({ limit: 12 });
+    const failDist = failureReasonDistribution({ limit: 10 });
     const top =
-      s.topFailures.length === 0
+      failDist.length === 0
         ? "<li class='meta'>暂无</li>"
-        : s.topFailures.map((f) => `<li>${f.label} · ${f.count}</li>`).join("");
+        : failDist.map((f) => `<li>${escapeHtml(f.label)} · ${f.count}</li>`).join("");
+    const sessionGroups =
+      bySession.length === 0
+        ? "<li class='meta'>暂无</li>"
+        : bySession
+            .map(
+              (r) =>
+                `<li>${escapeHtml(r.shortId)} · 终态 ${escapeHtml(r.outcome)} · 审计 ${r.audits}（拒 ${r.denied}/败 ${r.failed}）· 扩权 ${r.permissions}</li>`,
+            )
+            .join("");
+    const toolGroups =
+      byTool.length === 0
+        ? "<li class='meta'>暂无</li>"
+        : byTool
+            .map(
+              (r) =>
+                `<li>${escapeHtml(r.tool)} · ${r.total} 次（允 ${r.allowed}/拒 ${r.denied}/败 ${r.failed}${r.other ? `/其它 ${r.other}` : ""}）</li>`,
+            )
+            .join("");
 
     const blocks = listUsageEvents("blocks", { limit: 120 });
     const perms = listUsageEvents("permissions", { limit: 120 });
@@ -129,8 +153,12 @@ export function mountRecords(root, ctx, opts = {}) {
           <p>首任务成功率：${s.firstTaskSuccessRate}</p>
           <p>阻拦占比：${s.denyRate} · 工具失败：${s.mcpFailRate}</p>
           <p>费用估算：<strong>${cost.status}</strong> — ${cost.detail}</p>
-          <p>典型失败 Top：</p>
+          <p>失败原因分布：</p>
           <ul class="audit-list">${top}</ul>
+          <p>按会话：</p>
+          <ul class="audit-list">${sessionGroups}</ul>
+          <p>按工具：</p>
+          <ul class="audit-list">${toolGroups}</ul>
         </div>
         <h4 class="meta" style="margin-top:12px">参考单价（人工填写；同一列表内 CNY/USD 勿混加）</h4>
         <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">

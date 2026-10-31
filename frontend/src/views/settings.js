@@ -146,7 +146,7 @@ export function mountSettings(root, ctx, opts = {}) {
 
     <section class="card" style="margin-top:12px">
       <h3>网络安全 · 本工作区已记住 · 可撤销</h3>
-      <p class="meta">「本项目」扩权会落盘并跨重启回灌到同工作区新会话；可逐项撤销。</p>
+      <p class="meta">「本项目」= 落盘记住（跨重启、同工作区新会话回灌）；当前会话的 Gate 放行是另一层热路径。撤销会两层同清。可逐项撤销。</p>
       <div id="set-hosts" class="meta">加载中…</div>
       <button type="button" class="btn" id="btn-reload-hosts">刷新</button>
     </section>
