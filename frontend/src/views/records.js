@@ -19,6 +19,12 @@ import {
   upsertModelPrice,
 } from "../usage-analytics.js";
 import {
+  clampMeterTipPosition,
+  formatMeterBucketTip,
+  priceCurrencyFormState,
+  priceModelChoices,
+} from "../records-price.js";
+import {
   TIER_LABELS,
   hostsForTier,
   normalizeTier,
@@ -116,41 +122,25 @@ export function mountRecords(root, ctx, opts = {}) {
     } catch {
       accountModels = [];
     }
-    const pricedModels = new Set((prices || []).map((p) => p.model).filter(Boolean));
     // 新建：下拉只露出尚未配置单价的模型（一模型一套价）；编辑：只显示当前模型
-    /** @type {{ value: string, label: string }[]} */
-    let modelChoices = [];
-    if (editingModel) {
-      const hit =
-        accountModels.find((m) => m.value === editingModel) ||
-        (pricedModels.has(editingModel)
-          ? { value: editingModel, label: editingModel }
-          : null);
-      if (hit) modelChoices = [hit];
-    } else {
-      modelChoices = accountModels.filter((m) => !pricedModels.has(m.value));
-      if (draftModel && pricedModels.has(draftModel)) draftModel = "";
-    }
+    const choiceState = priceModelChoices({
+      accountModels,
+      prices,
+      editingModel,
+      draftModel,
+    });
+    const modelChoices = choiceState.modelChoices;
+    draftModel = choiceState.draftModel;
 
     const editing = prices.find((p) => p.model === editingModel);
-    const peersForCcy = editingModel
-      ? prices.filter((p) => p.model !== editingModel)
-      : prices;
-    const peerLocked = lockedPriceCurrency(peersForCcy);
-    const formCcyDefault =
-      editing?.currency ||
-      (peerLocked === "CNY" || peerLocked === "USD"
-        ? peerLocked
-        : lockedCcy === "CNY" || lockedCcy === "USD"
-          ? lockedCcy
-          : "CNY");
-    const ccySelectLocked = peerLocked === "CNY" || peerLocked === "USD";
-    if (ccySelectLocked) {
-      draftCcy = peerLocked;
-    } else if (draftCcy !== "CNY" && draftCcy !== "USD") {
-      draftCcy = formCcyDefault === "USD" ? "USD" : "CNY";
-    }
-    const formCcy = ccySelectLocked ? peerLocked : draftCcy || formCcyDefault;
+    const ccyState = priceCurrencyFormState({
+      prices,
+      editingModel,
+      draftCcy,
+      lockedCcy,
+    });
+    const { peerLocked, formCcy, ccySelectLocked } = ccyState;
+    draftCcy = ccyState.draftCcy;
     const selectedModel = editingModel || draftModel;
     let modelOpts;
     if (editingModel) {
@@ -163,9 +153,9 @@ export function mountRecords(root, ctx, opts = {}) {
       if (!modelOpts) {
         modelOpts = `<option value="${escapeAttr(editingModel)}" selected>${escapeHtml(editingModel)}</option>`;
       }
-    } else if (accountModels.length === 0) {
+    } else if (choiceState.emptyReason === "no-accounts") {
       modelOpts = `<option value="">（请先在「模型」页添加账号）</option>`;
-    } else if (modelChoices.length === 0) {
+    } else if (choiceState.emptyReason === "all-priced") {
       modelOpts = `<option value="">（已添加模型均已配置单价）</option>`;
     } else {
       modelOpts = `<option value="">选择未配置单价的模型</option>${modelChoices
@@ -622,7 +612,14 @@ function renderMeteringPanel(meter, meterTab, meterRange, pricePanel) {
                     .map((b, i) => {
                       const v = b.inputCost + b.outputCost;
                       const h = Math.max(2, Math.round((100 * v) / maxCost));
-                      const tip = `${meter.bucketLabels[i]} · ${m.model}\n入估 ${(b.inputCost || 0).toFixed(4)} ${m.currency || t.currency || ""}\n出估 ${(b.outputCost || 0).toFixed(4)} ${m.currency || t.currency || ""}\n合计 ${(v || 0).toFixed(4)}`;
+                      const tip = formatMeterBucketTip({
+                        mode: "price",
+                        label: meter.bucketLabels[i],
+                        model: m.model,
+                        inputCost: b.inputCost,
+                        outputCost: b.outputCost,
+                        currency: m.currency || t.currency || "",
+                      });
                       return `<div class="rec-meter-col" tabindex="0" data-meter-tip="${escapeAttr(tip)}" aria-label="${escapeAttr(tip.replace(/\n/g, "；"))}">
                         <div class="rec-meter-bar rec-meter-bar-price" style="height:${h}%"></div>
                         <span class="rec-meter-tick">${escapeHtml(meter.bucketLabels[i])}</span>
@@ -643,7 +640,13 @@ function renderMeteringPanel(meter, meterTab, meterRange, pricePanel) {
                     const v = b.inputTokens + b.outputTokens;
                     const h = Math.max(2, Math.round((100 * v) / maxTok));
                     const inH = v ? Math.round((100 * b.inputTokens) / v) : 50;
-                    const tip = `${meter.bucketLabels[i]} · ${m.model}\n入 ${b.inputTokens} token\n出 ${b.outputTokens} token\n合计 ${v} token`;
+                    const tip = formatMeterBucketTip({
+                      mode: "qty",
+                      label: meter.bucketLabels[i],
+                      model: m.model,
+                      inputTokens: b.inputTokens,
+                      outputTokens: b.outputTokens,
+                    });
                     return `<div class="rec-meter-col" tabindex="0" data-meter-tip="${escapeAttr(tip)}" aria-label="${escapeAttr(tip.replace(/\n/g, "；"))}">
                       <div class="rec-meter-bar" style="height:${h}%">
                         <span class="rec-meter-bar-in" style="flex:${Math.max(inH, 1)}"></span>
@@ -702,14 +705,15 @@ function bindMeterTips(root) {
     }
     tip.textContent = text;
     tip.hidden = false;
-    const pad = 12;
     const rect = tip.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    let left = clientX + pad;
-    let top = clientY + pad;
-    if (left + rect.width > vw - 8) left = Math.max(8, clientX - rect.width - pad);
-    if (top + rect.height > vh - 8) top = Math.max(8, clientY - rect.height - pad);
+    const { left, top } = clampMeterTipPosition({
+      clientX,
+      clientY,
+      tipW: rect.width,
+      tipH: rect.height,
+      vw: window.innerWidth,
+      vh: window.innerHeight,
+    });
     tip.style.left = `${left}px`;
     tip.style.top = `${top}px`;
   };
