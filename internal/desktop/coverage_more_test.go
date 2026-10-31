@@ -2,6 +2,8 @@ package desktop
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/liyufei916/agent-harbor/internal/contracts"
@@ -91,4 +93,91 @@ func TestMapErrorPreservesAppError(t *testing.T) {
 	if mapError(nil) != nil {
 		t.Fatal("nil error should remain nil")
 	}
+}
+
+func TestContainerEngineFailureAndStopPaths(t *testing.T) {
+	app := NewApp()
+	app.eng = engine.NewColima()
+	app.eng.(*engine.Colima).Root = t.TempDir()
+	app.prefs.EngineSource = engine.SourceHarborColima
+	api := NewDesktopAPI(app)
+	res := api.EnsureContainerEngine()
+	if res.Ready || res.Error == nil {
+		t.Fatalf("ensure failure=%+v", res)
+	}
+	app.prefs.EngineSource = engine.SourceSystemDocker
+	app.eng = engine.NewSystemDocker()
+	res = api.StopContainerEngine()
+	if res.Ready || res.Source != engine.SourceSystemDocker || res.Message == "" {
+		t.Fatalf("system stop=%+v", res)
+	}
+	app.eng = engine.NewColima()
+	app.eng.(*engine.Colima).Root = t.TempDir()
+	res = api.StopContainerEngine()
+	if res.Ready || res.Message == "" {
+		t.Fatalf("colima stop=%+v", res)
+	}
+}
+
+func TestResolveDockerfileDirOverride(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte("FROM scratch"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HARBOR_DOCKERFILE_DIR", dir)
+	if got := resolveDockerfileDir(); got != dir {
+		t.Fatalf("dir=%q", got)
+	}
+	t.Setenv("HARBOR_DOCKERFILE_DIR", filepath.Join(dir, "missing"))
+	if got := resolveDockerfileDir(); got == filepath.Join(dir, "missing") {
+		t.Fatal("invalid override accepted")
+	}
+}
+
+func TestContainerEngineColimaSuccessWithFixtureBinaries(t *testing.T) {
+	oldPath, oldDockerHost := os.Getenv("PATH"), os.Getenv("DOCKER_HOST")
+	oldColimaHome, oldColimaProfile := os.Getenv("COLIMA_HOME"), os.Getenv("COLIMA_PROFILE")
+	t.Cleanup(func() {
+		_ = os.Setenv("PATH", oldPath)
+		_ = os.Setenv("DOCKER_HOST", oldDockerHost)
+		_ = os.Setenv("COLIMA_HOME", oldColimaHome)
+		_ = os.Setenv("COLIMA_PROFILE", oldColimaProfile)
+	})
+	root := t.TempDir()
+	bin := filepath.Join(root, "bin")
+	if err := os.MkdirAll(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"colima", "docker", "limactl"} {
+		content := "#!/bin/sh\n"
+		if name == "docker" {
+			content += "echo 27.0\n"
+		}
+		if err := os.WriteFile(filepath.Join(bin, name), []byte(content), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("HARBOR_DOCKERFILE_DIR", filepath.Join(root, "missing"))
+	app := NewApp()
+	c := engine.NewColima()
+	c.Root = root
+	app.eng = c
+	app.prefs.EngineSource = engine.SourceHarborColima
+	res := NewDesktopAPI(app).EnsureContainerEngine()
+	if !res.Ready || res.Source != engine.SourceHarborColima {
+		t.Fatalf("success=%+v", res)
+	}
+}
+
+func TestDesktopConstructionAndReset(t *testing.T) {
+	if defaultDataDir() == "" {
+		t.Fatal("default data dir empty")
+	}
+	app := NewApp()
+	app.eng = engine.NewSystemDocker()
+	app.resetEngine()
+	if app.eng != nil {
+		t.Fatal("engine not reset")
+	}
+	revealInFileManager("")
 }

@@ -1,15 +1,18 @@
 package mcpstdio
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -190,5 +193,48 @@ func TestBridgeRejectsInvalidSpecsAndSecret(t *testing.T) {
 	}
 	if _, err := DecodeSecret([]byte("bad")); err == nil {
 		t.Fatal("invalid secret decoded")
+	}
+}
+
+func TestBridgeFramingAndToolParsing(t *testing.T) {
+	for _, raw := range []string{"", "Content-Length: x\r\n\r\n", "Content-Length: 0\r\n\r\n", "Content-Length: 3\r\n\r\nxy"} {
+		if _, err := readFramed(bufio.NewReader(strings.NewReader(raw))); err == nil {
+			t.Fatalf("invalid frame accepted: %q", raw)
+		}
+	}
+	payload := "Content-Length: 3\r\nX-Test: ok\r\n\r\nabc"
+	got, err := readFramed(bufio.NewReader(strings.NewReader(payload)))
+	if err != nil || string(got) != "abc" {
+		t.Fatalf("frame=%q err=%v", got, err)
+	}
+	if got := parseToolNames(json.RawMessage(`{"tools":[{"name":" echo "},{"name":""},{"name":"read"}]}`)); len(got) != 2 || got[0] != "echo" {
+		t.Fatalf("tools=%v", got)
+	}
+	if parseToolNames(json.RawMessage("bad")) != nil {
+		t.Fatal("bad tools parsed")
+	}
+}
+
+func TestBridgeHTTPValidationAndCachedMethods(t *testing.T) {
+	b := &Bridge{initResult: json.RawMessage(`{"serverInfo":{"name":"fake"}}`), pending: map[string]chan json.RawMessage{}}
+	for _, tc := range []struct {
+		method, body string
+		status       int
+	}{
+		{"GET", "", http.StatusMethodNotAllowed}, {"POST", "bad", http.StatusBadRequest},
+		{"POST", `{"jsonrpc":"2.0","id":1,"method":"initialize"}`, http.StatusOK},
+		{"POST", `{"jsonrpc":"2.0","id":2,"method":"server/discover"}`, http.StatusOK},
+		{"POST", `{"jsonrpc":"2.0","method":"notifications/initialized"}`, http.StatusAccepted},
+	} {
+		req := httptest.NewRequest(tc.method, "/mcp", strings.NewReader(tc.body))
+		w := httptest.NewRecorder()
+		b.handleHTTP(w, req)
+		if w.Code != tc.status {
+			t.Fatalf("%s %s => %d want %d body=%s", tc.method, tc.body, w.Code, tc.status, w.Body)
+		}
+	}
+	b.closed = true
+	if _, err := b.call(context.Background(), "x", nil); err == nil {
+		t.Fatal("closed bridge call succeeded")
 	}
 }
