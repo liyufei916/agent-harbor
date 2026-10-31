@@ -55,17 +55,34 @@ export function mountRecords(root, ctx, opts = {}) {
 
     const top =
       failDist.length === 0
-        ? "<li class='meta'>暂无</li>"
-        : failDist.map((f) => `<li>${escapeHtml(f.label)} · ${f.count}</li>`).join("");
+        ? `<p class="meta">暂无失败样本。</p>`
+        : `<ul class="rec-fail-list">${failDist
+            .map(
+              (f) =>
+                `<li><span class="rec-fail-label">${escapeHtml(f.label)}</span><span class="rec-fail-count">${f.count}</span></li>`,
+            )
+            .join("")}</ul>`;
     const sessionGroups =
       bySession.length === 0
-        ? "<li class='meta'>暂无按会话聚合。</li>"
-        : bySession
-            .map(
-              (r) =>
-                `<li>${escapeHtml(r.shortId)} · 终态 ${escapeHtml(r.outcome)} · 审计 ${r.audits}（拒 ${r.denied}/败 ${r.failed}）· 扩权 ${r.permissions}</li>`,
-            )
-            .join("");
+        ? `<p class="meta">暂无按会话聚合。</p>`
+        : `<div class="rec-session-table" role="table">
+            <div class="rec-session-head" role="row">
+              <span>会话</span><span>终态</span><span>审计</span><span>拒</span><span>败</span><span>扩权</span>
+            </div>
+            ${bySession
+              .map(
+                (r) =>
+                  `<div class="rec-session-row" role="row">
+                    <span class="rec-mono">${escapeHtml(r.shortId)}</span>
+                    <span class="rec-outcome">${escapeHtml(r.outcome)}</span>
+                    <span>${r.audits}</span>
+                    <span class="${r.denied ? "rec-warn" : ""}">${r.denied}</span>
+                    <span class="${r.failed ? "rec-bad" : ""}">${r.failed}</span>
+                    <span>${r.permissions}</span>
+                  </div>`,
+              )
+              .join("")}
+          </div>`;
     const toolGroups =
       byTool.length === 0
         ? "<li class='meta'>暂无按工具聚合。</li>"
@@ -162,16 +179,15 @@ export function mountRecords(root, ctx, opts = {}) {
       <h2>记录</h2>
       <p class="sub">仅存本机，不外传。导出为脱敏 JSON（会话 ID 截断）；桌面会弹出「另存为」并在访达中显示文件。</p>
 
-      <div class="row records-tabs" role="tablist">
-        <button type="button" class="tab ${tab === "usage" ? "on" : ""}" data-tab="usage" role="tab" aria-selected="${tab === "usage"}">用量</button>
-        <button type="button" class="tab ${tab === "blocks" ? "on" : ""}" data-tab="blocks" role="tab" aria-selected="${tab === "blocks"}">阻拦</button>
+      <div class="row records-tabs records-tabs-primary" role="tablist" aria-label="记录分类">
+        <button type="button" class="tab tab-usage ${tab === "usage" ? "on" : ""}" data-tab="usage" role="tab" aria-selected="${tab === "usage"}">用量</button>
+        <button type="button" class="tab tab-blocks ${tab === "blocks" ? "on" : ""}" data-tab="blocks" role="tab" aria-selected="${tab === "blocks"}">阻拦</button>
         <button type="button" class="tab ${tab === "permissions" ? "on" : ""}" data-tab="permissions" role="tab" aria-selected="${tab === "permissions"}">扩权</button>
         <button type="button" class="tab ${tab === "diagnose" ? "on" : ""}" data-tab="diagnose" role="tab" aria-selected="${tab === "diagnose"}">诊断</button>
       </div>
 
-      <section class="card ${tab === "usage" ? "" : "hidden"}" data-panel="usage">
-        <h3>用量</h3>
-        <div class="row records-tabs records-usage-tabs" role="tablist" aria-label="用量子页">
+      <section class="card records-panel-usage ${tab === "usage" ? "" : "hidden"}" data-panel="usage">
+        <div class="row records-tabs records-tabs-secondary" role="tablist" aria-label="用量子页">
           <button type="button" class="tab ${usageTab === "summary" ? "on" : ""}" data-usage-tab="summary" role="tab" aria-selected="${usageTab === "summary"}">本机汇总</button>
           <button type="button" class="tab ${usageTab === "by-session" ? "on" : ""}" data-usage-tab="by-session" role="tab" aria-selected="${usageTab === "by-session"}">按会话</button>
           <button type="button" class="tab ${usageTab === "by-tool" ? "on" : ""}" data-usage-tab="by-tool" role="tab" aria-selected="${usageTab === "by-tool"}">按工具</button>
@@ -180,15 +196,21 @@ export function mountRecords(root, ctx, opts = {}) {
 
         <div class="${usageTab === "summary" ? "" : "hidden"}" data-usage-panel="summary">
           <p class="meta">按会话首次终态近似「首任务」；阻拦率来自审计 denied。下方可配参考单价做费用粗算。</p>
-          <div class="meta">
-            <p>会话样本：${s.sessions} · 审计：${s.auditTotal} · 扩权：${s.permissionCount}</p>
-            <p>首任务成功率：${s.firstTaskSuccessRate}</p>
-            <p>阻拦占比：${s.denyRate} · 工具失败：${s.mcpFailRate}</p>
-            <p>费用估算：<strong>${cost.status}</strong> — ${cost.detail}</p>
-            <p>失败原因分布：</p>
-            <ul class="audit-list">${top}</ul>
+          <div class="rec-metric-grid" aria-label="本机汇总指标">
+            <div class="rec-metric"><span class="rec-metric-label">会话样本</span><span class="rec-metric-value">${s.sessions}</span></div>
+            <div class="rec-metric"><span class="rec-metric-label">审计</span><span class="rec-metric-value">${s.auditTotal}</span></div>
+            <div class="rec-metric"><span class="rec-metric-label">扩权</span><span class="rec-metric-value">${s.permissionCount}</span></div>
+            <div class="rec-metric"><span class="rec-metric-label">首任务成功</span><span class="rec-metric-value">${escapeHtml(s.firstTaskSuccessRate)}</span></div>
+            <div class="rec-metric"><span class="rec-metric-label">阻拦占比</span><span class="rec-metric-value">${escapeHtml(s.denyRate)}</span></div>
+            <div class="rec-metric"><span class="rec-metric-label">工具失败</span><span class="rec-metric-value">${escapeHtml(s.mcpFailRate)}</span></div>
           </div>
-          <h4 class="meta" style="margin-top:12px">参考单价（人工填写；同一列表内 CNY/USD 勿混加）</h4>
+          <div class="rec-cost-banner">
+            <span class="rec-cost-status">${escapeHtml(cost.status)}</span>
+            <span class="meta">${escapeHtml(cost.detail)}</span>
+          </div>
+          <h4 class="rec-section-title">失败原因分布</h4>
+          ${top}
+          <h4 class="rec-section-title">参考单价（人工填写；同一列表内 CNY/USD 勿混加）</h4>
           <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">
             <label class="field">模型
               <select id="price-model" ${editingModel ? "disabled" : ""}>${modelOpts}</select>
@@ -233,7 +255,7 @@ export function mountRecords(root, ctx, opts = {}) {
 
         <div class="${usageTab === "by-session" ? "" : "hidden"}" data-usage-panel="by-session">
           <p class="meta">按会话聚合审计 / 阻拦 / 失败 / 扩权，便于对照本机迭代。</p>
-          <ul class="audit-list">${sessionGroups}</ul>
+          ${sessionGroups}
         </div>
 
         <div class="${usageTab === "by-tool" ? "" : "hidden"}" data-usage-panel="by-tool">
@@ -247,8 +269,9 @@ export function mountRecords(root, ctx, opts = {}) {
         </div>
       </section>
 
-      <section class="card ${tab === "blocks" ? "" : "hidden"}">
-        <h3>阻拦明细</h3>
+      <section class="card records-panel-blocks ${tab === "blocks" ? "" : "hidden"}">
+        <h3 class="rec-panel-title rec-panel-title-blocks">阻拦明细</h3>
+        <p class="meta">Gate / 策略直接拒绝的审计（未进扩权弹窗）。与「用量」分类独立。</p>
         <ul class="audit-list">
           ${
             blocks.length === 0
