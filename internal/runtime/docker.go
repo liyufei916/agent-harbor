@@ -128,7 +128,7 @@ func (r *Docker) Health(ctx context.Context) error {
 	imgCtx, imgCancel := context.WithTimeout(ctx, 15*time.Second)
 	defer imgCancel()
 	if _, err := r.runner.Run(imgCtx, "image", "inspect", "--format", "{{.Id}}", r.image); err != nil {
-		return isolationUnavailable("Harbor 运行时镜像不存在，已拒绝启动。请先构建 agent-harbor/runtime:dev。")
+		return isolationUnavailable("Harbor 运行时镜像不存在，已拒绝启动。请在设置对当前引擎点「一键安装并启用」（会自动构建），或对本机当前 DOCKER_HOST 执行 bash scripts/docker-p2-up.sh。注意：Docker Desktop 与 Harbor Colima 镜像互不可见。")
 	}
 	// Crash leftovers: remove exited harbor containers; never fail Health.
 	r.pruneExitedHarborContainers(ctx)

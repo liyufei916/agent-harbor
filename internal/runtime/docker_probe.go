@@ -31,7 +31,7 @@ func ProbeDockerGuest(ctx context.Context, command string, args []string) (strin
 	image := DockerImage()
 	inspect := exec.CommandContext(probeCtx, bin, "image", "inspect", "--format", "{{.Id}}", image)
 	if err := inspect.Run(); err != nil {
-		return "", isolationUnavailable("Harbor 运行时镜像不存在，已拒绝启动。请先构建 agent-harbor/runtime:dev。")
+		return "", isolationUnavailable("Harbor 运行时镜像不存在，已拒绝启动。请在设置对当前引擎点「一键安装并启用」，或对本机当前 DOCKER_HOST 执行 bash scripts/docker-p2-up.sh（Desktop 与 Colima 镜像互不可见）。")
 	}
 	runArgs := []string{
 		"run", "--rm",

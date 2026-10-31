@@ -116,6 +116,18 @@ export function freshCheckItems(level) {
   }));
 }
 
+/** 把 Health reason 落到 Docker 检测阶梯（避免「镜像缺失」误标在「Harbor 网络」）。 */
+export function dockerFailIndexFromReason(reason) {
+  const r = String(reason || "");
+  if (/镜像/.test(r)) return 3;
+  if (/网络|harbor\.gate|host-gateway/.test(r)) return 2;
+  if (/daemon/i.test(r)) return 1;
+  if (/CLI|未找到 docker/i.test(r)) return 0;
+  if (/别名|host\.docker\.internal|拉黑/.test(r)) return 5;
+  if (/Gate|harbor\.gate/.test(r) && /入口|别名/.test(r)) return 4;
+  return 0;
+}
+
 /** 已有最终 health 时的静态列表（阻断页首屏等） */
 export function checksFromHealth(health, preferredLevel = "") {
   const ok = !!health?.available;
@@ -124,6 +136,8 @@ export function checksFromHealth(health, preferredLevel = "") {
     ? health?.isolationLevel
     : health?.isolationLevel || preferredLevel;
   const defs = defsFor(level);
+  const docker = String(level || "").toLowerCase() === "docker";
+  const failAt = docker ? dockerFailIndexFromReason(reason) : 0;
   return defs.map((d, i) => {
     if (ok) {
       const detail =
@@ -132,7 +146,15 @@ export function checksFromHealth(health, preferredLevel = "") {
           : d.okDetail;
       return { id: d.id, name: d.name, status: "ok", detail };
     }
-    if (i === 0) {
+    if (i < failAt) {
+      return {
+        id: d.id,
+        name: d.name,
+        status: "skipped",
+        detail: "因后续探测未通过而中止明细",
+      };
+    }
+    if (i === failAt) {
       return { id: d.id, name: d.name, status: "bad", detail: reason };
     }
     if (i < PROBE_COUNT) {
@@ -197,7 +219,14 @@ export async function runIsolationProbe({
     emit();
     await sleep(stepMs);
     if (settled && !settled.available) {
-      failAt(items, i, settled.reason || "ISOLATION_UNAVAILABLE", defs);
+      const lvl = String(
+        settled.isolationLevel || preferredLevel || "",
+      ).toLowerCase();
+      const idx =
+        lvl === "docker"
+          ? dockerFailIndexFromReason(settled.reason)
+          : i;
+      failAt(items, idx, settled.reason || "ISOLATION_UNAVAILABLE", defs);
       emit();
       return settled;
     }
