@@ -120,7 +120,7 @@ jobs:
           go test -coverprofile=coverage.raw.out ./internal/...
           python3 scripts/filter_coverage.py coverage.raw.out coverage.out
           go tool cover -func=coverage.out | tee coverage-summary.txt
-          awk '$1 == "total:" { gsub("%", "", $4); if ($4 + 0 < 85) exit 1 }' coverage-summary.txt
+          awk '$1 == "total:" { gsub("%", "", $3); if ($3 + 0 < 85) exit 1 }' coverage-summary.txt
           python3 scripts/coverage-badge.py coverage-summary.txt coverage.svg
           echo "$GITHUB_SHA" > coverage-source-sha.txt
 
