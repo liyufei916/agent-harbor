@@ -2,6 +2,7 @@ package codex
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -18,6 +19,41 @@ func TestPackageRootForScriptIncludesNpmPackageNotJustBin(t *testing.T) {
 	}
 	if packageRootForScript("/tmp/codex.js") != "/tmp" {
 		t.Fatalf("非 bin 布局应退回脚本目录")
+	}
+}
+
+func TestCodexScriptResolutionBranches(t *testing.T) {
+	dir := t.TempDir()
+	js := filepath.Join(dir, "codex.js")
+	if err := os.WriteFile(js, []byte("console.log('x')\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if !isNodeScript(js) {
+		t.Fatal(".js script not recognized")
+	}
+	sh := filepath.Join(dir, "codex")
+	if err := os.WriteFile(sh, []byte("#!/usr/bin/env node\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if !isNodeScript(sh) {
+		t.Fatal("node shebang not recognized")
+	}
+	plain := filepath.Join(dir, "plain")
+	if err := os.WriteFile(plain, []byte("#!/bin/sh\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if isNodeScript(plain) {
+		t.Fatal("shell shebang recognized as node")
+	}
+	k, err := New(sh, "model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := k.resolveScript(); err == nil {
+		t.Fatal("non-executable script accepted")
+	}
+	if _, err := New("", ""); err == nil {
+		t.Fatal("empty model accepted")
 	}
 }
 

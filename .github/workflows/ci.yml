@@ -117,10 +117,12 @@ jobs:
 
       - name: Generate unit coverage
         run: |
-          # 排除 build/android|ios 脚手架（若仍存在）以免 summary 充斥 0.0% 噪音
-          pkgs=$(go list ./... | grep -Ev '/build/(android|ios)(/|$)')
-          go test -coverprofile=coverage.out $pkgs
+          # 覆盖率统计面向可独立单测的核心 Go 模块；scripts/cmd 下的验收工具
+          # 依赖外部环境，不能代表产品单元测试覆盖率。
+          go test -coverprofile=coverage.raw.out ./internal/...
+          python3 scripts/filter_coverage.py coverage.raw.out coverage.out
           go tool cover -func=coverage.out | tee coverage-summary.txt
+          awk '$1 == "total:" { gsub("%", "", $3); if ($3 + 0 < 85) exit 1 }' coverage-summary.txt
           python3 scripts/coverage-badge.py coverage-summary.txt coverage.svg
           echo "$GITHUB_SHA" > coverage-source-sha.txt
 

@@ -66,3 +66,18 @@ func TestValidConnectionAndEnvironmentProfiles(t *testing.T) {
 		t.Fatalf("MCP tools: %#v", profiles[ProfileDemoMCP].Tools)
 	}
 }
+
+func TestCustomResponsesModelProfile(t *testing.T) {
+	p, err := CustomResponsesModelProfile("https://api.example.test/v1", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Protocol != "openai-responses" || p.Model != "gpt-5-codex" || p.BasePath != "" || p.Paths[0] != "/v1/responses" {
+		t.Fatalf("%+v", p)
+	}
+	for _, origin := range []string{"", "api.example.test", "https://user:pass@example.test", "https://example.test?x=1", "https://example.test/#x"} {
+		if _, err := CustomResponsesModelProfile(origin, "m"); err == nil {
+			t.Fatalf("invalid origin accepted: %q", origin)
+		}
+	}
+}

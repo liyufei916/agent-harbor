@@ -1,11 +1,11 @@
 # Agent Harbor
 
 [![CI](https://github.com/liyufei916/agent-harbor/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/liyufei916/agent-harbor/actions/workflows/ci.yml)
+[![Unit coverage](https://raw.githubusercontent.com/liyufei916/agent-harbor/coverage-badge/coverage.svg)](https://github.com/liyufei916/agent-harbor/actions/workflows/ci.yml?query=branch%3Amain)
 [![Go](https://img.shields.io/badge/Go-1.26%2B-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![Wails](https://img.shields.io/badge/Wails-v3-DF0000?logo=wails&logoColor=white)](https://v3.wails.io/)
 [![Frontend](https://img.shields.io/badge/frontend-HTML%2FCSS%2FJavaScript-E34F26?logo=html5&logoColor=white)](frontend/README.md)
 [![Security checks](https://img.shields.io/badge/security%20checks-Python-3776AB?logo=python&logoColor=white)](security/README.md)
-[![Unit coverage](https://raw.githubusercontent.com/liyufei916/agent-harbor/coverage-badge/coverage.svg)](https://github.com/liyufei916/agent-harbor/actions/workflows/ci.yml?query=branch%3Amain)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 桌面 Agent **安全沙箱**：密钥留在本机、Agent 隔离运行、出站经 Harbor Gate。产品真源 [PAGE-DESIGN](docs/PAGE-DESIGN.md) 全量；契约 [CONTRACT](docs/CONTRACT.md) v1.2。
@@ -109,7 +109,7 @@ wails3 task darwin:package   # macOS .app
 
 分工：A 契约/编排/Runtime/Kit（[DEV-A](docs/DEV-A.md)）；B Gate/Policy/Secrets 与 Wails v3（[DEV-B](docs/DEV-B.md)）；C 全量 PAGE 壳与 mock（[DEV-C](docs/DEV-C.md)，D4 已过）。
 
-徽章显示 main 最新一次全部检查通过后发布的 Go 整体语句覆盖率（`go test -coverprofile=coverage.out` 对业务包的 `total`；**排除** `build/android` / `build/ios` 生成物）。环境不支持的隔离测试会跳过。CI 自动将 SVG、完整统计与**生成该徽章的 commit SHA** 发布到独立的 [`coverage-badge` 分支](https://github.com/liyufei916/agent-harbor/tree/coverage-badge)，PR 不发布；图片缓存可能导致短暂延迟。每次 CI 还会上传 `AgentHarbor-macos.zip`（`darwin:package` 产物，保留 14 天），并单独断言可移植 Seatbelt profile 契约（deny-default / 禁止 system.sb / 出站 loopback）。桌面统一 Wails v3.0.0-beta.34。
+徽章显示 main 最新一次全部检查通过后发布的 Go 核心单元语句覆盖率（统计 `internal/...` 核心模块，并过滤平台、真实上游及外部进程/网络集成适配层，包括 HTTP live 服务；这些适配层由集成验收覆盖）。环境不支持的隔离测试会跳过。CI 自动将 SVG、完整统计与**生成该徽章的 commit SHA** 发布到独立的 [`coverage-badge` 分支](https://github.com/liyufei916/agent-harbor/tree/coverage-badge)，PR 不发布；图片缓存可能导致短暂延迟。每次 CI 还会上传 `AgentHarbor-macos.zip`（`darwin:package` 产物，保留 14 天），并单独断言可移植 Seatbelt profile 契约（deny-default / 禁止 system.sb / 出站 loopback）。桌面统一 Wails v3.0.0-beta.34。
 
 ### 更多构建与探测命令
 
