@@ -35,6 +35,18 @@ import {
 const SWITCH_MODEL_META =
   "仅可切换同 profile / 同主机账号；跨协议或改固定模型名不支持。";
 
+// 输入法确认候选词时也可能产生 Enter keydown。只有真正的 Enter 才提交，
+// 否则中文输入「MCP」后确认候选词会被误当成发送操作。
+export function shouldSubmitComposerEvent(event, composing = false) {
+  return (
+    event?.key === "Enter" &&
+    !event.shiftKey &&
+    !composing &&
+    !event.isComposing &&
+    event.keyCode !== 229
+  );
+}
+
 function escapeAttr(s) {
   return String(s || "")
     .replace(/&/g, "&amp;")
@@ -157,6 +169,7 @@ export function mountSession(root, ctx) {
   let auditCount = 0;
   let term = null;
   let sending = false;
+  let composing = false;
   let focusedId = "";
   // 离开工作台后视图只是隐藏，xterm 可能被清掉；按会话留下已展示的文本以便回来重放。
   const screens = new Map();
@@ -909,8 +922,14 @@ export function mountSession(root, ctx) {
   }
 
   if (els.ptyInput?.addEventListener) {
+    els.ptyInput.addEventListener("compositionstart", () => {
+      composing = true;
+    });
+    els.ptyInput.addEventListener("compositionend", () => {
+      composing = false;
+    });
     els.ptyInput.addEventListener("keydown", (e) => {
-      if (e.key !== "Enter" || e.shiftKey) return;
+      if (!shouldSubmitComposerEvent(e, composing)) return;
       e.preventDefault();
       sendRound();
     });

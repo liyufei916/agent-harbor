@@ -2,7 +2,32 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import * as api from "./api.js";
 import * as mock from "./mock-api.js";
-import { mountSession } from "./views/session.js";
+import {
+  mountSession,
+  shouldSubmitComposerEvent,
+} from "./views/session.js";
+
+test("输入法确认候选词时不应触发回车发送", () => {
+  assert.equal(
+    shouldSubmitComposerEvent(
+      { key: "Enter", isComposing: true, keyCode: 229 },
+      true,
+    ),
+    false,
+  );
+  assert.equal(
+    shouldSubmitComposerEvent({ key: "Enter", isComposing: false }, true),
+    false,
+  );
+  assert.equal(
+    shouldSubmitComposerEvent({ key: "Enter", isComposing: false }),
+    true,
+  );
+  assert.equal(
+    shouldSubmitComposerEvent({ key: "Enter", shiftKey: true }),
+    false,
+  );
+});
 
 test(
   "实际 api.js 与工作台在延迟创建响应时保留早到输出和新状态",
