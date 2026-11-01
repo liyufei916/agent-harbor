@@ -4,6 +4,7 @@
 
 - 可提交图标与 **darwin / docker** 等构建配置；`build/bin/` 与仓库根 `bin/` 为输出，不提交。
 - `build/android/`、`build/ios/` 为 Wails 多端脚手架生成物，**不入库**（见根 `.gitignore`），避免覆盖率统计出现大量 0.0% 噪音行。
+- 根 Taskfile 仅引用已入库的桌面平台配置；不要引用未入库的移动端 Taskfile，否则 macOS 打包也会在加载阶段失败。可用 `wails3 task --list` 检查配置加载。
 - `frontend/dist/`、`frontend/bindings/` 由构建或 `wails3 generate bindings` 生成，不手改。
 - 开发/构建命令见根 README；版本登记见 [DECISIONS.md](../docs/DECISIONS.md)。
 
