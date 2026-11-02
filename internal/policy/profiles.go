@@ -36,15 +36,16 @@ func CustomModelProfile(origin, modelName string) (FixedProfile, error) {
 	cleanOrigin := u.Scheme + "://" + u.Host
 	model := defaultModelForHost(host, modelName)
 	p := FixedProfile{
-		ID:       ProfileCustom,
-		Kind:     "model",
-		Protocol: "anthropic",
-		Model:    model,
-		Origin:   cleanOrigin,
-		Host:     host,
-		BasePath: basePath,
-		Paths:    []string{"/v1/messages"},
-		TestPath: "/v1/messages",
+		ID:                    ProfileCustom,
+		Kind:                  "model",
+		Protocol:              "anthropic",
+		Model:                 model,
+		Origin:                cleanOrigin,
+		Host:                  host,
+		BasePath:              basePath,
+		Paths:                 []string{"/v1/messages"},
+		TestPath:              "/v1/messages",
+		AllowInsecureLoopback: isLoopbackHost(host) && strings.EqualFold(u.Scheme, "http"),
 	}
 	if !p.ValidConnection() {
 		return FixedProfile{}, errors.New("policy: custom origin not allowed")
@@ -65,15 +66,16 @@ func CustomResponsesModelProfile(origin, modelName string) (FixedProfile, error)
 		model = "gpt-5-codex"
 	}
 	p := FixedProfile{
-		ID:       ProfileCustom,
-		Kind:     "model",
-		Protocol: "openai-responses",
-		Model:    model,
-		Origin:   u.Scheme + "://" + u.Host,
-		Host:     host,
-		BasePath: "",
-		Paths:    []string{"/v1/responses"},
-		TestPath: "/v1/responses",
+		ID:                    ProfileCustom,
+		Kind:                  "model",
+		Protocol:              "openai-responses",
+		Model:                 model,
+		Origin:                u.Scheme + "://" + u.Host,
+		Host:                  host,
+		BasePath:              "",
+		Paths:                 []string{"/v1/responses"},
+		TestPath:              "/v1/responses",
+		AllowInsecureLoopback: isLoopbackHost(host) && strings.EqualFold(u.Scheme, "http"),
 	}
 	if !p.ValidConnection() {
 		return FixedProfile{}, errors.New("policy: custom responses origin not allowed")
@@ -216,7 +218,7 @@ func (p FixedProfile) ValidConnection() bool {
 	}
 	if u.Scheme != "https" {
 		ip := net.ParseIP(u.Hostname())
-		if !p.AllowInsecureLoopback || u.Scheme != "http" || ip == nil || !ip.IsLoopback() {
+		if !p.AllowInsecureLoopback || u.Scheme != "http" || !isLoopbackHost(u.Hostname()) || (ip == nil && !strings.EqualFold(u.Hostname(), "localhost")) {
 			return false
 		}
 	}
@@ -234,6 +236,16 @@ func (p FixedProfile) ValidConnection() bool {
 		return true
 	}
 	return len(p.Tools) > 0
+}
+
+// isLoopbackHost 允许本机模型代理使用标准回环别名；未指定地址 0.0.0.0 不属于连接目标。
+func isLoopbackHost(host string) bool {
+	host = strings.ToLower(strings.TrimSpace(host))
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // CustomMCPProfile 由用户 Origin 构造 MCP 临时 profile（不进 DefaultProfiles）。

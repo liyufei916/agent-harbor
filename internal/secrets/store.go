@@ -79,6 +79,7 @@ func (s *Store) Put(ctx context.Context, info contracts.AccountInfo, key []byte)
 		Name:      name,
 		ProfileID: profile,
 		Host:      host,
+		Origin:    strings.TrimSpace(info.Origin),
 		BasePath:  strings.TrimRight(strings.TrimSpace(info.BasePath), "/"),
 		Model:     strings.TrimSpace(info.Model),
 		KeyHint:   hint,

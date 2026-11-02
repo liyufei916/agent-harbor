@@ -13,7 +13,7 @@ func TestSharedModelAccountAllowsClaudeAndCodex(t *testing.T) {
 	})
 	account := contracts.AccountInfo{
 		ID: "m1", Kind: "model", ProfileID: ProfileCustom,
-		Host: "gateway.example.test", BasePath: "/anthropic", Model: "shared-model",
+		Host: "gateway.example.test", Origin: "https://gateway.example.test:4000", BasePath: "/anthropic", Model: "shared-model",
 		Agents:    []string{"claude", "codex"},
 		Protocols: []string{"anthropic", "openai-responses"},
 	}
@@ -28,9 +28,12 @@ func TestSharedModelAccountAllowsClaudeAndCodex(t *testing.T) {
 		if agent == "claude" && snap.Model.BasePath != "/anthropic" {
 			t.Fatalf("claude basePath %+v", snap.Model)
 		}
+		if snap.Model.Origin != "https://gateway.example.test:4000" {
+			t.Fatalf("agent=%s origin %+v", agent, snap.Model)
+		}
 		if agent == "codex" {
 			// Responses 不走 Anthropic BasePath
-			if snap.Model.Origin != "https://gateway.example.test" {
+			if snap.Model.Origin != "https://gateway.example.test:4000" {
 				t.Fatalf("codex origin %+v", snap.Model)
 			}
 		}

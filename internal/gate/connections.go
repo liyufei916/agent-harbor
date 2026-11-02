@@ -337,6 +337,7 @@ func (c *Connections) connect(ctx context.Context, in contracts.ConnectInput, ki
 		Name:      name,
 		ProfileID: profileID,
 		Host:      prof.Host,
+		Origin:    prof.Origin,
 		BasePath:  prof.BasePath,
 		Model:     prof.Model,
 	}

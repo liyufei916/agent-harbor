@@ -35,6 +35,16 @@ import {
 const SWITCH_MODEL_META =
   "仅可切换同 profile / 同主机账号；跨协议或改固定模型名不支持。";
 
+export function modelRouteHint(account, agentId) {
+  if (!account) return "";
+  const upstream = String(account.model || "").trim();
+  if (!upstream) return "";
+  if (agentId === "claude" && ["custom", "demo-model"].includes(String(account.profileId || ""))) {
+    return `上游模型：${upstream} · Claude 协议模型：claude-sonnet-4-5`;
+  }
+  return `上游模型：${upstream}`;
+}
+
 // 输入法确认候选词时也可能产生 Enter keydown。只有真正的 Enter 才提交，
 // 否则中文输入「MCP」后确认候选词会被误当成发送操作。
 export function shouldSubmitComposerEvent(event, composing = false) {
@@ -45,6 +55,27 @@ export function shouldSubmitComposerEvent(event, composing = false) {
     !event.isComposing &&
     event.keyCode !== 229
   );
+}
+
+// 权限事件携带的 sessionId 是编排层生成的权威身份。
+// 页面上下文可能因切换工作台而滞后，决策不能使用过期的 ctx.state.sessionId。
+export function permissionSessionId(event, activeSessionId = "") {
+  const eventId = String(event?.sessionId || "").trim();
+  if (eventId) return eventId;
+  return String(activeSessionId || "").trim();
+}
+
+export function isActivePermissionEvent(event, activeSessionId = "") {
+  const eventId = String(event?.sessionId || "").trim();
+  const activeId = String(activeSessionId || "").trim();
+  return !eventId || !activeId || eventId === activeId;
+}
+
+export function permissionDecisionErrorMessage(error) {
+  if (String(error?.code || "").toUpperCase() === "INVALID_ARGUMENT") {
+    return "权限请求已失效：会话可能已切换、停止，或该请求已被处理，请重新发起。";
+  }
+  return String(error?.message || "权限决策失败，请重试。");
 }
 
 function escapeAttr(s) {
@@ -80,8 +111,9 @@ export function mountSession(root, ctx) {
             <span class="meta" id="sess-agent"></span>
           </div>
           <div class="boundary-actions">
-            <label class="field inline" id="sess-model-label" title="">当前模型
+            <label class="field inline" id="sess-model-label" title="">模型账号
               <select id="sess-model" title=""></select>
+              <span class="meta model-route-hint" id="sess-model-route"></span>
             </label>
             <details class="boundary-more" id="sess-more">
               <summary class="btn">更多</summary>
@@ -136,6 +168,7 @@ export function mountSession(root, ctx) {
     hintLine: root.querySelector("#sess-hint-line"),
     model: root.querySelector("#sess-model"),
     modelLabel: root.querySelector("#sess-model-label"),
+    modelRoute: root.querySelector("#sess-model-route"),
     more: root.querySelector("#sess-more"),
     syncBack: root.querySelector("#btn-syncback"),
     stop: root.querySelector("#btn-stop"),
@@ -410,6 +443,10 @@ export function mountSession(root, ctx) {
     const current =
       all.find((a) => a.id === want) ||
       (ctx.state.modelAccount?.id === want ? ctx.state.modelAccount : null);
+    if (els.modelRoute) {
+      els.modelRoute.textContent = modelRouteHint(current, agentId);
+      els.modelRoute.title = "协议模型用于 Agent 兼容启动；上游模型由 Harbor Gate 实际转发。";
+    }
     const running = ctx.state.lastSnapshot?.state === "running";
     // 运行中：CONTRACT / Gate 同 profileId + host；否则向导期按 Agent 兼容过滤。
     let accounts = running
@@ -635,7 +672,11 @@ export function mountSession(root, ctx) {
       els.error.textContent = formatErrorWithHint(ev.error);
     } else if (ev.type === "permission_needed" && ev.permission) {
       const snap = ctx.state.lastSnapshot;
-      const sid = ctx.state.sessionId || snap?.sessionId || "";
+      // 事件可能晚于会话切换到达；忽略其他工作台的权限请求，避免把决策发给错误会话。
+      if (!isActivePermissionEvent(ev, ctx.state.sessionId || snap?.sessionId || "")) {
+        return;
+      }
+      const sid = permissionSessionId(ev, ctx.state.sessionId || snap?.sessionId || "");
       const uiDemo = !!ev.permission.uiDemo;
       setAwaiting(true);
       hidePermissionOverviewModal(modalRoot);
@@ -654,7 +695,9 @@ export function mountSession(root, ctx) {
               decision,
             });
             if (res?.error) {
-              throw new Error(`${res.error.code}: ${res.error.message}`);
+              throw new Error(
+                `${res.error.code}: ${permissionDecisionErrorMessage(res.error)}`,
+              );
             }
           }
           recordPermissionDecision({

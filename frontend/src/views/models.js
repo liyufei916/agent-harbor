@@ -52,6 +52,39 @@ const FIXED_PRESETS = [
   },
 ];
 
+// 0.0.0.0 只能作为服务监听地址，不能作为客户端连接目标；后端也会拒绝它。
+export function customModelOriginError(origin) {
+  let parsed;
+  try {
+    parsed = new URL(String(origin || "").trim());
+  } catch {
+    return "API 地址必须是完整 URL，例如 https://api.example.com 或 http://127.0.0.1:4000。";
+  }
+  if (
+    parsed.hostname === "0.0.0.0" ||
+    parsed.hostname === "::" ||
+    parsed.hostname === "[::]"
+  ) {
+    return "不能使用 0.0.0.0/:: 作为连接地址；如果服务运行在本机，请改为 http://127.0.0.1:端口。";
+  }
+  return "";
+}
+
+export function defaultModelOrigin(account) {
+  const host = String(account?.host || "").trim();
+  if (!host) return "";
+  if (account?.origin) return String(account.origin);
+  const lower = host.toLowerCase();
+  const hostname = lower.startsWith("[")
+    ? lower.slice(1, lower.indexOf("]"))
+    : lower.split(":")[0];
+  const local =
+    hostname === "localhost" ||
+    hostname === "::1" ||
+    /^127(?:\.\d{1,3}){3}$/.test(hostname);
+  return `${local ? "http" : "https"}://${host}${account?.basePath || ""}`;
+}
+
 export function mountModels(root, ctx, opts = {}) {
   const returning = ctx.state.returnAfterAccount?.kind === "model";
   let editing = opts.intent === "add" || returning ? "new" : null;
@@ -253,9 +286,12 @@ export function mountModels(root, ctx, opts = {}) {
       editing === "new"
         ? { name: "", host: "", profileId: "custom" }
         : (ctx.state.modelAccounts || []).find((a) => a.id === editing) || {};
-    const originValue =
-      acc.origin ||
-      (acc.host ? "https://" + acc.host + (acc.basePath || "") : "");
+    const originValue = defaultModelOrigin(acc);
+    const legacyOriginMissing =
+      editing !== "new" &&
+      !!acc.host &&
+      !acc.origin &&
+      acc.profileId === "custom";
     const isFixed = !!fixedProfileId;
     const fixedMeta = FIXED_PRESETS.find((p) => p.profileId === fixedProfileId);
     const profileForAgents = fixedProfileId || acc.profileId || "custom";
@@ -285,9 +321,10 @@ export function mountModels(root, ctx, opts = {}) {
     form.innerHTML = `
         <label class="field">名称<input id="m-name" value="${acc.name || ""}" maxlength="100"/></label>
         <div id="m-custom-fields" class="${isFixed ? "hidden" : ""}">
-          <label class="field">API 地址<input id="m-origin" value="${originValue}" placeholder="https://api.deepseek.com/anthropic"/></label>
+        <label class="field">API 地址<input id="m-origin" value="${originValue}" placeholder="https://api.deepseek.com/anthropic" autocomplete="off" autocapitalize="none" spellcheck="false"/></label>
+        ${legacyOriginMissing ? '<p class="meta bad">旧版本账号未保存完整协议和端口，请重新填写完整 API 地址后保存。</p>' : ""}
           <p class="meta">保存时按勾选协议探测；仅 Anthropic 时勿勾 Codex。双协议网关须<strong>同时提供 Messages + Responses</strong>。七牛两套 Key 不能混用。</p>
-          <label class="field">模型名（可选）<input id="m-model" value="${acc.model || ""}" placeholder="空则按主机推断，如 deepseek-chat"/></label>
+          <label class="field">模型名（可选）<input id="m-model" value="${acc.model || ""}" placeholder="空则按主机推断，如 deepseek-chat" autocomplete="off" autocapitalize="none" spellcheck="false"/></label>
           <p class="meta">此处模型名会经 Gate 改写出站请求，可覆盖 Agent CLI 默认名；因此非 Anthropic 原生上游（如 DeepSeek 兼容 Messages）也能用。</p>
         </div>
         <div id="m-fixed-fields" class="${isFixed ? "" : "hidden"}">
@@ -309,7 +346,7 @@ export function mountModels(root, ctx, opts = {}) {
             return `<label class="check-row"><input type="checkbox" data-agent="${o.id}" ${agentsFinal.includes(o.id) ? "checked" : ""} ${ok ? "" : "disabled"}/> ${o.label}${ok ? "" : `（需 ${protocolLabel(need)}）`}</label>`;
           }).join("")}
         </div>
-        <label class="field">API Key（提交后清空）<input id="m-key" type="password" autocomplete="off" spellcheck="false" placeholder="${editing === "new" ? "粘贴完整 sk-… Key" : "重贴新 Key（不回显旧值）"}"/></label>
+        <label class="field">API Key（提交后清空）<input id="m-key" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="${editing === "new" ? "粘贴完整 sk-… Key" : "••••••••••••（重贴新 Key）"}"/></label>
         <p class="meta" id="m-key-hint">${
           editing !== "new" && acc.keyHint
             ? `已保存 · 末四位 ${acc.keyHint}`
@@ -470,6 +507,13 @@ export function mountModels(root, ctx, opts = {}) {
         return;
       }
       const originLow = origin.toLowerCase();
+      const originError = !fixedProfileId && customModelOriginError(origin);
+      if (originError) {
+        status.innerHTML = `<span class="bad">INVALID_ARGUMENT: ${originError}</span>`;
+        showToast(originError, "bad");
+        originEl?.focus();
+        return;
+      }
       if (
         !fixedProfileId &&
         agents.includes("codex") &&
@@ -485,13 +529,9 @@ export function mountModels(root, ctx, opts = {}) {
       const saveBtn = form.querySelector("#m-save");
       saveBtn.disabled = true;
       try {
-        if (editing !== "new") {
-          const rm = await api.removeAccount(editing);
-          if (rm?.error) {
-            status.innerHTML = `<span class="bad">更新前删除旧账号失败：${rm.error.code}: ${rm.error.message}</span>`;
-            return;
-          }
-        }
+        // 先探测并保存新账号，再清理旧账号。这样探测失败不会破坏可用配置，
+        // 也兼容列表已刷新导致旧账号 ID 不存在的编辑场景。
+        const previousAccountId = editing !== "new" ? editing : "";
         const skipProbe = !!form.querySelector("#m-skip-probe")?.checked;
         const res = await api.connectModel(
           fixedProfileId
@@ -538,6 +578,12 @@ export function mountModels(root, ctx, opts = {}) {
           status.innerHTML = `<span class="bad">${line}</span>${hint ? `<br/><span class="meta">${hint}</span>` : ""}`;
           showToast(line, "bad");
           return;
+        }
+        if (previousAccountId) {
+          const rm = await api.removeAccount(previousAccountId);
+          if (rm?.error && rm.error.code !== "ACCOUNT_NOT_FOUND") {
+            showToast(`新账号已保存，旧账号未删除：${rm.error.message}`, "bad");
+          }
         }
         keyEl.value = "";
         editing = null;

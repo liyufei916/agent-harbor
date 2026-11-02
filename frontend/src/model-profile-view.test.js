@@ -2,7 +2,27 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import * as api from "./api.js";
 import * as mock from "./mock-api.js";
-import { mountModels } from "./views/models.js";
+import {
+  mountModels,
+  customModelOriginError,
+  defaultModelOrigin,
+} from "./views/models.js";
+
+test("自定义模型拒绝把监听地址当作连接地址", () => {
+  assert.match(customModelOriginError("http://0.0.0.0:4000"), /不能使用 0\.0\.0\.0/);
+  assert.match(customModelOriginError("http://[::]:4000"), /不能使用/);
+  assert.equal(customModelOriginError("http://127.0.0.1:4000"), "");
+  assert.equal(customModelOriginError("https://api.example.com"), "");
+});
+
+test("编辑模型时保留本机 HTTP 回环协议", () => {
+  assert.equal(
+    defaultModelOrigin({ host: "127.0.0.1:4000", basePath: "/anthropic" }),
+    "http://127.0.0.1:4000/anthropic",
+  );
+  assert.equal(defaultModelOrigin({ host: "localhost:4000" }), "http://localhost:4000");
+  assert.equal(defaultModelOrigin({ host: "api.example.com" }), "https://api.example.com");
+});
 
 test("dsh 向导添加模型使用固定 profile，无需重复填写上游地址", async () => {
   mock.resetMock();

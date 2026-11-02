@@ -404,8 +404,10 @@ func (k *Kit) Build(ctx context.Context, input kits.KitInput) (runtime.LaunchSpe
 	// 非 Claude 上游（如 GPT via Anthropic 兼容网关）易漏传 tool 参数，须强调 file_path。
 	workHint := "Project workspace (absolute): " + workspace +
 		". All Read/Write/Edit must use absolute paths under this directory only. " +
-		"When calling the Read tool you MUST include the required JSON field file_path (never call Read with an empty input). " +
-		"Same for Write/Edit: path/file_path is required. Do not use $HOME or AgentHarbor session private dirs as the project root."
+		"Before any Read call, derive the absolute path from the user's request; if the path is unknown, ask the user instead of calling a tool. " +
+		"When calling Read you MUST send a non-empty JSON object such as {\"file_path\":\"" + workspace + "/README.md\"}; never send {} or omit file_path. " +
+		"Write and Edit likewise require a non-empty path/file_path and their other required fields. " +
+		"Do not use $HOME or AgentHarbor session private dirs as the project root."
 	// --print + stream-json：经 ANTHROPIC_BASE_URL（Gate）出站；工作台 xterm 用 WritePty 多轮。
 	// 不用 Ink TUI：其预检固定请求 api.anthropic.com，沙箱内 ENOTFOUND 且绕过 Gate。
 	args := append(append([]string{}, launch.Args...),

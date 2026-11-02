@@ -33,6 +33,18 @@ func TestCustomModelProfileDeepSeekAnthropicPath(t *testing.T) {
 	}
 }
 
+func TestCustomModelProfileAllowsLocalLoopbackOnly(t *testing.T) {
+	for _, origin := range []string{"http://127.0.0.1:4000", "http://localhost:4000"} {
+		p, err := CustomModelProfile(origin, "gpt-6.1-sol")
+		if err != nil || !p.AllowInsecureLoopback || !p.ValidConnection() {
+			t.Fatalf("origin=%s profile=%+v err=%v", origin, p, err)
+		}
+	}
+	if _, err := CustomModelProfile("http://0.0.0.0:4000", "gpt-6.1-sol"); err == nil {
+		t.Fatal("unspecified bind address must not be accepted as a connection target")
+	}
+}
+
 func TestBuildAcceptsCustomModelForClaude(t *testing.T) {
 	b := NewBuilder(map[string]FixedProfile{
 		ProfileDemoMCP: {

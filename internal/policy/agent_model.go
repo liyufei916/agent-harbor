@@ -143,9 +143,13 @@ func ModelProfileForAgent(agentID string, account contracts.AccountInfo, registe
 		if !accountHasProtocol(account, "anthropic") {
 			return FixedProfile{}, ErrKindMismatch
 		}
-		origin := "https://" + host
-		if basePath != "" {
-			origin = origin + basePath
+		origin := strings.TrimSpace(account.Origin)
+		if origin == "" {
+			origin = "https://" + host
+		}
+		// Origin 保存的是不含 BasePath 的规范化地址；兼容旧账号时仍按旧字段回退。
+		if basePath != "" && !strings.HasSuffix(strings.TrimRight(origin, "/"), basePath) {
+			origin = strings.TrimRight(origin, "/") + basePath
 		}
 		custom, err := CustomModelProfile(origin, modelName)
 		if err != nil {
@@ -174,7 +178,7 @@ func ModelProfileForAgent(agentID string, account contracts.AccountInfo, registe
 			Kind:     "model",
 			Protocol: "openai-responses",
 			Model:    modelName,
-			Origin:   "https://" + host,
+			Origin:   modelOriginForAccount(account, host),
 			Host:     strings.ToLower(host),
 			BasePath: "",
 			Paths:    []string{"/v1/responses"},
@@ -187,4 +191,11 @@ func ModelProfileForAgent(agentID string, account contracts.AccountInfo, registe
 	default:
 		return FixedProfile{}, ErrInvalidAgent
 	}
+}
+
+func modelOriginForAccount(account contracts.AccountInfo, host string) string {
+	if origin := strings.TrimSpace(account.Origin); origin != "" {
+		return origin
+	}
+	return "https://" + host
 }

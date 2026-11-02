@@ -4,8 +4,35 @@ import * as api from "./api.js";
 import * as mock from "./mock-api.js";
 import {
   mountSession,
+  modelRouteHint,
   shouldSubmitComposerEvent,
+  permissionSessionId,
+  isActivePermissionEvent,
+  permissionDecisionErrorMessage,
 } from "./views/session.js";
+
+test("权限决策使用事件中的权威会话 ID", () => {
+  const event = { sessionId: "session-from-event" };
+  assert.equal(permissionSessionId(event, "stale-session"), "session-from-event");
+  assert.equal(permissionSessionId({}, "active-session"), "active-session");
+  assert.equal(isActivePermissionEvent(event, "stale-session"), false);
+  assert.equal(isActivePermissionEvent(event, "session-from-event"), true);
+  assert.equal(isActivePermissionEvent({}, "active-session"), true);
+  assert.match(
+    permissionDecisionErrorMessage({ code: "INVALID_ARGUMENT", message: "通用错误" }),
+    /权限请求已失效/,
+  );
+  assert.equal(
+    permissionDecisionErrorMessage({ code: "UPSTREAM_TIMEOUT", message: "上游超时" }),
+    "上游超时",
+  );
+});
+
+test("工作台同时说明 Claude 协议模型和实际上游模型", () => {
+  assert.equal(modelRouteHint({ profileId: "custom", model: "deepseek-chat" }, "claude"), "上游模型：deepseek-chat · Claude 协议模型：claude-sonnet-4-5");
+  assert.equal(modelRouteHint({ profileId: "dsh-model", model: "deepseek-chat" }, "dsh"), "上游模型：deepseek-chat");
+  assert.equal(modelRouteHint({ profileId: "custom" }, "claude"), "");
+});
 
 test("输入法确认候选词时不应触发回车发送", () => {
   assert.equal(
