@@ -25,6 +25,7 @@
 - 固定上游 origin、路径和工具挂载列表由 Policy 决定。
 - 模型使用显式 Base URL 反代，不实现通用 CONNECT 或 HTTPS MITM。
 - 审计只含 sessionId、目标主机、工具名和结果，不含认证头、Sentinel、完整正文。
+- `allowed` 表示请求获准转发；若随后发生超时、断流或读写失败，会追加 `failed`，不能把 `allowed` 单独视为完整响应成功。
 
 ## 对接契约
 

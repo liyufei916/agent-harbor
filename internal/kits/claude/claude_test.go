@@ -66,6 +66,9 @@ func TestBuildOnlyContainsGateConfiguration(t *testing.T) {
 	if !strings.Contains(args, "/private/workspace") {
 		t.Fatal("须传入工作区绝对路径")
 	}
+	if !strings.Contains(args, "never send {} or omit file_path") || !strings.Contains(args, "ask the user instead of calling a tool") {
+		t.Fatal("必须明确禁止空 Read 参数，并在路径未知时先询问用户")
+	}
 	if strings.Contains(args, "--permission-prompts") {
 		t.Fatal("新 CLI 已移除 --permission-prompts，不应再传入")
 	}

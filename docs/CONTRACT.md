@@ -81,6 +81,7 @@ type AccountInfo struct {
     Name string `json:"name"`
     ProfileID string `json:"profileId"`
     Host string `json:"host"` // stdio 时为 127.0.0.1:port
+    Origin string `json:"origin,omitempty"` // 脱敏上游地址，保留协议、端口和路径，不含 Key
     BasePath string `json:"basePath,omitempty"`
     Model string `json:"model,omitempty"`
     KeyHint string `json:"keyHint,omitempty"`

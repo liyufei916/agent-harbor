@@ -48,6 +48,7 @@ type AccountInfo struct {
 	Name      string   `json:"name"`
 	ProfileID string   `json:"profileId"`
 	Host      string   `json:"host"`
+	Origin    string   `json:"origin,omitempty"`   // 脱敏上游地址（不含 Key），保留协议、端口与路径
 	BasePath  string   `json:"basePath,omitempty"` // 自定义模型 Anthropic 前缀，如 /anthropic
 	Model     string   `json:"model,omitempty"`    // 探测成功时的模型名
 	KeyHint   string   `json:"keyHint,omitempty"`  // 仅末四位提示，如 …a1b2；永不含完整 Key

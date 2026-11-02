@@ -2,6 +2,18 @@
 
 @AGENTS.md
 
+模型 Gate 的 `allowed` 表示获准转发，流式响应随后发生任意读写错误均追加 `failed` 审计；断流回归见 `TestModelProxyAuditsInterruptedStream`，不记录原始错误或正文。
+
+工具流式诊断可用 `python3 scripts/probe-model-tools.py --gate-session auto` 自动查找唯一活动 Seatbelt 会话；支持 clone 应用目录和 direct 临时目录，多个候选要求显式选择，缺失文件须准确提示。
+
+Claude 经 LiteLLM 的 OpenAI provider 使用工具时，非流式探测成功不等于流式工具参数完整；可用 `LITELLM_KEY=... python3 scripts/probe-model-tools.py http://127.0.0.1:4000 gpt-6.1-sol` 在本机对比 Read 的 `file_path` 与 `message_stop`，脚本不执行工具或输出 Key。
+
+账号新增字段必须核查 Secrets.Store.Put 的显式字段复制；Origin 必须经过保存、Lookup、元数据重载和 Policy/Gate 转发回归，不能仅用 Connect 返回值证明地址已持久化。
+
+权限一览弹窗将会话 ID与工作区拆成独立字段，长路径使用可换行文本，避免摘要行混排造成会话和工作区归属不清。
+
+工作台模型栏同时展示 Agent 协议模型与模型账号的实际上游模型；Claude 可能显示 `claude-sonnet-4-5` 作为协议模型，Gate 会按账号改写实际请求模型。避免将协议线模型误认为上游模型。
+
 根 Taskfile 仅引用已入库的桌面平台，禁止依赖被忽略的 iOS/Android Taskfile；构建配置修改后先执行 `wails3 task --list`，再验证打包。见 [构建说明](build/README.md)。
 
 README 覆盖率徽章由 main 全部 CI 检查成功后自动发布至 `coverage-badge` 分支；生成入口为 `scripts/coverage-badge.py`，统计沿用完整 `./...` 的 total，禁止手填百分比。PR 仅生成并上传报告，不发布徽章。
@@ -15,6 +27,20 @@ Runtime 平台测试仅在隔离能力可用时执行真实闭环；环境返回
 已接入运行中兼容 profile 的模型账号切换；在途请求保持旧账号，后续请求使用新账号。跨协议/固定模型名切换仍不支持，见 [研发 A 记录](docs/DEV-A.md)。
 
 A 已补扩权等待/决策生命周期和桌面转发，GateSpec 提供可选会话回调；真实 Gate 触发与 Policy 应用尚待 B 接入，不能当作扩权闭环已验收。详见 [研发 A 开发记录](docs/DEV-A.md)。
+
+权限弹窗决策必须使用事件携带的权威 `sessionId`；工作台切换后到达的其他会话权限事件直接忽略，避免把决策提交到错误会话而返回 `INVALID_ARGUMENT`。
+
+自定义模型的本机 HTTP 地址仅允许 `127.0.0.1` 或 `localhost`；`0.0.0.0`/`::` 是监听地址，不是连接目标，必须拒绝并在表单中提示替换。
+
+模型账号编辑必须先连接并探测新账号，再清理旧账号；旧账号已被删除时按幂等成功处理，不能阻断新账号保存。
+
+模型编辑页根据脱敏 `host` 重建 Origin 时，本机回环地址默认使用 `http://`，公网主机默认使用 `https://`，避免把本地 HTTP 代理误重建成 HTTPS。
+
+账号元数据必须保留不含凭据的 `Origin`（协议、主机、端口和 BasePath）；会话策略优先使用该字段，旧账号缺失时才回退 `https://host`。
+
+模型编辑页不回显真实 API Key；使用掩码占位符和末四位提示，提交时必须重新输入完整 Key。
+
+模型配置的 API 地址、模型名和 Key 输入框必须关闭浏览器自动首字母大写（`autocapitalize=none`），保留用户输入的协议、路径和模型大小写。
 
 Claude 多轮使用 stream-json；Codex（npm）经 `turn_bridge` + `codex app-server` 同 thread 多轮并流式 delta；桌面 dsh 使用固定受信会话驱动保留同一 Agent。Runtime 有真实 PTY/resize 与 WritePty；0–8 个 MCP 独立挂载、输出限额与全会话退出清理已补齐。真实远程联调仍待验收，见 [研发 A 开发记录](docs/DEV-A.md)。
 

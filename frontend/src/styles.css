@@ -1243,7 +1243,8 @@ label.field textarea { min-height: 88px; resize: vertical; }
   font-variant-numeric: tabular-nums;
 }
 .session-side .perm-summary .meta { margin: 0 0 6px; }
-.field.inline { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.field.inline { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.field.inline .model-route-hint { flex-basis: 100%; margin-left: 0; line-height: 1.35; }
 .field.inline select {
   padding: 6px 8px;
   border-radius: 8px;
@@ -1276,6 +1277,26 @@ label.field textarea { min-height: 88px; resize: vertical; }
 .permission-overview-card h4 {
   margin: 14px 0 6px;
   font-size: 13px;
+}
+.boundary-session-meta {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 4px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.boundary-session-meta > div {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+.boundary-session-meta code {
+  min-width: 0;
+  color: var(--text);
+  font: inherit;
+  overflow-wrap: anywhere;
 }
 .modal-layer {
   position: fixed;

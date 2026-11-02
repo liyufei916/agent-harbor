@@ -80,7 +80,10 @@ export async function mountPermissionOverviewModal(root, opts = {}) {
       res.error
         ? `<p class="bad">${res.error.code}: ${res.error.message}</p>`
         : `
-      <p class="meta">会话 ${sid || "—"} · 工作区：${escapeAttr(displayWs)}</p>
+      <div class="boundary-session-meta" aria-label="会话与工作区">
+        <div><span class="meta">会话</span><code>${escapeAttr(sid || "—")}</code></div>
+        <div><span class="meta">工作区</span><code>${escapeAttr(displayWs)}</code></div>
+      </div>
       <h4>文件</h4>
       <ul class="audit-list">
         <li>可读写：${escapeAttr(o?.workspace || displayWs)}（${mountMode === "clone" ? "安全副本" : "直接编辑"}）</li>

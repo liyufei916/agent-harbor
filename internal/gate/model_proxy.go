@@ -163,9 +163,9 @@ func (p *modelProxy) handle(w http.ResponseWriter, r *http.Request) {
 	}
 	scan := &usageScanner{}
 	if err := writeRelayScan(w, resp, secretsToRedact, idle, total, scan); err != nil {
-		if streamTimeoutStatus(err) == http.StatusGatewayTimeout {
-			p.h.emitAudit(rt, contracts.AuditData{Target: host, Tool: auditToolModel, Result: "failed", Model: auditModel})
-		}
+		// 获准转发不代表响应完整：断流、正文读取和客户端写入失败同样需要审计。
+		// 仅记录固定结果，不将原始错误或响应正文暴露给页面。
+		p.h.emitAudit(rt, contracts.AuditData{Target: host, Tool: auditToolModel, Result: "failed", Model: auditModel})
 		return
 	}
 	if in, out := scan.Totals(); in > 0 || out > 0 {

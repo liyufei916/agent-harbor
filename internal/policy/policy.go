@@ -149,9 +149,12 @@ func (b *Builder) Build(_ context.Context, req PolicyRequest) (PolicySnapshot, e
 					return PolicySnapshot{}, ErrUnknownProfile
 				}
 			} else {
-				origin := "https://" + strings.TrimSpace(account.Host)
-				if bp := strings.TrimRight(strings.TrimSpace(account.BasePath), "/"); bp != "" {
-					origin = origin + bp
+				origin := strings.TrimSpace(account.Origin)
+				if origin == "" {
+					origin = "https://" + strings.TrimSpace(account.Host)
+				}
+				if bp := strings.TrimRight(strings.TrimSpace(account.BasePath), "/"); bp != "" && !strings.HasSuffix(strings.TrimRight(origin, "/"), bp) {
+					origin = strings.TrimRight(origin, "/") + bp
 				}
 				custom, err = CustomMCPProfile(origin)
 				if err != nil || !custom.ValidConnection() {
